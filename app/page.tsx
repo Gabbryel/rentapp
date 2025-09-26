@@ -1,7 +1,22 @@
+import Link from "next/link";
 import { fetchContracts } from "@/lib/contracts";
+import SearchContracts from "@/app/components/search-contracts";
 
-export default async function Home() {
-  const contracts = await fetchContracts();
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = (await searchParams) ?? {};
+  const all = await fetchContracts();
+  const query = q.trim().toLowerCase();
+  const contracts = query
+    ? all.filter(
+        (c) =>
+          c.name.toLowerCase().includes(query) ||
+          c.partner.toLowerCase().includes(query)
+      )
+    : all;
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleDateString("ro-RO", {
@@ -17,9 +32,16 @@ export default async function Home() {
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Contracte</h1>
-          <p className="text-foreground/70">Placeholder-e pentru fiecare contract din baza de date</p>
+          <p className="text-foreground/70">
+            Placeholder-e pentru fiecare contract din baza de date
+          </p>
         </div>
-        <div className="text-sm text-foreground/60">Total: {contracts.length}</div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <SearchContracts initialQuery={q} />
+          <div className="text-sm text-foreground/60 shrink-0">
+            Total: {contracts.length}
+          </div>
+        </div>
       </header>
 
       <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -30,7 +52,9 @@ export default async function Home() {
           >
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-semibold truncate" title={c.name}>
-                {c.name}
+                <Link href={`/contracts/${c.id}`} className="hover:underline">
+                  {c.name}
+                </Link>
               </h2>
               {new Date(c.endDate) < now ? (
                 <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
@@ -42,7 +66,10 @@ export default async function Home() {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-foreground/70 truncate" title={c.partner}>
+            <p
+              className="mt-1 text-sm text-foreground/70 truncate"
+              title={c.partner}
+            >
               Partener: {c.partner}
             </p>
 

@@ -1,13 +1,7 @@
-export type Contract = {
-  id: string;
-  name: string;
-  partner: string;
-  signedAt: string; // ISO date string
-  startDate: string; // ISO date string
-  endDate: string; // ISO date string
-};
+import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
+import { getDb } from "@/lib/mongodb";
 
-const MOCK_CONTRACTS: Contract[] = [
+const MOCK_CONTRACTS: ContractType[] = [
   {
     id: "c1",
     name: "Lease #1001",
@@ -15,6 +9,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c2",
@@ -23,6 +18,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c3",
@@ -31,6 +27,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c4",
@@ -39,6 +36,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c5",
@@ -47,6 +45,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c6",
@@ -55,6 +54,7 @@ const MOCK_CONTRACTS: Contract[] = [
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
+    scanUrl: "/contract-scan.svg",
   },
   {
     id: "c7",
@@ -170,8 +170,43 @@ const MOCK_CONTRACTS: Contract[] = [
   },
 ];
 
-export async function fetchContracts(): Promise<Contract[]> {
-  // Simulate a network/database delay
-  await new Promise((r) => setTimeout(r, 400));
+// Validate mock data at module load (throws if invalid during dev)
+for (const c of MOCK_CONTRACTS) ContractSchema.parse(c);
+
+export async function fetchContracts(): Promise<ContractType[]> {
+  // If MongoDB is configured, read from DB; else fallback to mocks
+  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+    const db = await getDb();
+    const docs = await db
+      .collection<ContractType>("contracts")
+      .find({}, { projection: { _id: 0 } })
+      .toArray();
+    // Validate and return
+  return docs.map((d: unknown) => ContractSchema.parse(d));
+  }
+  await new Promise((r) => setTimeout(r, 200));
   return MOCK_CONTRACTS;
+}
+
+export async function fetchContractById(id: string): Promise<ContractType | null> {
+  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+    const db = await getDb();
+    const doc = await db
+      .collection<ContractType>("contracts")
+      .findOne({ id }, { projection: { _id: 0 } });
+    return doc ? ContractSchema.parse(doc) : null;
+  }
+  await new Promise((r) => setTimeout(r, 100));
+  return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
+}
+
+export async function upsertContract(contract: ContractType) {
+  ContractSchema.parse(contract);
+  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+    throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
+  }
+  const db = await getDb();
+  await db
+    .collection<ContractType>("contracts")
+    .updateOne({ id: contract.id }, { $set: contract }, { upsert: true });
 }
