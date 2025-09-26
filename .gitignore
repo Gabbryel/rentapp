@@ -1,3 +1,37 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+.vercel/
+out/
+.turbo/
+
+# Build outputs
+dist/
+build/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# Coverage
+coverage/
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
