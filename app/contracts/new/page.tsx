@@ -53,7 +53,7 @@ async function createContract(formData: FormData) {
       throw new Error("Fișierul este prea mare (max 10MB)");
     }
 
-    const orig = (file as any).name ? String((file as any).name) : "scan";
+  const orig = file.name || "scan";
     const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
     const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
     const ext = (fromNameExtMatch?.[1] || extFromMime(file.type) || "dat").toLowerCase();

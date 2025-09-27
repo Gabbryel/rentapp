@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Props = {
@@ -21,7 +21,6 @@ export default function SearchContracts({
   useEffect(() => {
     const q = searchParams.get("q") || "";
     setValue(q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Debounced push to URL
