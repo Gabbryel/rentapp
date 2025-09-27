@@ -2,9 +2,12 @@ import { ContractSchema } from "@/lib/schemas/contract";
 import { upsertContract } from "@/lib/contracts";
 import { redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 async function createContract(formData: FormData) {
   "use server";
+  // Collect basic fields
   const data = {
     id: (formData.get("id") as string) || `c_${Date.now()}`,
     name: (formData.get("name") as string) ?? "",
@@ -12,8 +15,59 @@ async function createContract(formData: FormData) {
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
-    scanUrl: (formData.get("scanUrl") as string) || undefined,
+    scanUrl: undefined as string | undefined,
   };
+
+  // Prefer uploaded file over URL, if provided
+  const uploaded = formData.get("scanFile");
+  const urlInput = (formData.get("scanUrl") as string | null) || null;
+
+  // Utility: simple slugify and extension derivation
+  const sanitize = (s: string) => s.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
+  const extFromMime = (mime: string) => {
+    if (mime === "application/pdf") return "pdf";
+    if (mime === "image/png") return "png";
+    if (mime === "image/jpeg") return "jpg";
+    if (mime === "image/gif") return "gif";
+    if (mime === "image/webp") return "webp";
+    if (mime === "image/svg+xml") return "svg";
+    return null;
+  };
+
+  if (uploaded && uploaded instanceof File && uploaded.size > 0) {
+    const file = uploaded as File;
+    // Enforce type and size limits (10 MB)
+    const okType = [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/webp",
+      "image/svg+xml",
+    ].includes(file.type);
+    if (!okType) {
+      throw new Error("Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)");
+    }
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new Error("Fișierul este prea mare (max 10MB)");
+    }
+
+    const orig = (file as any).name ? String((file as any).name) : "scan";
+    const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
+    const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
+    const ext = (fromNameExtMatch?.[1] || extFromMime(file.type) || "dat").toLowerCase();
+
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    const filename = `${sanitize(data.id)}-${base}.${ext}`;
+    const filepath = path.join(uploadsDir, filename);
+    const arrayBuffer = await file.arrayBuffer();
+    await fs.writeFile(filepath, Buffer.from(arrayBuffer));
+    data.scanUrl = `/uploads/${filename}`;
+  } else if (urlInput) {
+    data.scanUrl = urlInput || undefined;
+  }
 
   const parsed = ContractSchema.safeParse(data);
   if (!parsed.success) {
@@ -46,7 +100,11 @@ export default function NewContractPage() {
         </p>
       )}
 
-      <form action={createContract} className="mt-6 max-w-xl space-y-4">
+      <form
+        action={createContract}
+        className="mt-6 max-w-xl space-y-4"
+        encType="multipart/form-data"
+      >
         <div>
           <label className="block text-sm font-medium">ID (opțional)</label>
           <input
@@ -99,13 +157,28 @@ export default function NewContractPage() {
             />
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium">Scan (URL)</label>
-          <input
-            name="scanUrl"
-            placeholder="/contract-scan.svg sau https://…"
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
+        <div className="space-y-2">
+          <div>
+            <label className="block text-sm font-medium">Încarcă scan (PDF sau imagine)</label>
+            <input
+              type="file"
+              name="scanFile"
+              accept="application/pdf,image/*"
+              className="mt-1 block w-full text-sm"
+            />
+            <p className="mt-1 text-xs text-foreground/60">Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">sau introdu URL</label>
+            <input
+              name="scanUrl"
+              placeholder="/uploads/contract.pdf sau https://exemplu.com/contract.pdf"
+              pattern=".*\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#]).*"
+              title="Acceptat: PDF sau imagine (png, jpg, jpeg, gif, webp, svg)"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-foreground/60">Dacă alegi fișier, acesta va avea prioritate față de URL.</p>
+          </div>
         </div>
         <div className="pt-2">
           <button

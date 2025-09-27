@@ -89,13 +89,27 @@ export default async function ContractPage({
             </div>
             <div className="bg-foreground/5">
               {contract.scanUrl ? (
-                <Image
-                  src={contract.scanUrl}
-                  alt={`Scan contract ${contract.name}`}
-                  width={1600}
-                  height={1000}
-                  className="w-full h-auto"
-                />
+                /\.pdf(?:$|[?#])/i.test(contract.scanUrl) ? (
+                  <object
+                    data={contract.scanUrl}
+                    type="application/pdf"
+                    className="w-full aspect-[4/3]"
+                  >
+                    <iframe
+                      src={contract.scanUrl}
+                      title={`Scan contract ${contract.name}`}
+                      className="w-full h-full"
+                    />
+                  </object>
+                ) : (
+                  <Image
+                    src={contract.scanUrl}
+                    alt={`Scan contract ${contract.name}`}
+                    width={1600}
+                    height={1000}
+                    className="w-full h-auto"
+                  />
+                )
               ) : (
                 <div className="aspect-[4/3] grid place-items-center text-foreground/60">
                   Niciun scan disponibil

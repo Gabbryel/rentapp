@@ -176,13 +176,17 @@ for (const c of MOCK_CONTRACTS) ContractSchema.parse(c);
 export async function fetchContracts(): Promise<ContractType[]> {
   // If MongoDB is configured, read from DB; else fallback to mocks
   if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
-    const db = await getDb();
-    const docs = await db
-      .collection<ContractType>("contracts")
-      .find({}, { projection: { _id: 0 } })
-      .toArray();
-    // Validate and return
-  return docs.map((d: unknown) => ContractSchema.parse(d));
+    try {
+      const db = await getDb();
+      const docs = await db
+        .collection<ContractType>("contracts")
+        .find({}, { projection: { _id: 0 } })
+        .toArray();
+      // Validate and return
+      return docs.map((d: unknown) => ContractSchema.parse(d));
+    } catch (err) {
+      console.warn("Mongo indisponibil în prezent; folosesc datele mock.", err);
+    }
   }
   await new Promise((r) => setTimeout(r, 200));
   return MOCK_CONTRACTS;
@@ -190,11 +194,15 @@ export async function fetchContracts(): Promise<ContractType[]> {
 
 export async function fetchContractById(id: string): Promise<ContractType | null> {
   if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
-    const db = await getDb();
-    const doc = await db
-      .collection<ContractType>("contracts")
-      .findOne({ id }, { projection: { _id: 0 } });
-    return doc ? ContractSchema.parse(doc) : null;
+    try {
+      const db = await getDb();
+      const doc = await db
+        .collection<ContractType>("contracts")
+        .findOne({ id }, { projection: { _id: 0 } });
+      return doc ? ContractSchema.parse(doc) : null;
+    } catch (err) {
+      console.warn("Mongo indisponibil; căutare în dataset-ul mock.", err);
+    }
   }
   await new Promise((r) => setTimeout(r, 100));
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;

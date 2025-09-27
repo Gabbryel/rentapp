@@ -1,12 +1,17 @@
 import { z } from "zod";
 
 // Allow either absolute URL (http/https) or a public path starting with "/"
+// and ensure the target is an image or PDF (by extension)
 const ScanUrl = z
   .string()
   .min(1)
   .refine(
     (s: string) => s.startsWith("/") || /^https?:\/\//i.test(s),
     "scanUrl trebuie să fie o cale publică (începe cu /) sau un URL valid"
+  )
+  .refine(
+    (s: string) => /\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#])/i.test(s),
+    "scan trebuie să fie o imagine (png, jpg, jpeg, gif, webp, svg) sau un PDF"
   );
 
 // Validate ISO-like date (YYYY-MM-DD) used in mock data
@@ -22,7 +27,8 @@ export const ContractSchema = z
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
-    scanUrl: ScanUrl.optional(),
+  // Accept a PDF/image URL or null/undefined
+  scanUrl: ScanUrl.nullish(),
   })
   .superRefine((val, ctx) => {
     const s = new Date(val.signedAt);
