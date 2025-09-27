@@ -37,7 +37,16 @@ export default async function ContractPage({
           <h1 className="text-2xl sm:text-3xl font-bold">{contract.name}</h1>
           <p className="text-foreground/70">Partener: {contract.partner}</p>
         </div>
-        <span
+        <div className="flex items-center gap-3">
+          {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+            <Link
+              href={`/contracts/${contract.id}/edit`}
+              className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+            >
+              Editează
+            </Link>
+          ) : null}
+          <span
           className={`shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ${
             isExpired
               ? "ring-red-500/20 text-red-600 dark:text-red-400"
@@ -45,7 +54,8 @@ export default async function ContractPage({
           }`}
         >
           {isExpired ? "Expirat" : "Activ"}
-        </span>
+          </span>
+        </div>
       </header>
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

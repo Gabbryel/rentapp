@@ -60,6 +60,14 @@ export default async function Home({
                 </Link>
               </h2>
               <div className="flex items-center gap-2">
+                {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                  <Link
+                    href={`/contracts/${c.id}/edit`}
+                    className="rounded-md border border-foreground/20 px-2 py-1 text-[10px] font-semibold hover:bg-foreground/5"
+                  >
+                    Edit
+                  </Link>
+                ) : null}
                 {new Date(c.endDate) < now ? (
                   <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
                     Expirat
