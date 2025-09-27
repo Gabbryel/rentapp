@@ -85,6 +85,18 @@ export default async function ContractPage({
                   {contract.id}
                 </dd>
               </div>
+              {contract.indexingDates && contract.indexingDates.length > 0 ? (
+                <div className="col-span-2">
+                  <dt className="text-foreground/60">Indexări chirie</dt>
+                  <dd className="mt-1 flex flex-wrap gap-2">
+                    {contract.indexingDates.map((d) => (
+                      <span key={d} className="rounded-md bg-foreground/5 px-2 py-1 text-xs">
+                        {fmt(d)}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </div>
         </div>

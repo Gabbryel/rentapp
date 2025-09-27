@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
+import MultiDateInput from "@/app/components/multi-date-input";
 
 async function createContract(formData: FormData) {
   "use server";
@@ -16,6 +17,7 @@ async function createContract(formData: FormData) {
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
+    indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
     scanUrl: undefined as string | undefined,
   };
 
@@ -169,6 +171,7 @@ export default function NewContractPage() {
             />
           </div>
         </div>
+  <MultiDateInput name="indexingDates" />
         <div className="space-y-2">
           <div>
             <label className="block text-sm font-medium">Încarcă scan (PDF sau imagine)</label>

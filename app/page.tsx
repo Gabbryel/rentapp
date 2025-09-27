@@ -29,6 +29,13 @@ export default async function Home({
     });
 
   const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const nextIndexing = (dates?: string[]) => {
+    if (!dates || dates.length === 0) return null;
+    const sorted = [...dates].sort();
+    const next = sorted.find((d) => new Date(d) >= startOfToday);
+    return next ?? sorted[sorted.length - 1];
+  };
 
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
@@ -99,6 +106,12 @@ export default async function Home({
             <p className="mt-1 text-xs text-foreground/60 truncate" title={c.owner}>
               Proprietar: {c.owner ?? "Markov Services s.r.l."}
             </p>
+            {(() => {
+              const next = nextIndexing(c.indexingDates);
+              return next ? (
+                <p className="mt-1 text-[11px] text-foreground/80 truncate">Indexare: {fmt(next)}</p>
+              ) : null;
+            })()}
 
             <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               <div className="rounded-md bg-foreground/5 p-3">

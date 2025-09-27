@@ -5,6 +5,7 @@ import type { ZodIssue } from "zod";
 import Link from "next/link";
 import fs from "node:fs/promises";
 import path from "node:path";
+import MultiDateInput from "@/app/components/multi-date-input";
 
 export default async function EditContractPage({
   params,
@@ -24,7 +25,8 @@ export default async function EditContractPage({
     const signedAt = (formData.get("signedAt") as string) ?? "";
     const startDate = (formData.get("startDate") as string) ?? "";
     const endDate = (formData.get("endDate") as string) ?? "";
-    const existingScanUrl = (formData.get("existingScanUrl") as string) || undefined;
+  const existingScanUrl = (formData.get("existingScanUrl") as string) || undefined;
+  const indexingDates = (formData.getAll("indexingDates") as string[]).filter(Boolean);
     const uploaded = formData.get("scanFile");
     const urlInput = (formData.get("scanUrl") as string | null) || null;
 
@@ -82,6 +84,7 @@ export default async function EditContractPage({
       signedAt,
       startDate,
       endDate,
+      indexingDates,
       scanUrl,
     });
     if (!parsed.success) {
@@ -185,6 +188,7 @@ export default async function EditContractPage({
             />
           </div>
         </div>
+          <MultiDateInput name="indexingDates" initial={contract.indexingDates ?? []} />
         <div className="space-y-2">
           <div>
             <label className="block text-sm font-medium">Încarcă scan (PDF sau imagine)</label>

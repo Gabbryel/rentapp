@@ -30,6 +30,7 @@ export const ContractSchema = z
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
+    indexingDates: z.array(ISODate).default([]),
   // Accept a PDF/image URL or null/undefined
   scanUrl: ScanUrl.nullish(),
   })

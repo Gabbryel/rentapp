@@ -5,11 +5,10 @@
   --foreground: #171717;
 }
 
-@theme inline {
+/* Theme variables for reference; Tailwind classes use system colors */
+:root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +22,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.6;
 }

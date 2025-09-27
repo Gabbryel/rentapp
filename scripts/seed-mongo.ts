@@ -41,6 +41,7 @@ async function main() {
   const data = getMockContracts().map((c) => ({
     ...c,
     owner: (c as any).owner ?? "Markov Services s.r.l.",
+    indexingDates: Array.isArray((c as any).indexingDates) ? (c as any).indexingDates : [],
   }));
   await db.collection(COLLECTION).deleteMany({});
   await db.collection(COLLECTION).insertMany(data);
