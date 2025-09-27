@@ -6,6 +6,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c1",
     name: "Lease #1001",
     partner: "Acme Corp",
+    owner: "Markov Services s.r.l.",
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
@@ -15,6 +16,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c2",
     name: "Lease #1002",
     partner: "Globex LLC",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
@@ -24,6 +26,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c3",
     name: "Maintenance Agreement A",
     partner: "Initech",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
@@ -33,6 +36,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c4",
     name: "Service Contract 2025",
     partner: "Umbrella Co",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
@@ -42,6 +46,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c5",
     name: "Short-term Lease Q3",
     partner: "Stark Industries",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
@@ -51,6 +56,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c6",
     name: "Property Mgmt Alpha",
     partner: "Wayne Enterprises",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
@@ -60,6 +66,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c7",
     name: "Renewal Lease #2001",
     partner: "Hooli",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
@@ -68,6 +75,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c8",
     name: "Equipment Rental B",
     partner: "Soylent Corp",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-04-05",
     startDate: "2025-04-15",
     endDate: "2025-10-15",
@@ -76,6 +84,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c9",
     name: "Parking Spaces 12-20",
     partner: "Duff Beer",
+    owner: "Markov Services s.r.l.",
     signedAt: "2024-09-01",
     startDate: "2024-09-15",
     endDate: "2025-09-14",
@@ -84,6 +93,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c10",
     name: "Seasonal Lease Winter",
     partner: "Cyberdyne Systems",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2024-10-10",
     startDate: "2024-12-01",
     endDate: "2025-03-01",
@@ -92,6 +102,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c11",
     name: "Service Level Addendum",
     partner: "MomCorp",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-07-01",
     startDate: "2025-07-10",
     endDate: "2026-07-09",
@@ -100,6 +111,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c12",
     name: "Property Mgmt Beta",
     partner: "Tyrell Corporation",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-01-05",
     startDate: "2025-01-15",
     endDate: "2026-01-14",
@@ -108,6 +120,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c13",
     name: "Warehouse Lease A",
     partner: "Oscorp",
+    owner: "Markov Services s.r.l.",
     signedAt: "2024-07-20",
     startDate: "2024-08-01",
     endDate: "2025-07-31",
@@ -116,6 +129,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c14",
     name: "Short-term Lease Q4",
     partner: "Aperture Science",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-09-10",
     startDate: "2025-10-01",
     endDate: "2025-12-31",
@@ -124,6 +138,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c15",
     name: "Office Expansion East",
     partner: "Black Mesa",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-05-25",
     startDate: "2025-06-01",
     endDate: "2026-05-31",
@@ -132,6 +147,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c16",
     name: "Retail Kiosk Summer",
     partner: "Nuka-Cola",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-03-28",
     startDate: "2025-05-01",
     endDate: "2025-09-01",
@@ -140,6 +156,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c17",
     name: "Maintenance Agreement B",
     partner: "Wonka Industries",
+    owner: "Markov Services s.r.l.",
     signedAt: "2024-12-01",
     startDate: "2025-01-10",
     endDate: "2025-07-10",
@@ -148,6 +165,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c18",
     name: "Service Contract 2026",
     partner: "Blue Sun",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-08-15",
     startDate: "2026-01-01",
     endDate: "2026-12-31",
@@ -156,6 +174,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c19",
     name: "Lease #3003",
     partner: "Gringotts Bank",
+    owner: "Markov Services s.r.l.",
     signedAt: "2025-02-02",
     startDate: "2025-02-15",
     endDate: "2026-02-14",
@@ -164,6 +183,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     id: "c20",
     name: "Storage Units Block C",
     partner: "Vault-Tec",
+    owner: "MKS Properties s.r.l.",
     signedAt: "2025-06-05",
     startDate: "2025-06-15",
     endDate: "2026-06-14",
@@ -182,8 +202,12 @@ export async function fetchContracts(): Promise<ContractType[]> {
         .collection<ContractType>("contracts")
         .find({}, { projection: { _id: 0 } })
         .toArray();
-      // Validate and return
-      return docs.map((d: unknown) => ContractSchema.parse(d));
+      // Validate and return, adding default owner if missing
+      return docs.map((d: unknown) => {
+        const doc = d as Partial<ContractType>;
+        return ContractSchema.parse({ ...doc, owner: doc.owner ?? "Markov Services s.r.l." });
+      }
+      );
     } catch (err) {
       console.warn("Mongo indisponibil în prezent; folosesc datele mock.", err);
     }
@@ -199,7 +223,7 @@ export async function fetchContractById(id: string): Promise<ContractType | null
       const doc = await db
         .collection<ContractType>("contracts")
         .findOne({ id }, { projection: { _id: 0 } });
-      return doc ? ContractSchema.parse(doc) : null;
+  return doc ? ContractSchema.parse({ ...doc, owner: (doc as Partial<ContractType>).owner ?? "Markov Services s.r.l." }) : null;
     } catch (err) {
       console.warn("Mongo indisponibil; căutare în dataset-ul mock.", err);
     }

@@ -24,6 +24,9 @@ export const ContractSchema = z
     id: z.string().min(1, "id obligatoriu"),
     name: z.string().min(1, "nume obligatoriu"),
     partner: z.string().min(1, "partener obligatoriu"),
+    owner: z
+      .enum(["Markov Services s.r.l.", "MKS Properties s.r.l."])
+      .default("Markov Services s.r.l."),
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
@@ -51,3 +54,4 @@ export const ContractSchema = z
   });
 
 export type Contract = z.infer<typeof ContractSchema>;
+export type Owner = "Markov Services s.r.l." | "MKS Properties s.r.l.";

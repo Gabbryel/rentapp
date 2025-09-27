@@ -16,7 +16,8 @@ export default async function Home({
     ? all.filter(
         (c) =>
           c.name.toLowerCase().includes(query) ||
-          c.partner.toLowerCase().includes(query)
+          c.partner.toLowerCase().includes(query) ||
+          (c.owner?.toLowerCase?.().includes(query) ?? false)
       )
     : all;
 
@@ -86,6 +87,9 @@ export default async function Home({
               title={c.partner}
             >
               Partener: {c.partner}
+            </p>
+            <p className="mt-1 text-xs text-foreground/60 truncate" title={c.owner}>
+              Proprietar: {c.owner ?? "Markov Services s.r.l."}
             </p>
 
             <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">

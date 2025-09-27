@@ -54,6 +54,10 @@ export default async function ContractPage({
             <h2 className="text-sm font-semibold">Detalii</h2>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
+                <dt className="text-foreground/60">Proprietar</dt>
+                <dd className="font-medium">{contract.owner}</dd>
+              </div>
+              <div>
                 <dt className="text-foreground/60">Semnat</dt>
                 <dd className="font-medium">{fmt(contract.signedAt)}</dd>
               </div>

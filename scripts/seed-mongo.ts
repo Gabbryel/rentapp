@@ -38,7 +38,10 @@ async function main() {
   }
   const db = await getDb();
   const COLLECTION = "contracts" as const;
-  const data = getMockContracts();
+  const data = getMockContracts().map((c) => ({
+    ...c,
+    owner: (c as any).owner ?? "Markov Services s.r.l.",
+  }));
   await db.collection(COLLECTION).deleteMany({});
   await db.collection(COLLECTION).insertMany(data);
   console.log(`Seeded ${data.length} contracts in MongoDB`);

@@ -12,6 +12,7 @@ async function createContract(formData: FormData) {
     id: (formData.get("id") as string) || `c_${Date.now()}`,
     name: (formData.get("name") as string) ?? "",
     partner: (formData.get("partner") as string) ?? "",
+    owner: (formData.get("owner") as string) || undefined,
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
@@ -111,6 +112,17 @@ export default function NewContractPage() {
             name="id"
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Proprietar</label>
+          <select
+            name="owner"
+            defaultValue="Markov Services s.r.l."
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+          >
+            <option value="Markov Services s.r.l.">Markov Services s.r.l.</option>
+            <option value="MKS Properties s.r.l.">MKS Properties s.r.l.</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium">Nume</label>
