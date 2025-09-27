@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { deleteContractById, fetchContracts } from "@/lib/contracts";
 import SearchContracts from "@/app/components/search-contracts";
+import IndexingFilters from "@/app/components/indexing-filters";
 import DeleteButton from "@/app/components/delete-button";
 import { redirect } from "next/navigation";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string; range?: string }>;
 }) {
-  const { q = "" } = (await searchParams) ?? {};
+  const { q = "", range = "" } = (await searchParams) ?? {};
   const all = await fetchContracts();
   const query = q.trim().toLowerCase();
-  const contracts = query
+  let contracts = query
     ? all.filter(
         (c) =>
           c.name.toLowerCase().includes(query) ||
@@ -37,6 +38,19 @@ export default async function Home({
     return next ?? sorted[sorted.length - 1];
   };
 
+  // Optional filter by next indexing within N days
+  if (range === "15" || range === "60") {
+    const days = range === "15" ? 15 : 60;
+    const end = new Date(startOfToday);
+    end.setDate(end.getDate() + days);
+    contracts = contracts.filter((c) => {
+      const n = nextIndexing(c.indexingDates);
+      if (!n) return false;
+      const d = new Date(n);
+      return d >= startOfToday && d <= end;
+    });
+  }
+
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
       <header className="flex items-end justify-between gap-4 flex-wrap">
@@ -48,6 +62,7 @@ export default async function Home({
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <SearchContracts initialQuery={q} />
+          <IndexingFilters />
           <div className="text-sm text-foreground/60 shrink-0">
             Total: {contracts.length}
           </div>

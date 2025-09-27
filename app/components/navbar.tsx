@@ -50,12 +50,16 @@ export default function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden sm:block">
-            <Link
-              href="/contracts/new"
-              className="rounded-full bg-foreground px-3.5 py-2 text-sm font-semibold text-background shadow-sm transition hover:bg-foreground/90"
-            >
-              Adaugă contract
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/contracts/new"
+                className="rounded-full bg-foreground px-3.5 py-2 text-sm font-semibold text-background shadow-sm transition hover:bg-foreground/90"
+              >
+                Adaugă contract
+              </Link>
+              <Link href="/login" className="text-sm text-foreground/80 hover:underline">Intră</Link>
+              <Link href="/register" className="text-sm text-foreground/80 hover:underline">Înregistrare</Link>
+            </div>
           </div>
 
           {/* Mobile toggle */}
@@ -116,6 +120,10 @@ export default function Navbar() {
               >
                 Adaugă contract
               </Link>
+              <div className="flex items-center gap-3 px-3">
+                <Link href="/login" className="text-sm text-foreground/80 hover:underline">Intră</Link>
+                <Link href="/register" className="text-sm text-foreground/80 hover:underline">Înregistrare</Link>
+              </div>
             </div>
           </div>
         )}
