@@ -42,7 +42,7 @@ export async function createSession(user: User) {
   const db = await getDb();
   await db.collection<Session>("sessions").insertOne({ token, email: user.email, createdAt: new Date() });
   const cookieStore = await cookies();
-  cookieStore.set("session", token, { httpOnly: true, sameSite: "lax", secure: true, path: "/" });
+  cookieStore.set("session", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" });
 }
 
 export async function currentUser(): Promise<User | null> {
