@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { fetchContractById } from "@/lib/contracts";
+import { deleteContractById, fetchContractById } from "@/lib/contracts";
 import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import DeleteButton from "@/app/components/delete-button";
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("ro-RO", {
@@ -77,15 +79,28 @@ export default async function ContractPage({
           <div className="rounded-lg border border-foreground/15 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2 border-b border-foreground/10">
               <h2 className="text-sm font-semibold">Scan contract</h2>
-              {contract.scanUrl && (
-                <a
-                  href={contract.scanUrl}
-                  download
-                  className="text-sm text-foreground/70 hover:underline"
-                >
-                  Descarcă
-                </a>
-              )}
+              <div className="flex items-center gap-3">
+                {contract.scanUrl && (
+                  <a
+                    href={contract.scanUrl}
+                    download
+                    className="text-sm text-foreground/70 hover:underline"
+                  >
+                    Descarcă
+                  </a>
+                )}
+                {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                  <DeleteButton
+                    label="Șterge"
+                    action={async () => {
+                      "use server";
+                      const ok = await deleteContractById(contract.id);
+                      if (!ok) throw new Error("Nu am putut șterge contractul.");
+                      redirect("/");
+                    }}
+                  />
+                ) : null}
+              </div>
             </div>
             <div className="bg-foreground/5">
               {contract.scanUrl ? (

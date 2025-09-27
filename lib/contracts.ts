@@ -219,6 +219,15 @@ export async function upsertContract(contract: ContractType) {
     .updateOne({ id: contract.id }, { $set: contract }, { upsert: true });
 }
 
+export async function deleteContractById(id: string): Promise<boolean> {
+  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+    throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
+  }
+  const db = await getDb();
+  const res = await db.collection<ContractType>("contracts").deleteOne({ id });
+  return Boolean(res.acknowledged && res.deletedCount && res.deletedCount > 0);
+}
+
 // Helper used by seeding scripts to load the static mock dataset regardless of DB config
 export function getMockContracts(): ContractType[] {
   return MOCK_CONTRACTS;
