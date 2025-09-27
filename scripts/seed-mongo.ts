@@ -1,5 +1,7 @@
-import { getDb } from "@/lib/mongodb";
-import { fetchContracts } from "@/lib/contracts";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { getDb } from "../lib/mongodb";
+import { getMockContracts } from "../lib/contracts";
 import "dotenv/config";
 
 async function main() {
@@ -8,7 +10,7 @@ async function main() {
   }
   const db = await getDb();
   const COLLECTION = "contracts" as const;
-  const data = await fetchContracts();
+  const data = getMockContracts();
   await db.collection(COLLECTION).deleteMany({});
   await db.collection(COLLECTION).insertMany(data);
   console.log(`Seeded ${data.length} contracts in MongoDB`);

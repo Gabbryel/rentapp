@@ -210,3 +210,8 @@ export async function upsertContract(contract: ContractType) {
     .collection<ContractType>("contracts")
     .updateOne({ id: contract.id }, { $set: contract }, { upsert: true });
 }
+
+// Helper used by seeding scripts to load the static mock dataset regardless of DB config
+export function getMockContracts(): ContractType[] {
+  return MOCK_CONTRACTS;
+}
