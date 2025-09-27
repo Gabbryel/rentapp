@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { fetchContracts } from "@/lib/contracts";
+import { deleteContractById, fetchContracts } from "@/lib/contracts";
 import SearchContracts from "@/app/components/search-contracts";
+import DeleteButton from "@/app/components/delete-button";
+import { redirect } from "next/navigation";
 
 export default async function Home({
   searchParams,
@@ -56,15 +58,28 @@ export default async function Home({
                   {c.name}
                 </Link>
               </h2>
-              {new Date(c.endDate) < now ? (
-                <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
-                  Expirat
-                </span>
-              ) : (
-                <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                  Activ
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {new Date(c.endDate) < now ? (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
+                    Expirat
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                    Activ
+                  </span>
+                )}
+                {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                  <DeleteButton
+                    label="Șterge"
+                    action={async () => {
+                      "use server";
+                      const ok = await deleteContractById(c.id);
+                      if (!ok) throw new Error("Nu am putut șterge contractul.");
+                      redirect("/");
+                    }}
+                  />
+                ) : null}
+              </div>
             </div>
             <p
               className="mt-1 text-sm text-foreground/70 truncate"
