@@ -16,13 +16,26 @@ export default function RegisterPage() {
       <form action={action} className="grid gap-3">
         <label className="grid gap-1">
           <span className="text-sm text-foreground/70">Email</span>
-          <input name="email" type="email" required className="border rounded px-3 py-2" />
+          <input
+            name="email"
+            type="email"
+            required
+            className="border rounded px-3 py-2"
+          />
         </label>
         <label className="grid gap-1">
           <span className="text-sm text-foreground/70">Parolă</span>
-          <input name="password" type="password" required minLength={8} className="border rounded px-3 py-2" />
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            className="border rounded px-3 py-2"
+          />
         </label>
-        <button className="rounded-md bg-black text-white px-4 py-2">Creează cont</button>
+        <button className="rounded-md bg-black text-white px-4 py-2">
+          Creează cont
+        </button>
       </form>
     </main>
   );

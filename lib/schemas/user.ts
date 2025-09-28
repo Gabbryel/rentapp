@@ -4,6 +4,7 @@ export const UserSchema = z.object({
   id: z.string().min(1).optional(),
   email: z.string().email("email invalid"),
   passwordHash: z.string().min(10),
+  isAdmin: z.boolean().default(false),
   createdAt: z.date().default(() => new Date()),
 });
 

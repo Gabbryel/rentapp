@@ -25,3 +25,13 @@ body {
   font-size: 16.5px;
   line-height: 1.6;
 }
+
+/* Flashing red utility for urgent statuses */
+@keyframes flash-red {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0.3; }
+}
+
+.flash-red {
+  animation: flash-red 1s ease-in-out infinite;
+}

@@ -33,6 +33,11 @@ export const ContractSchema = z
     indexingDates: z.array(ISODate).default([]),
   // Accept a PDF/image URL or null/undefined
   scanUrl: ScanUrl.nullish(),
+  // Optional amounts: if one is provided, both must be provided and > 0
+  amountEUR: z.number().positive().optional(),
+  exchangeRateRON: z.number().positive().optional(),
+  // TVA percent (0-100), integer
+  tvaPercent: z.number().int().min(0).max(100).optional(),
   })
   .superRefine((val, ctx) => {
     const s = new Date(val.signedAt);
@@ -50,6 +55,16 @@ export const ContractSchema = z
         code: z.ZodIssueCode.custom,
         path: ["endDate"],
         message: "endDate trebuie să fie după sau egal cu startDate",
+      });
+    }
+
+    const hasAmount = typeof val.amountEUR === "number";
+    const hasRate = typeof val.exchangeRateRON === "number";
+    if (hasAmount !== hasRate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: hasAmount ? ["exchangeRateRON"] : ["amountEUR"],
+        message: "Dacă specifici suma în EUR, trebuie să specifici și cursul RON/EUR (și invers)",
       });
     }
   });

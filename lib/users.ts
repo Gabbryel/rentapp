@@ -7,3 +7,17 @@ export async function listUsers(): Promise<User[]> {
   const docs = await db.collection<User>("users").find({}, { projection: { _id: 0 } }).toArray();
   return docs;
 }
+
+export async function setAdmin(email: string, isAdmin: boolean) {
+  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return false;
+  const db = await getDb();
+  const res = await db.collection<User>("users").updateOne({ email }, { $set: { isAdmin } });
+  return Boolean(res.acknowledged && res.matchedCount);
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return null;
+  const db = await getDb();
+  const doc = await db.collection<User>("users").findOne({ email }, { projection: { _id: 0 } });
+  return doc ?? null;
+}

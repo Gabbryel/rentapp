@@ -21,7 +21,7 @@ export async function registerUser(email: string, password: string): Promise<Use
   if (existing) throw new Error("Utilizatorul există deja");
   const salt = randomBytes(16).toString("hex");
   const passwordHash = hashPassword(parsed.password, salt) + ":" + salt;
-  const user: User = UserSchema.parse({ email: parsed.email, passwordHash, createdAt: new Date() });
+  const user: User = UserSchema.parse({ email: parsed.email, passwordHash, createdAt: new Date(), isAdmin: false });
   await db.collection<User>("users").insertOne(user);
   return user;
 }

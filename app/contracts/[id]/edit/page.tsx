@@ -1,11 +1,13 @@
 import { fetchContractById, upsertContract } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
+import { logAction, computeDiffContract, deleteLocalUploadIfPresent } from "@/lib/audit";
 import { notFound, redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
 import Link from "next/link";
 import fs from "node:fs/promises";
 import path from "node:path";
 import MultiDateInput from "@/app/components/multi-date-input";
+import ExchangeRateField from "@/app/components/exchange-rate-field";
 
 export default async function EditContractPage({
   params,
@@ -15,6 +17,7 @@ export default async function EditContractPage({
   const { id } = await params;
   const contract = await fetchContractById(id);
   if (!contract) return notFound();
+  const prevContract = contract as NonNullable<typeof contract>;
 
   async function updateContract(formData: FormData) {
     "use server";
@@ -25,12 +28,36 @@ export default async function EditContractPage({
     const signedAt = (formData.get("signedAt") as string) ?? "";
     const startDate = (formData.get("startDate") as string) ?? "";
     const endDate = (formData.get("endDate") as string) ?? "";
-  const existingScanUrl = (formData.get("existingScanUrl") as string) || undefined;
-  const indexingDates = (formData.getAll("indexingDates") as string[]).filter(Boolean);
+    const amountEURRaw = (formData.get("amountEUR") as string) || "";
+    const exchangeRateRONRaw = (formData.get("exchangeRateRON") as string) || "";
+  const tvaRaw = (formData.get("tvaPercent") as string) || "";
+    const amountEUR = (() => {
+      const n = Number(amountEURRaw.replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })();
+    const exchangeRateRON = (() => {
+      const n = Number(exchangeRateRONRaw.replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })();
+    const tvaPercent = (() => {
+      const n = Number(tvaRaw);
+      if (!Number.isInteger(n)) return undefined;
+      if (n < 0 || n > 100) return undefined;
+      return n;
+    })();
+    const existingScanUrl =
+      (formData.get("existingScanUrl") as string) || undefined;
+    const indexingDates = (formData.getAll("indexingDates") as string[]).filter(
+      Boolean
+    );
     const uploaded = formData.get("scanFile");
     const urlInput = (formData.get("scanUrl") as string | null) || null;
 
-    const sanitize = (s: string) => s.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
+    const sanitize = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9_.-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
     const extFromMime = (mime: string) => {
       if (mime === "application/pdf") return "pdf";
       if (mime === "image/png") return "png";
@@ -53,7 +80,9 @@ export default async function EditContractPage({
         "image/svg+xml",
       ].includes(file.type);
       if (!okType) {
-        throw new Error("Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)");
+        throw new Error(
+          "Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)"
+        );
       }
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
@@ -63,7 +92,11 @@ export default async function EditContractPage({
       const orig = file.name || "scan";
       const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
       const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
-      const ext = (fromNameExtMatch?.[1] || extFromMime(file.type) || "dat").toLowerCase();
+      const ext = (
+        fromNameExtMatch?.[1] ||
+        extFromMime(file.type) ||
+        "dat"
+      ).toLowerCase();
 
       const uploadsDir = path.join(process.cwd(), "public", "uploads");
       await fs.mkdir(uploadsDir, { recursive: true });
@@ -86,36 +119,73 @@ export default async function EditContractPage({
       endDate,
       indexingDates,
       scanUrl,
+      amountEUR,
+      exchangeRateRON,
+      tvaPercent,
     });
     if (!parsed.success) {
-      throw new Error(parsed.error.issues.map((e: ZodIssue) => e.message).join("; "));
+      throw new Error(
+        parsed.error.issues.map((e: ZodIssue) => e.message).join("; ")
+      );
     }
 
     if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
-      throw new Error("MongoDB nu este configurat. Adăugați MONGODB_URI și MONGODB_DB în .env.");
+      throw new Error(
+        "MongoDB nu este configurat. Adăugați MONGODB_URI și MONGODB_DB în .env."
+      );
+    }
+
+    // Compute diff against previous contract for auditing
+  const { changes, scanChange } = computeDiffContract(prevContract, parsed.data);
+
+    // If the scan was removed or replaced, try to delete old local file
+    let scanDeletion: { deleted: boolean; reason: string; path?: string } | undefined;
+    if (scanChange === "removed" || scanChange === "replaced") {
+      scanDeletion = await deleteLocalUploadIfPresent(prevContract.scanUrl ?? undefined);
     }
 
     await upsertContract(parsed.data);
+    await logAction({
+      action: "contract.update",
+      targetType: "contract",
+      targetId: idFromParam,
+      meta: {
+        name: parsed.data.name,
+        changes,
+        scanChange,
+        deletedScan: scanDeletion,
+      },
+    });
     redirect(`/contracts/${idFromParam}`);
   }
 
-  const mongoConfigured = Boolean(process.env.MONGODB_URI && process.env.MONGODB_DB);
+  const mongoConfigured = Boolean(
+    process.env.MONGODB_URI && process.env.MONGODB_DB
+  );
 
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold">Editează contract</h1>
-        <Link href={`/contracts/${contract.id}`} className="text-sm text-foreground/70 hover:underline">
+        <Link
+          href={`/contracts/${contract.id}`}
+          className="text-sm text-foreground/70 hover:underline"
+        >
           ← Înapoi la contract
         </Link>
       </div>
       {!mongoConfigured && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-          MongoDB nu este configurat. Completați variabilele MONGODB_URI și MONGODB_DB în .env pentru a salva.
+          MongoDB nu este configurat. Completați variabilele MONGODB_URI și
+          MONGODB_DB în .env pentru a salva.
         </p>
       )}
 
-      <form action={updateContract} className="mt-6 max-w-xl space-y-4" encType="multipart/form-data">
+      <form
+        action={updateContract}
+        className="mt-6 max-w-xl space-y-4"
+        encType="multipart/form-data"
+      >
         <div>
           <label className="block text-sm font-medium">ID</label>
           <input
@@ -125,7 +195,41 @@ export default async function EditContractPage({
             disabled
             className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
           />
-          <input type="hidden" name="existingScanUrl" defaultValue={contract.scanUrl || ""} />
+          <input
+            type="hidden"
+            name="existingScanUrl"
+            defaultValue={contract.scanUrl || ""}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium">Sumă (EUR)</label>
+            <input
+              name="amountEUR"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              defaultValue={(contract as any).amountEUR ?? ""}
+              placeholder="ex: 1200"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <ExchangeRateField name="exchangeRateRON" defaultValue={(contract as any).exchangeRateRON ?? ""} />
+          <div>
+            <label className="block text-sm font-medium">TVA (%)</label>
+            <input
+              name="tvaPercent"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              inputMode="numeric"
+              defaultValue={(contract as any).tvaPercent ?? ""}
+              placeholder="ex: 19"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium">Nume</label>
@@ -152,7 +256,9 @@ export default async function EditContractPage({
             defaultValue={contract.owner ?? "Markov Services s.r.l."}
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           >
-            <option value="Markov Services s.r.l.">Markov Services s.r.l.</option>
+            <option value="Markov Services s.r.l.">
+              Markov Services s.r.l.
+            </option>
             <option value="MKS Properties s.r.l.">MKS Properties s.r.l.</option>
           </select>
         </div>
@@ -188,12 +294,24 @@ export default async function EditContractPage({
             />
           </div>
         </div>
-          <MultiDateInput name="indexingDates" initial={contract.indexingDates ?? []} />
+        <MultiDateInput
+          name="indexingDates"
+          initial={contract.indexingDates ?? []}
+        />
         <div className="space-y-2">
           <div>
-            <label className="block text-sm font-medium">Încarcă scan (PDF sau imagine)</label>
-            <input type="file" name="scanFile" accept="application/pdf,image/*" className="mt-1 block w-full text-sm" />
-            <p className="mt-1 text-xs text-foreground/60">Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.</p>
+            <label className="block text-sm font-medium">
+              Încarcă scan (PDF sau imagine)
+            </label>
+            <input
+              type="file"
+              name="scanFile"
+              accept="application/pdf,image/*"
+              className="mt-1 block w-full text-sm"
+            />
+            <p className="mt-1 text-xs text-foreground/60">
+              Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium">sau introdu URL</label>
@@ -204,9 +322,13 @@ export default async function EditContractPage({
               title="Acceptat: PDF sau imagine (png, jpg, jpeg, gif, webp, svg)"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
-            <p className="mt-1 text-xs text-foreground/60">Dacă nu alegi nimic, rămâne scan-ul actual.</p>
+            <p className="mt-1 text-xs text-foreground/60">
+              Dacă nu alegi nimic, rămâne scan-ul actual.
+            </p>
             {contract.scanUrl ? (
-              <p className="mt-1 text-xs text-foreground/60">Scan curent: {contract.scanUrl}</p>
+              <p className="mt-1 text-xs text-foreground/60">
+                Scan curent: {contract.scanUrl}
+              </p>
             ) : null}
           </div>
         </div>

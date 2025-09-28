@@ -4,6 +4,7 @@ import { deleteContractById, fetchContractById } from "@/lib/contracts";
 import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import DeleteButton from "@/app/components/delete-button";
+import { logAction, deleteLocalUploadIfPresent } from "@/lib/audit";
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("ro-RO", {
@@ -47,13 +48,13 @@ export default async function ContractPage({
             </Link>
           ) : null}
           <span
-          className={`shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ${
-            isExpired
-              ? "ring-red-500/20 text-red-600 dark:text-red-400"
-              : "ring-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-          }`}
-        >
-          {isExpired ? "Expirat" : "Activ"}
+            className={`shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ${
+              isExpired
+                ? "ring-red-500/20 text-red-600 dark:text-red-400"
+                : "ring-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+            }`}
+          >
+            {isExpired ? "Expirat" : "Activ"}
           </span>
         </div>
       </header>
@@ -85,12 +86,38 @@ export default async function ContractPage({
                   {contract.id}
                 </dd>
               </div>
+              {typeof (contract as any).amountEUR === "number" && typeof (contract as any).exchangeRateRON === "number" ? (
+                <div className="col-span-2">
+                  <dt className="text-foreground/60">Valoare</dt>
+                  <dd className="mt-1 flex flex-wrap items-center gap-3">
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(contract as any).amountEUR.toFixed(2)} EUR</span>
+                    <span className="text-foreground/60">la curs</span>
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(contract as any).exchangeRateRON.toFixed(4)} RON/EUR</span>
+                    <span className="text-foreground/60">≈</span>
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(((contract as any).amountEUR * (contract as any).exchangeRateRON) as number).toFixed(2)} RON</span>
+                  </dd>
+                  {typeof (contract as any).tvaPercent === "number" && (contract as any).tvaPercent > 0 ? (
+                    <dd className="mt-1 flex flex-wrap items-center gap-3">
+                      <span className="text-foreground/60">RON (cu TVA {(contract as any).tvaPercent}%)</span>
+                      <span className="rounded-md bg-foreground/5 px-2 py-1">
+                        {(((contract as any).amountEUR * (contract as any).exchangeRateRON) * (1 + (contract as any).tvaPercent / 100)).toFixed(2)} RON
+                      </span>
+                      <span className="text-foreground/60">
+                        (TVA: {((((contract as any).amountEUR * (contract as any).exchangeRateRON) as number) * ((contract as any).tvaPercent / 100)).toFixed(2)} RON)
+                      </span>
+                    </dd>
+                  ) : null}
+                </div>
+              ) : null}
               {contract.indexingDates && contract.indexingDates.length > 0 ? (
                 <div className="col-span-2">
                   <dt className="text-foreground/60">Indexări chirie</dt>
                   <dd className="mt-1 flex flex-wrap gap-2">
                     {contract.indexingDates.map((d) => (
-                      <span key={d} className="rounded-md bg-foreground/5 px-2 py-1 text-xs">
+                      <span
+                        key={d}
+                        className="rounded-md bg-foreground/5 px-2 py-1 text-xs"
+                      >
                         {fmt(d)}
                       </span>
                     ))}
@@ -120,8 +147,12 @@ export default async function ContractPage({
                     label="Șterge"
                     action={async () => {
                       "use server";
+                      // Try to delete local scan file if applicable before removing DB record
+                      const fileDeletion = await deleteLocalUploadIfPresent(contract.scanUrl ?? undefined);
                       const ok = await deleteContractById(contract.id);
-                      if (!ok) throw new Error("Nu am putut șterge contractul.");
+                      if (!ok)
+                        throw new Error("Nu am putut șterge contractul.");
+                      await logAction({ action: "contract.delete", targetType: "contract", targetId: contract.id, meta: { name: contract.name, deletedScan: fileDeletion } });
                       redirect("/");
                     }}
                   />

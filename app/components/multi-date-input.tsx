@@ -8,11 +8,16 @@ type Props = {
   label?: string;
 };
 
-export default function MultiDateInput({ name, initial = [], label = "Indexări chirie" }: Props) {
+export default function MultiDateInput({
+  name,
+  initial = [],
+  label = "Indexări chirie",
+}: Props) {
   const [dates, setDates] = useState<string[]>(initial.length ? initial : [""]);
 
   const add = () => setDates((prev) => [...prev, ""]);
-  const remove = (i: number) => setDates((prev) => prev.filter((_, idx) => idx !== i));
+  const remove = (i: number) =>
+    setDates((prev) => prev.filter((_, idx) => idx !== i));
 
   return (
     <div>

@@ -9,7 +9,8 @@ export default function IndexingFilters() {
 
   const setRange = (value: string) => {
     const usp = new URLSearchParams(params.toString());
-    if (!value) usp.delete("range"); else usp.set("range", value);
+    if (!value) usp.delete("range");
+    else usp.set("range", value);
     router.replace(`${pathname}?${usp.toString()}`);
   };
 
@@ -19,7 +20,11 @@ export default function IndexingFilters() {
       <button
         type="button"
         onClick={() => setRange(range === "15" ? "" : "15")}
-        className={`rounded-md border px-2 py-1 ${range === "15" ? "bg-foreground/10 border-foreground/40" : "border-foreground/20 hover:bg-foreground/5"}`}
+        className={`rounded-md border px-2 py-1 ${
+          range === "15"
+            ? "bg-foreground/10 border-foreground/40"
+            : "border-foreground/20 hover:bg-foreground/5"
+        }`}
         aria-pressed={range === "15"}
       >
         15 zile
@@ -27,7 +32,11 @@ export default function IndexingFilters() {
       <button
         type="button"
         onClick={() => setRange(range === "60" ? "" : "60")}
-        className={`rounded-md border px-2 py-1 ${range === "60" ? "bg-foreground/10 border-foreground/40" : "border-foreground/20 hover:bg-foreground/5"}`}
+        className={`rounded-md border px-2 py-1 ${
+          range === "60"
+            ? "bg-foreground/10 border-foreground/40"
+            : "border-foreground/20 hover:bg-foreground/5"
+        }`}
         aria-pressed={range === "60"}
       >
         60 zile

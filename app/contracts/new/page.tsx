@@ -1,10 +1,12 @@
 import { ContractSchema } from "@/lib/schemas/contract";
 import { upsertContract } from "@/lib/contracts";
+import { logAction } from "@/lib/audit";
 import { redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 import MultiDateInput from "@/app/components/multi-date-input";
+import ExchangeRateField from "@/app/components/exchange-rate-field";
 
 async function createContract(formData: FormData) {
   "use server";
@@ -17,8 +19,27 @@ async function createContract(formData: FormData) {
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
-    indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
+    indexingDates: (formData.getAll("indexingDates") as string[]).filter(
+      Boolean
+    ),
     scanUrl: undefined as string | undefined,
+    amountEUR: (() => {
+      const raw = (formData.get("amountEUR") as string) || "";
+      const n = Number(raw.replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })(),
+    exchangeRateRON: (() => {
+      const raw = (formData.get("exchangeRateRON") as string) || "";
+      const n = Number(raw.replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })(),
+    tvaPercent: (() => {
+      const raw = (formData.get("tvaPercent") as string) || "";
+      const n = Number(raw);
+      if (!Number.isInteger(n)) return undefined;
+      if (n < 0 || n > 100) return undefined;
+      return n;
+    })(),
   };
 
   // Prefer uploaded file over URL, if provided
@@ -26,7 +47,11 @@ async function createContract(formData: FormData) {
   const urlInput = (formData.get("scanUrl") as string | null) || null;
 
   // Utility: simple slugify and extension derivation
-  const sanitize = (s: string) => s.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
+  const sanitize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9_.-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   const extFromMime = (mime: string) => {
     if (mime === "application/pdf") return "pdf";
     if (mime === "image/png") return "png";
@@ -49,17 +74,23 @@ async function createContract(formData: FormData) {
       "image/svg+xml",
     ].includes(file.type);
     if (!okType) {
-      throw new Error("Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)");
+      throw new Error(
+        "Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)"
+      );
     }
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       throw new Error("Fișierul este prea mare (max 10MB)");
     }
 
-  const orig = file.name || "scan";
+    const orig = file.name || "scan";
     const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
     const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
-    const ext = (fromNameExtMatch?.[1] || extFromMime(file.type) || "dat").toLowerCase();
+    const ext = (
+      fromNameExtMatch?.[1] ||
+      extFromMime(file.type) ||
+      "dat"
+    ).toLowerCase();
 
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
     await fs.mkdir(uploadsDir, { recursive: true });
@@ -86,6 +117,24 @@ async function createContract(formData: FormData) {
   }
 
   await upsertContract(parsed.data);
+  await logAction({
+    action: "contract.create",
+    targetType: "contract",
+    targetId: parsed.data.id,
+    meta: {
+      name: parsed.data.name,
+      owner: parsed.data.owner,
+      partner: parsed.data.partner,
+      signedAt: parsed.data.signedAt,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+      indexingDates: parsed.data.indexingDates,
+      scanUrl: parsed.data.scanUrl,
+      amountEUR: parsed.data.amountEUR,
+      exchangeRateRON: parsed.data.exchangeRateRON,
+      tvaPercent: (parsed.data as any).tvaPercent,
+    },
+  });
   redirect(`/contracts/${parsed.data.id}`);
 }
 
@@ -115,6 +164,34 @@ export default function NewContractPage() {
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium">Sumă (EUR)</label>
+            <input
+              name="amountEUR"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              placeholder="ex: 1200"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <ExchangeRateField name="exchangeRateRON" />
+          <div>
+            <label className="block text-sm font-medium">TVA (%)</label>
+            <input
+              name="tvaPercent"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              inputMode="numeric"
+              placeholder="ex: 19"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-medium">Proprietar</label>
           <select
@@ -122,7 +199,9 @@ export default function NewContractPage() {
             defaultValue="Markov Services s.r.l."
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           >
-            <option value="Markov Services s.r.l.">Markov Services s.r.l.</option>
+            <option value="Markov Services s.r.l.">
+              Markov Services s.r.l.
+            </option>
             <option value="MKS Properties s.r.l.">MKS Properties s.r.l.</option>
           </select>
         </div>
@@ -171,17 +250,21 @@ export default function NewContractPage() {
             />
           </div>
         </div>
-  <MultiDateInput name="indexingDates" />
+        <MultiDateInput name="indexingDates" />
         <div className="space-y-2">
           <div>
-            <label className="block text-sm font-medium">Încarcă scan (PDF sau imagine)</label>
+            <label className="block text-sm font-medium">
+              Încarcă scan (PDF sau imagine)
+            </label>
             <input
               type="file"
               name="scanFile"
               accept="application/pdf,image/*"
               className="mt-1 block w-full text-sm"
             />
-            <p className="mt-1 text-xs text-foreground/60">Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.</p>
+            <p className="mt-1 text-xs text-foreground/60">
+              Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium">sau introdu URL</label>
@@ -192,7 +275,9 @@ export default function NewContractPage() {
               title="Acceptat: PDF sau imagine (png, jpg, jpeg, gif, webp, svg)"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
-            <p className="mt-1 text-xs text-foreground/60">Dacă alegi fișier, acesta va avea prioritate față de URL.</p>
+            <p className="mt-1 text-xs text-foreground/60">
+              Dacă alegi fișier, acesta va avea prioritate față de URL.
+            </p>
           </div>
         </div>
         <div className="pt-2">
