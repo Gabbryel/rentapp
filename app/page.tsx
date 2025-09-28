@@ -46,9 +46,17 @@ export default async function Home({
   };
 
   const fmtEUR = (n: number) =>
-    n.toLocaleString("ro-RO", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+    n.toLocaleString("ro-RO", {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 2,
+    });
   const fmtRON = (n: number) =>
-    n.toLocaleString("ro-RO", { style: "currency", currency: "RON", maximumFractionDigits: 2 });
+    n.toLocaleString("ro-RO", {
+      style: "currency",
+      currency: "RON",
+      maximumFractionDigits: 2,
+    });
 
   // Optional filter by next indexing within N days
   if (range === "15" || range === "60") {
@@ -67,9 +75,12 @@ export default async function Home({
   const totals = contracts.reduce(
     (acc, c) => {
       if (typeof c.amountEUR === "number") acc.eur += c.amountEUR;
-      if (typeof c.amountEUR === "number" && typeof c.exchangeRateRON === "number") {
+      if (
+        typeof c.amountEUR === "number" &&
+        typeof c.exchangeRateRON === "number"
+      ) {
         const baseRon = c.amountEUR * c.exchangeRateRON;
-        const tvaPct = typeof (c as any).tvaPercent === "number" ? (c as any).tvaPercent : 0;
+        const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
         const tvaAmt = baseRon * (tvaPct / 100);
         acc.ronBase += baseRon;
         acc.tva += tvaAmt;
@@ -87,7 +98,12 @@ export default async function Home({
     }
     const { rate } = await getDailyEurRon({ forceRefresh: true });
     const db = await getDb();
-    await db.collection("contracts").updateMany({ amountEUR: { $exists: true } }, { $set: { exchangeRateRON: rate } });
+    await db
+      .collection("contracts")
+      .updateMany(
+        { amountEUR: { $exists: true } },
+        { $set: { exchangeRateRON: rate } }
+      );
     revalidatePath("/");
   }
 
@@ -109,24 +125,38 @@ export default async function Home({
             <button
               className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
               disabled={!(process.env.MONGODB_URI && process.env.MONGODB_DB)}
-              title={!(process.env.MONGODB_URI && process.env.MONGODB_DB) ? "MongoDB nu este configurat" : "Actualizează cursul pentru toate contractele"}
+              title={
+                !(process.env.MONGODB_URI && process.env.MONGODB_DB)
+                  ? "MongoDB nu este configurat"
+                  : "Actualizează cursul pentru toate contractele"
+              }
             >
               Actualizează cursul (toate contractele)
             </button>
           </form>
           <div className="text-right sm:text-left">
-            <div className="text-sm text-foreground/60 shrink-0">Total: {contracts.length}</div>
+            <div className="text-sm text-foreground/60 shrink-0">
+              Total: {contracts.length}
+            </div>
             <div className="text-xs text-foreground/60">
               {"EUR: "}
-              <span className="font-medium text-foreground/80">{fmtEUR(totals.eur)}</span>
+              <span className="font-medium text-foreground/80">
+                {fmtEUR(totals.eur)}
+              </span>
               {" · RON: "}
-              <span className="font-medium text-foreground/80">{fmtRON(totals.ronBase)}</span>
+              <span className="font-medium text-foreground/80">
+                {fmtRON(totals.ronBase)}
+              </span>
               {" · RON (cu TVA): "}
-              <span className="font-medium text-foreground/80">{fmtRON(totals.ronWithTva)}</span>
+              <span className="font-medium text-foreground/80">
+                {fmtRON(totals.ronWithTva)}
+              </span>
               {totals.tva > 0 ? (
                 <>
                   {" "}
-                  <span className="text-foreground/60">(TVA: {fmtRON(totals.tva)})</span>
+                  <span className="text-foreground/60">
+                    (TVA: {fmtRON(totals.tva)})
+                  </span>
                 </>
               ) : null}
             </div>
@@ -197,7 +227,8 @@ export default async function Home({
               let cls = "text-foreground/80";
               if (nd >= startOfToday) {
                 const diffDays = Math.ceil(
-                  (nd.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
+                  (nd.getTime() - startOfToday.getTime()) /
+                    (1000 * 60 * 60 * 24)
                 );
                 if (diffDays < 15) cls = "text-red-600 flash-red";
                 else if (diffDays <= 60) cls = "text-yellow-600";
@@ -209,7 +240,8 @@ export default async function Home({
               );
             })()}
 
-            {typeof c.amountEUR === "number" && typeof c.exchangeRateRON === "number" ? (
+            {typeof c.amountEUR === "number" &&
+            typeof c.exchangeRateRON === "number" ? (
               <>
                 <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
                   <div className="rounded-md bg-foreground/5 p-3">
@@ -218,25 +250,30 @@ export default async function Home({
                   </div>
                   <div className="rounded-md bg-foreground/5 p-3">
                     <dt className="text-foreground/60">Curs</dt>
-                    <dd className="font-medium">{c.exchangeRateRON.toFixed(4)} RON/EUR</dd>
+                    <dd className="font-medium">
+                      {c.exchangeRateRON.toFixed(4)} RON/EUR
+                    </dd>
                   </div>
                   <div className="rounded-md bg-foreground/5 p-3">
-                    <dt className="text-foreground/60">{
-                      typeof (c as any).tvaPercent === "number" && (c as any).tvaPercent > 0
-                        ? `RON (cu TVA ${(c as any).tvaPercent}%)`
-                        : "RON"
-                    }</dt>
+                    <dt className="text-foreground/60">
+                      {typeof c.tvaPercent === "number" && c.tvaPercent > 0
+                        ? `RON (cu TVA ${c.tvaPercent}%)`
+                        : "RON"}
+                    </dt>
                     <dd className="font-medium">
                       {(() => {
                         const baseRon = c.amountEUR! * c.exchangeRateRON!;
-                        const tva = typeof (c as any).tvaPercent === "number" ? (c as any).tvaPercent : 0;
+                        const tva =
+                          typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
                         const withTva = baseRon * (1 + tva / 100);
                         const tvaAmt = baseRon * (tva / 100);
                         return (
                           <>
                             <div>{fmtRON(withTva)}</div>
                             {tva > 0 && tvaAmt > 0 ? (
-                              <div className="text-xs text-foreground/60">TVA {tva}%: {fmtRON(tvaAmt)}</div>
+                              <div className="text-xs text-foreground/60">
+                                TVA {tva}%: {fmtRON(tvaAmt)}
+                              </div>
                             ) : null}
                           </>
                         );
@@ -244,7 +281,6 @@ export default async function Home({
                     </dd>
                   </div>
                 </dl>
-                
               </>
             ) : null}
 

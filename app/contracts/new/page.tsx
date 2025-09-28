@@ -132,7 +132,7 @@ async function createContract(formData: FormData) {
       scanUrl: parsed.data.scanUrl,
       amountEUR: parsed.data.amountEUR,
       exchangeRateRON: parsed.data.exchangeRateRON,
-      tvaPercent: (parsed.data as any).tvaPercent,
+      tvaPercent: parsed.data.tvaPercent,
     },
   });
   redirect(`/contracts/${parsed.data.id}`);

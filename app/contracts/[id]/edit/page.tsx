@@ -1,6 +1,10 @@
 import { fetchContractById, upsertContract } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
-import { logAction, computeDiffContract, deleteLocalUploadIfPresent } from "@/lib/audit";
+import {
+  logAction,
+  computeDiffContract,
+  deleteLocalUploadIfPresent,
+} from "@/lib/audit";
 import { notFound, redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
 import Link from "next/link";
@@ -29,8 +33,9 @@ export default async function EditContractPage({
     const startDate = (formData.get("startDate") as string) ?? "";
     const endDate = (formData.get("endDate") as string) ?? "";
     const amountEURRaw = (formData.get("amountEUR") as string) || "";
-    const exchangeRateRONRaw = (formData.get("exchangeRateRON") as string) || "";
-  const tvaRaw = (formData.get("tvaPercent") as string) || "";
+    const exchangeRateRONRaw =
+      (formData.get("exchangeRateRON") as string) || "";
+    const tvaRaw = (formData.get("tvaPercent") as string) || "";
     const amountEUR = (() => {
       const n = Number(amountEURRaw.replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -136,12 +141,19 @@ export default async function EditContractPage({
     }
 
     // Compute diff against previous contract for auditing
-  const { changes, scanChange } = computeDiffContract(prevContract, parsed.data);
+    const { changes, scanChange } = computeDiffContract(
+      prevContract,
+      parsed.data
+    );
 
     // If the scan was removed or replaced, try to delete old local file
-    let scanDeletion: { deleted: boolean; reason: string; path?: string } | undefined;
+    let scanDeletion:
+      | { deleted: boolean; reason: string; path?: string }
+      | undefined;
     if (scanChange === "removed" || scanChange === "replaced") {
-      scanDeletion = await deleteLocalUploadIfPresent(prevContract.scanUrl ?? undefined);
+      scanDeletion = await deleteLocalUploadIfPresent(
+        prevContract.scanUrl ?? undefined
+      );
     }
 
     await upsertContract(parsed.data);
@@ -210,12 +222,23 @@ export default async function EditContractPage({
               step="0.01"
               min="0"
               inputMode="decimal"
-              defaultValue={(contract as any).amountEUR ?? ""}
+              defaultValue={
+                typeof contract.amountEUR === "number"
+                  ? String(contract.amountEUR)
+                  : ""
+              }
               placeholder="ex: 1200"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>
-          <ExchangeRateField name="exchangeRateRON" defaultValue={(contract as any).exchangeRateRON ?? ""} />
+          <ExchangeRateField
+            name="exchangeRateRON"
+            defaultValue={
+              typeof contract.exchangeRateRON === "number"
+                ? String(contract.exchangeRateRON)
+                : ""
+            }
+          />
           <div>
             <label className="block text-sm font-medium">TVA (%)</label>
             <input
@@ -225,7 +248,11 @@ export default async function EditContractPage({
               min="0"
               max="100"
               inputMode="numeric"
-              defaultValue={(contract as any).tvaPercent ?? ""}
+              defaultValue={
+                typeof contract.tvaPercent === "number"
+                  ? String(contract.tvaPercent)
+                  : ""
+              }
               placeholder="ex: 19"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />

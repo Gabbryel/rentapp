@@ -22,16 +22,7 @@ if (!fs.existsSync(ENV) && !fs.existsSync(ENV_LOCAL)) {
   console.warn("No .env or .env.local found. Using process env.");
 }
 
-function redactUri(uri: string | undefined) {
-  if (!uri) return "(empty)";
-  try {
-    const u = new URL(uri);
-    if (u.password) u.password = "****";
-    return `${u.protocol}//${u.username ? u.username + ":" : ""}${u.password ? u.password + "@" : ""}${u.host}${u.pathname}`;
-  } catch {
-    return "(invalid URI)";
-  }
-}
+// (no-op: removed unused redactUri helper)
 
 async function main() {
   if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {

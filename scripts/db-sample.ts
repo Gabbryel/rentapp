@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getDb } from "../lib/mongodb";
+import type { Contract } from "../lib/schemas/contract";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(ROOT, "..");
@@ -14,11 +15,11 @@ if (fs.existsSync(ENV_LOCAL)) dotenv.config({ path: ENV_LOCAL, override: true })
 async function main() {
   const db = await getDb();
   const docs = await db
-    .collection("contracts")
+    .collection<Contract>("contracts")
     .find({}, { projection: { _id: 0 }, limit: 3 })
     .toArray();
   for (const d of docs) {
-    const { id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl, indexingDates } = d as any;
+    const { id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl, indexingDates } = d;
     console.log({ id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl, indexingDates });
   }
 }

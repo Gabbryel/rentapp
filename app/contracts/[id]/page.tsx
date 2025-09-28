@@ -86,24 +86,48 @@ export default async function ContractPage({
                   {contract.id}
                 </dd>
               </div>
-              {typeof (contract as any).amountEUR === "number" && typeof (contract as any).exchangeRateRON === "number" ? (
+              {typeof contract.amountEUR === "number" &&
+              typeof contract.exchangeRateRON === "number" ? (
                 <div className="col-span-2">
                   <dt className="text-foreground/60">Valoare</dt>
                   <dd className="mt-1 flex flex-wrap items-center gap-3">
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(contract as any).amountEUR.toFixed(2)} EUR</span>
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">
+                      {contract.amountEUR.toFixed(2)} EUR
+                    </span>
                     <span className="text-foreground/60">la curs</span>
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(contract as any).exchangeRateRON.toFixed(4)} RON/EUR</span>
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">
+                      {contract.exchangeRateRON.toFixed(4)} RON/EUR
+                    </span>
                     <span className="text-foreground/60">≈</span>
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">{(((contract as any).amountEUR * (contract as any).exchangeRateRON) as number).toFixed(2)} RON</span>
+                    <span className="rounded-md bg-foreground/5 px-2 py-1">
+                      {(contract.amountEUR * contract.exchangeRateRON).toFixed(
+                        2
+                      )}{" "}
+                      RON
+                    </span>
                   </dd>
-                  {typeof (contract as any).tvaPercent === "number" && (contract as any).tvaPercent > 0 ? (
+                  {typeof contract.tvaPercent === "number" &&
+                  contract.tvaPercent > 0 ? (
                     <dd className="mt-1 flex flex-wrap items-center gap-3">
-                      <span className="text-foreground/60">RON (cu TVA {(contract as any).tvaPercent}%)</span>
+                      <span className="text-foreground/60">
+                        RON (cu TVA {contract.tvaPercent}%)
+                      </span>
                       <span className="rounded-md bg-foreground/5 px-2 py-1">
-                        {(((contract as any).amountEUR * (contract as any).exchangeRateRON) * (1 + (contract as any).tvaPercent / 100)).toFixed(2)} RON
+                        {(
+                          contract.amountEUR *
+                          contract.exchangeRateRON *
+                          (1 + contract.tvaPercent / 100)
+                        ).toFixed(2)}{" "}
+                        RON
                       </span>
                       <span className="text-foreground/60">
-                        (TVA: {((((contract as any).amountEUR * (contract as any).exchangeRateRON) as number) * ((contract as any).tvaPercent / 100)).toFixed(2)} RON)
+                        (TVA:{" "}
+                        {(
+                          contract.amountEUR *
+                          contract.exchangeRateRON *
+                          (contract.tvaPercent / 100)
+                        ).toFixed(2)}{" "}
+                        RON)
                       </span>
                     </dd>
                   ) : null}
@@ -148,11 +172,21 @@ export default async function ContractPage({
                     action={async () => {
                       "use server";
                       // Try to delete local scan file if applicable before removing DB record
-                      const fileDeletion = await deleteLocalUploadIfPresent(contract.scanUrl ?? undefined);
+                      const fileDeletion = await deleteLocalUploadIfPresent(
+                        contract.scanUrl ?? undefined
+                      );
                       const ok = await deleteContractById(contract.id);
                       if (!ok)
                         throw new Error("Nu am putut șterge contractul.");
-                      await logAction({ action: "contract.delete", targetType: "contract", targetId: contract.id, meta: { name: contract.name, deletedScan: fileDeletion } });
+                      await logAction({
+                        action: "contract.delete",
+                        targetType: "contract",
+                        targetId: contract.id,
+                        meta: {
+                          name: contract.name,
+                          deletedScan: fileDeletion,
+                        },
+                      });
                       redirect("/");
                     }}
                   />

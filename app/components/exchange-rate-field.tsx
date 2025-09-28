@@ -8,7 +8,11 @@ type Props = {
   defaultValue?: number | string;
 };
 
-export default function ExchangeRateField({ name, label = "Curs RON/EUR", defaultValue }: Props) {
+export default function ExchangeRateField({
+  name,
+  label = "Curs RON/EUR",
+  defaultValue,
+}: Props) {
   const [value, setValue] = useState<string>(defaultValue?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +61,9 @@ export default function ExchangeRateField({ name, label = "Curs RON/EUR", defaul
           onClick={async () => {
             try {
               setLoading(true);
-              const res = await fetch("/api/exchange/eurron", { cache: "no-store" });
+              const res = await fetch("/api/exchange/eurron", {
+                cache: "no-store",
+              });
               if (!res.ok) throw new Error("Nu am putut obține cursul.");
               const data = (await res.json()) as { rate?: number };
               if (typeof data.rate === "number") setValue(data.rate.toFixed(4));

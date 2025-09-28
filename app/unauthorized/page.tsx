@@ -5,10 +5,12 @@ export default function UnauthorizedPage() {
         <div className="mx-auto mb-6 h-16 w-16 rounded-2xl bg-white/15 backdrop-blur grid place-items-center shadow-lg">
           <span className="text-3xl">🔒</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Acces restricționat</h1>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          Acces restricționat
+        </h1>
         <p className="mt-3 text-white/90 text-balance">
-          Doar proprietarii acestei aplicații au acces. Dacă ai primit invitație, autentifică-te cu adresa
-          ta de email.
+          Doar proprietarii acestei aplicații au acces. Dacă ai primit
+          invitație, autentifică-te cu adresa ta de email.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <a

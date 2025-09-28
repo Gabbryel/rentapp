@@ -23,7 +23,10 @@ export default function Navbar() {
     const controller = new AbortController();
     const loadMe = async () => {
       try {
-        const res = await fetch("/api/me", { cache: "no-store", signal: controller.signal });
+        const res = await fetch("/api/me", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (!aborted && data) {
@@ -79,7 +82,9 @@ export default function Navbar() {
               <Link
                 href="/admin"
                 className={`rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-foreground/5 ${
-                  pathname === "/admin" ? "text-foreground" : "text-foreground/70"
+                  pathname === "/admin"
+                    ? "text-foreground"
+                    : "text-foreground/70"
                 }`}
               >
                 Admin
@@ -98,7 +103,12 @@ export default function Navbar() {
               </Link>
               {email ? (
                 <>
-                  <span className="text-xs text-foreground/70 truncate max-w-[18ch]" title={email}>{email}</span>
+                  <span
+                    className="text-xs text-foreground/70 truncate max-w-[18ch]"
+                    title={email}
+                  >
+                    {email}
+                  </span>
                   <form action="/api/logout" method="post">
                     <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
                       Ieși
@@ -180,7 +190,9 @@ export default function Navbar() {
                 <Link
                   href="/admin"
                   className={`rounded-md px-3 py-2 text-sm font-medium hover:bg-foreground/5 ${
-                    pathname === "/admin" ? "text-foreground" : "text-foreground/70"
+                    pathname === "/admin"
+                      ? "text-foreground"
+                      : "text-foreground/70"
                   }`}
                 >
                   Admin
@@ -194,7 +206,12 @@ export default function Navbar() {
               </Link>
               {email ? (
                 <div className="flex items-center justify-between gap-3 px-3 mt-2">
-                  <span className="text-xs text-foreground/70 truncate" title={email}>{email}</span>
+                  <span
+                    className="text-xs text-foreground/70 truncate"
+                    title={email}
+                  >
+                    {email}
+                  </span>
                   <form action="/api/logout" method="post">
                     <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
                       Ieși
