@@ -10,7 +10,9 @@
     "db:seed:mongo": "tsx scripts/seed-mongo.ts",
     "db:count": "tsx scripts/db-count.ts",
     "db:sample": "tsx scripts/db-sample.ts",
-    "contracts:update:rate": "tsx scripts/update-exchange-rate.ts"
+    "contracts:update:rate": "tsx scripts/update-exchange-rate.ts",
+    "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts",
+    "exchange:rai:refresh": "tsx scripts/refresh-rai-rate.ts"
   },
   "dependencies": {
     "mongodb": "^6",

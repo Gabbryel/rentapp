@@ -36,7 +36,9 @@ export default async function ContractPage({
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold">{contract.name}</h1>
-          <p className="text-base text-foreground/70">Partener: {contract.partner}</p>
+          <p className="text-base text-foreground/70">
+            Partener: {contract.partner}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
@@ -100,30 +102,43 @@ export default async function ContractPage({
                     </span>
                     <span className="text-foreground/60">≈</span>
                     <span className="rounded-md bg-foreground/5 px-2 py-1 text-sky-700 dark:text-sky-400">
-                      {(contract.amountEUR * contract.exchangeRateRON).toFixed(2)} RON
+                      {(contract.amountEUR * contract.exchangeRateRON).toFixed(
+                        2
+                      )}{" "}
+                      RON
                     </span>
                   </dd>
-                  {typeof contract.correctionPercent === "number" && contract.correctionPercent > 0 ? (
+                  {typeof contract.correctionPercent === "number" &&
+                  contract.correctionPercent > 0 ? (
                     <dd className="mt-1 flex flex-wrap items-center gap-3">
-                      <span className="text-foreground/60">Corecție {contract.correctionPercent}%</span>
+                      <span className="text-foreground/60">
+                        Corecție {contract.correctionPercent}%
+                      </span>
                       <span className="rounded-md bg-foreground/5 px-2 py-1 text-amber-700 dark:text-amber-400">
                         {(
                           contract.amountEUR *
                           contract.exchangeRateRON *
                           (contract.correctionPercent / 100)
-                        ).toFixed(2)} RON
+                        ).toFixed(2)}{" "}
+                        RON
                       </span>
                     </dd>
                   ) : null}
                   {typeof contract.correctionPercent === "number" ? (
                     <dd className="mt-1 flex flex-wrap items-center gap-3">
-                      <span className="text-foreground/60">RON (după corecție)</span>
+                      <span className="text-foreground/60">
+                        RON (după corecție)
+                      </span>
                       <span className="rounded-md bg-foreground/5 px-2 py-1 text-sky-700 dark:text-sky-400">
                         {(() => {
-                          const base = contract.amountEUR * contract.exchangeRateRON;
-                          const corrected = base * (1 + (contract.correctionPercent ?? 0) / 100);
+                          const base =
+                            contract.amountEUR * contract.exchangeRateRON;
+                          const corrected =
+                            base *
+                            (1 + (contract.correctionPercent ?? 0) / 100);
                           return corrected.toFixed(2);
-                        })()} RON
+                        })()}{" "}
+                        RON
                       </span>
                     </dd>
                   ) : null}
@@ -135,17 +150,34 @@ export default async function ContractPage({
                       </span>
                       <span className="rounded-md bg-foreground/5 px-2 py-1 text-emerald-700 dark:text-emerald-400">
                         {(() => {
-                          const base = contract.amountEUR * contract.exchangeRateRON;
-                          const corrected = base * (1 + (typeof contract.correctionPercent === "number" ? contract.correctionPercent : 0) / 100);
-                          return (corrected * (1 + contract.tvaPercent / 100)).toFixed(2);
-                        })()} {" "}
+                          const base =
+                            contract.amountEUR * contract.exchangeRateRON;
+                          const corrected =
+                            base *
+                            (1 +
+                              (typeof contract.correctionPercent === "number"
+                                ? contract.correctionPercent
+                                : 0) /
+                                100);
+                          return (
+                            corrected *
+                            (1 + contract.tvaPercent / 100)
+                          ).toFixed(2);
+                        })()}{" "}
                         RON
                       </span>
                       <span className="text-foreground/60">
                         <span className="text-rose-700 dark:text-rose-400">
                           {(() => {
-                            const base = contract.amountEUR * contract.exchangeRateRON;
-                            const corrected = base * (1 + (typeof contract.correctionPercent === "number" ? contract.correctionPercent : 0) / 100);
+                            const base =
+                              contract.amountEUR * contract.exchangeRateRON;
+                            const corrected =
+                              base *
+                              (1 +
+                                (typeof contract.correctionPercent === "number"
+                                  ? contract.correctionPercent
+                                  : 0) /
+                                  100);
                             const tva = corrected * (contract.tvaPercent / 100);
                             return `(TVA: ${tva.toFixed(2)} RON)`;
                           })()}

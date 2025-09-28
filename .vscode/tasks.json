@@ -63,6 +63,200 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Run RAI refresh script",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"exchange:rai:refresh"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build after RAI parser fix",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after RAI block always visible",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after homepage redesign",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Rebuild after navbar and loading tweaks",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after server action hardening",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Rebuild after adding method=post on forms",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after flash messaging integration",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after adding contracts sorting",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Rebuild after typing fix",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after moving banners",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after card redesign",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after overflow fixes",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after monospace update",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after icon buttons and indexing move",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build after min font override",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--silent"
+			],
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

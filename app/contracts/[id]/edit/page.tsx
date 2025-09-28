@@ -36,7 +36,7 @@ export default async function EditContractPage({
     const exchangeRateRONRaw =
       (formData.get("exchangeRateRON") as string) || "";
     const tvaRaw = (formData.get("tvaPercent") as string) || "";
-  const corrRaw = (formData.get("correctionPercent") as string) || "";
+    const corrRaw = (formData.get("correctionPercent") as string) || "";
     const amountEUR = (() => {
       const n = Number(amountEURRaw.replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;

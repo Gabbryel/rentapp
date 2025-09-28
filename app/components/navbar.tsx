@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const links = [
-  { href: "/", label: "Acasă" },
   { href: "/", label: "Contracte" },
   { href: "/about", label: "Despre" },
 ];
@@ -51,7 +50,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-foreground/10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <nav className="mx-auto max-w-6xl px-4 sm:px-6">
+      <nav className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between gap-3">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2 font-semibold">

@@ -21,10 +21,29 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 16.5px;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 16px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Enforce minimum font-size of 1rem across the app, even if a tiny utility is used */
+*:where(.text-xs,
+        .text-sm,
+        .sm\:text-xs,
+        .sm\:text-sm,
+        .text-\[10px\],
+        .text-\[11px\]) {
+  font-size: 1rem !important;
+}
+
+/* Card polish */
+.shadow-sm { box-shadow: 0 1px 2px 0 color-mix(in oklab, var(--foreground) 10%, transparent); }
+.shadow-md { box-shadow: 0 4px 6px -1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 2px 4px -2px color-mix(in oklab, var(--foreground) 6%, transparent); }
+
+/* Subtle backdrop for full-width sections */
+.section-muted { background: color-mix(in oklab, var(--foreground) 4%, transparent); }
 
 /* Flashing red utility for urgent statuses */
 @keyframes flash-red {
@@ -34,4 +53,29 @@ body {
 
 .flash-red {
   animation: flash-red 1s ease-in-out infinite;
+}
+
+/* Base form controls */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--foreground) 20%, transparent);
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+}
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--foreground) 10%, transparent);
 }
