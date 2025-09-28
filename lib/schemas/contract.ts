@@ -38,6 +38,8 @@ export const ContractSchema = z
   exchangeRateRON: z.number().positive().optional(),
   // TVA percent (0-100), integer
   tvaPercent: z.number().int().min(0).max(100).optional(),
+  // Correction percent (0-100), integer; applied to base amount before TVA
+  correctionPercent: z.number().int().min(0).max(100).optional(),
   })
   .superRefine((val, ctx) => {
     const s = new Date(val.signedAt);

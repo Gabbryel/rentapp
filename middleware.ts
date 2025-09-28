@@ -11,24 +11,7 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Always allow API and static assets
-  if (pathname.startsWith("/api/")) return NextResponse.next();
-  if (pathname.startsWith("/_next/")) return NextResponse.next();
-  if (pathname.startsWith("/public/")) return NextResponse.next();
-  if (/[.](?:svg|png|jpg|jpeg|gif|webp|pdf|ico)$/i.test(pathname)) return NextResponse.next();
-
-  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
-
-  const session = req.cookies.get("session")?.value;
-  if (!session) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/unauthorized";
-    url.search = "";
-    return NextResponse.rewrite(url);
-  }
-
+  // Temporarily disable all restrictions; allow every route.
   return NextResponse.next();
 }
 

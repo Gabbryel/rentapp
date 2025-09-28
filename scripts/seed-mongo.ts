@@ -70,7 +70,7 @@ async function main() {
   }
 
   // Deterministic but varied amounts and rates
-  function deriveAmounts(idx: number): { amountEUR: number; exchangeRateRON: number; tvaPercent: number } {
+  function deriveAmounts(idx: number): { amountEUR: number; exchangeRateRON: number; tvaPercent: number; correctionPercent: number } {
     const base = 400 + (idx % 12) * 75; // 400..1275
     const cents = ((idx * 17) % 100) / 100; // .00 .. .99
     const amountEUR = +(base + cents).toFixed(2);
@@ -80,12 +80,14 @@ async function main() {
     // Use common VAT values: 19% mostly, sometimes 9%/5%
     const tvaPool = [19, 19, 19, 19, 19, 9, 5];
     const tvaPercent = tvaPool[idx % tvaPool.length];
-    return { amountEUR, exchangeRateRON, tvaPercent };
+    const corrPool = [0, 0, 0, 5, 10];
+    const correctionPercent = corrPool[idx % corrPool.length];
+    return { amountEUR, exchangeRateRON, tvaPercent, correctionPercent };
   }
 
   const data: ContractType[] = getMockContracts().map((c, i) => {
-    const { amountEUR, exchangeRateRON, tvaPercent } = (c as Partial<ContractType>).amountEUR && (c as Partial<ContractType>).exchangeRateRON
-      ? { amountEUR: (c as Partial<ContractType>).amountEUR!, exchangeRateRON: (c as Partial<ContractType>).exchangeRateRON!, tvaPercent: (c as Partial<ContractType>).tvaPercent ?? 19 }
+    const { amountEUR, exchangeRateRON, tvaPercent, correctionPercent } = (c as Partial<ContractType>).amountEUR && (c as Partial<ContractType>).exchangeRateRON
+      ? { amountEUR: (c as Partial<ContractType>).amountEUR!, exchangeRateRON: (c as Partial<ContractType>).exchangeRateRON!, tvaPercent: (c as Partial<ContractType>).tvaPercent ?? 19, correctionPercent: (c as Partial<ContractType>).correctionPercent ?? 0 }
       : deriveAmounts(i + 1);
 
     const indexingDates = Array.isArray((c as Partial<ContractType>).indexingDates) && (c as Partial<ContractType>).indexingDates!.length > 0
@@ -104,6 +106,7 @@ async function main() {
       amountEUR,
       exchangeRateRON,
       tvaPercent,
+      correctionPercent,
     } as ContractType;
     return enriched;
   });

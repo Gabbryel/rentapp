@@ -16,12 +16,8 @@ function envIsAdmin(email: string | undefined | null) {
 // (helpers removed; global audit feed moved to /admin/users/[email])
 
 export default async function AdminPage() {
+  // Temporarily allow public access; we'll reintroduce restrictions later.
   const user = await currentUser();
-  const allowed = user?.isAdmin || envIsAdmin(user?.email);
-  if (!allowed) {
-    redirect("/login");
-  }
-
   const users: User[] = await listUsers();
   const fmt = (d: Date | string) => new Date(d).toLocaleString("ro-RO");
 

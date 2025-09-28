@@ -36,6 +36,7 @@ export default async function EditContractPage({
     const exchangeRateRONRaw =
       (formData.get("exchangeRateRON") as string) || "";
     const tvaRaw = (formData.get("tvaPercent") as string) || "";
+  const corrRaw = (formData.get("correctionPercent") as string) || "";
     const amountEUR = (() => {
       const n = Number(amountEURRaw.replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -46,6 +47,12 @@ export default async function EditContractPage({
     })();
     const tvaPercent = (() => {
       const n = Number(tvaRaw);
+      if (!Number.isInteger(n)) return undefined;
+      if (n < 0 || n > 100) return undefined;
+      return n;
+    })();
+    const correctionPercent = (() => {
+      const n = Number(corrRaw);
       if (!Number.isInteger(n)) return undefined;
       if (n < 0 || n > 100) return undefined;
       return n;
@@ -127,6 +134,7 @@ export default async function EditContractPage({
       amountEUR,
       exchangeRateRON,
       tvaPercent,
+      correctionPercent,
     });
     if (!parsed.success) {
       throw new Error(
@@ -254,6 +262,24 @@ export default async function EditContractPage({
                   : ""
               }
               placeholder="ex: 19"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Corecție (%)</label>
+            <input
+              name="correctionPercent"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              inputMode="numeric"
+              defaultValue={
+                typeof contract.correctionPercent === "number"
+                  ? String(contract.correctionPercent)
+                  : ""
+              }
+              placeholder="ex: 10"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>

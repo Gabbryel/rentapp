@@ -80,11 +80,13 @@ export default async function Home({
         typeof c.exchangeRateRON === "number"
       ) {
         const baseRon = c.amountEUR * c.exchangeRateRON;
+        const corrPct = typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+        const corrected = baseRon * (1 + corrPct / 100);
         const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
-        const tvaAmt = baseRon * (tvaPct / 100);
-        acc.ronBase += baseRon;
+        const tvaAmt = corrected * (tvaPct / 100);
+        acc.ronBase += corrected;
         acc.tva += tvaAmt;
-        acc.ronWithTva += baseRon + tvaAmt;
+        acc.ronWithTva += corrected + tvaAmt;
       }
       return acc;
     },
@@ -140,21 +142,21 @@ export default async function Home({
             </div>
             <div className="text-xs text-foreground/60">
               {"EUR: "}
-              <span className="font-medium text-foreground/80">
+              <span className="font-medium text-indigo-700 dark:text-indigo-400">
                 {fmtEUR(totals.eur)}
               </span>
               {" · RON: "}
-              <span className="font-medium text-foreground/80">
+              <span className="font-medium text-sky-700 dark:text-sky-400">
                 {fmtRON(totals.ronBase)}
               </span>
               {" · RON (cu TVA): "}
-              <span className="font-medium text-foreground/80">
+              <span className="font-medium text-emerald-700 dark:text-emerald-400">
                 {fmtRON(totals.ronWithTva)}
               </span>
               {totals.tva > 0 ? (
                 <>
                   {" "}
-                  <span className="text-foreground/60">
+                  <span className="text-rose-700 dark:text-rose-400">
                     (TVA: {fmtRON(totals.tva)})
                   </span>
                 </>
@@ -171,7 +173,7 @@ export default async function Home({
             className="rounded-lg border border-foreground/15 p-4 hover:border-foreground/30 transition-colors text-[105%]"
           >
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-semibold truncate" title={c.name}>
+              <h2 className="text-xl font-semibold truncate" title={c.name}>
                 <Link href={`/contracts/${c.id}`} className="hover:underline">
                   {c.name}
                 </Link>
@@ -243,14 +245,14 @@ export default async function Home({
             {typeof c.amountEUR === "number" &&
             typeof c.exchangeRateRON === "number" ? (
               <>
-                <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                <dl className="mt-3 grid grid-cols-3 gap-3 text-base">
                   <div className="rounded-md bg-foreground/5 p-3">
                     <dt className="text-foreground/60">EUR</dt>
-                    <dd className="font-medium">{fmtEUR(c.amountEUR)}</dd>
+                    <dd className="font-medium text-indigo-700 dark:text-indigo-400">{fmtEUR(c.amountEUR)}</dd>
                   </div>
                   <div className="rounded-md bg-foreground/5 p-3">
                     <dt className="text-foreground/60">Curs</dt>
-                    <dd className="font-medium">
+                    <dd className="font-medium text-cyan-700 dark:text-cyan-400">
                       {c.exchangeRateRON.toFixed(4)} RON/EUR
                     </dd>
                   </div>
@@ -263,15 +265,27 @@ export default async function Home({
                     <dd className="font-medium">
                       {(() => {
                         const baseRon = c.amountEUR! * c.exchangeRateRON!;
+                        const corr = typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+                        const corrected = baseRon * (1 + corr / 100);
                         const tva =
                           typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
-                        const withTva = baseRon * (1 + tva / 100);
-                        const tvaAmt = baseRon * (tva / 100);
+                        const withTva = corrected * (1 + tva / 100);
+                        const tvaAmt = corrected * (tva / 100);
                         return (
                           <>
-                            <div>{fmtRON(withTva)}</div>
+                            <div className="text-emerald-700 dark:text-emerald-400">{fmtRON(withTva)}</div>
+                            {typeof c.correctionPercent === "number" ? (
+                              <div className="text-xs text-sky-700 dark:text-sky-400">
+                                RON (după corecție): {fmtRON(corrected)}
+                              </div>
+                            ) : null}
+                            {corr > 0 ? (
+                              <div className="text-xs text-amber-700 dark:text-amber-400">
+                                Corecție {corr}%: {fmtRON(corrected - baseRon)}
+                              </div>
+                            ) : null}
                             {tva > 0 && tvaAmt > 0 ? (
-                              <div className="text-xs text-foreground/60">
+                              <div className="text-xs text-rose-700 dark:text-rose-400">
                                 TVA {tva}%: {fmtRON(tvaAmt)}
                               </div>
                             ) : null}
@@ -284,7 +298,7 @@ export default async function Home({
               </>
             ) : null}
 
-            <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+            <dl className="mt-4 grid grid-cols-1 gap-3 text-base sm:grid-cols-3">
               <div className="rounded-md bg-foreground/5 p-3">
                 <dt className="text-foreground/60">Semnat</dt>
                 <dd className="font-medium">{fmt(c.signedAt)}</dd>

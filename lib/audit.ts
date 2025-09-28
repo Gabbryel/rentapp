@@ -48,6 +48,7 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
     "amountEUR",
     "exchangeRateRON",
     "tvaPercent",
+    "correctionPercent",
   ];
   const changes: Array<{ field: string; from: unknown; to: unknown }> = [];
   for (const f of fields) {

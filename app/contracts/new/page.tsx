@@ -40,6 +40,13 @@ async function createContract(formData: FormData) {
       if (n < 0 || n > 100) return undefined;
       return n;
     })(),
+    correctionPercent: (() => {
+      const raw = (formData.get("correctionPercent") as string) || "";
+      const n = Number(raw);
+      if (!Number.isInteger(n)) return undefined;
+      if (n < 0 || n > 100) return undefined;
+      return n;
+    })(),
   };
 
   // Prefer uploaded file over URL, if provided
@@ -133,6 +140,7 @@ async function createContract(formData: FormData) {
       amountEUR: parsed.data.amountEUR,
       exchangeRateRON: parsed.data.exchangeRateRON,
       tvaPercent: parsed.data.tvaPercent,
+      correctionPercent: parsed.data.correctionPercent,
     },
   });
   redirect(`/contracts/${parsed.data.id}`);
@@ -188,6 +196,19 @@ export default function NewContractPage() {
               max="100"
               inputMode="numeric"
               placeholder="ex: 19"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Corecție (%)</label>
+            <input
+              name="correctionPercent"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              inputMode="numeric"
+              placeholder="ex: 10"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>

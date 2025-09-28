@@ -35,8 +35,8 @@ export default async function ContractPage({
 
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">{contract.name}</h1>
-          <p className="text-foreground/70">Partener: {contract.partner}</p>
+          <h1 className="text-3xl sm:text-4xl font-bold">{contract.name}</h1>
+          <p className="text-base text-foreground/70">Partener: {contract.partner}</p>
         </div>
         <div className="flex items-center gap-3">
           {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
@@ -62,8 +62,8 @@ export default async function ContractPage({
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-1">
           <div className="rounded-lg border border-foreground/15 p-4">
-            <h2 className="text-sm font-semibold">Detalii</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <h2 className="text-base font-semibold">Detalii</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-base">
               <div>
                 <dt className="text-foreground/60">Proprietar</dt>
                 <dd className="font-medium">{contract.owner}</dd>
@@ -91,43 +91,65 @@ export default async function ContractPage({
                 <div className="col-span-2">
                   <dt className="text-foreground/60">Valoare</dt>
                   <dd className="mt-1 flex flex-wrap items-center gap-3">
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">
+                    <span className="rounded-md bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400">
                       {contract.amountEUR.toFixed(2)} EUR
                     </span>
                     <span className="text-foreground/60">la curs</span>
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">
+                    <span className="rounded-md bg-foreground/5 px-2 py-1 text-cyan-700 dark:text-cyan-400">
                       {contract.exchangeRateRON.toFixed(4)} RON/EUR
                     </span>
                     <span className="text-foreground/60">≈</span>
-                    <span className="rounded-md bg-foreground/5 px-2 py-1">
-                      {(contract.amountEUR * contract.exchangeRateRON).toFixed(
-                        2
-                      )}{" "}
-                      RON
+                    <span className="rounded-md bg-foreground/5 px-2 py-1 text-sky-700 dark:text-sky-400">
+                      {(contract.amountEUR * contract.exchangeRateRON).toFixed(2)} RON
                     </span>
                   </dd>
+                  {typeof contract.correctionPercent === "number" && contract.correctionPercent > 0 ? (
+                    <dd className="mt-1 flex flex-wrap items-center gap-3">
+                      <span className="text-foreground/60">Corecție {contract.correctionPercent}%</span>
+                      <span className="rounded-md bg-foreground/5 px-2 py-1 text-amber-700 dark:text-amber-400">
+                        {(
+                          contract.amountEUR *
+                          contract.exchangeRateRON *
+                          (contract.correctionPercent / 100)
+                        ).toFixed(2)} RON
+                      </span>
+                    </dd>
+                  ) : null}
+                  {typeof contract.correctionPercent === "number" ? (
+                    <dd className="mt-1 flex flex-wrap items-center gap-3">
+                      <span className="text-foreground/60">RON (după corecție)</span>
+                      <span className="rounded-md bg-foreground/5 px-2 py-1 text-sky-700 dark:text-sky-400">
+                        {(() => {
+                          const base = contract.amountEUR * contract.exchangeRateRON;
+                          const corrected = base * (1 + (contract.correctionPercent ?? 0) / 100);
+                          return corrected.toFixed(2);
+                        })()} RON
+                      </span>
+                    </dd>
+                  ) : null}
                   {typeof contract.tvaPercent === "number" &&
                   contract.tvaPercent > 0 ? (
                     <dd className="mt-1 flex flex-wrap items-center gap-3">
                       <span className="text-foreground/60">
                         RON (cu TVA {contract.tvaPercent}%)
                       </span>
-                      <span className="rounded-md bg-foreground/5 px-2 py-1">
-                        {(
-                          contract.amountEUR *
-                          contract.exchangeRateRON *
-                          (1 + contract.tvaPercent / 100)
-                        ).toFixed(2)}{" "}
+                      <span className="rounded-md bg-foreground/5 px-2 py-1 text-emerald-700 dark:text-emerald-400">
+                        {(() => {
+                          const base = contract.amountEUR * contract.exchangeRateRON;
+                          const corrected = base * (1 + (typeof contract.correctionPercent === "number" ? contract.correctionPercent : 0) / 100);
+                          return (corrected * (1 + contract.tvaPercent / 100)).toFixed(2);
+                        })()} {" "}
                         RON
                       </span>
                       <span className="text-foreground/60">
-                        (TVA:{" "}
-                        {(
-                          contract.amountEUR *
-                          contract.exchangeRateRON *
-                          (contract.tvaPercent / 100)
-                        ).toFixed(2)}{" "}
-                        RON)
+                        <span className="text-rose-700 dark:text-rose-400">
+                          {(() => {
+                            const base = contract.amountEUR * contract.exchangeRateRON;
+                            const corrected = base * (1 + (typeof contract.correctionPercent === "number" ? contract.correctionPercent : 0) / 100);
+                            const tva = corrected * (contract.tvaPercent / 100);
+                            return `(TVA: ${tva.toFixed(2)} RON)`;
+                          })()}
+                        </span>
                       </span>
                     </dd>
                   ) : null}
@@ -136,7 +158,7 @@ export default async function ContractPage({
               {contract.indexingDates && contract.indexingDates.length > 0 ? (
                 <div className="col-span-2">
                   <dt className="text-foreground/60">Indexări chirie</dt>
-                  <dd className="mt-1 flex flex-wrap gap-2">
+                  <dd className="mt-1 flex flex-wrap gap-2 text-sm">
                     {contract.indexingDates.map((d) => (
                       <span
                         key={d}
@@ -155,7 +177,7 @@ export default async function ContractPage({
         <div className="lg:col-span-2">
           <div className="rounded-lg border border-foreground/15 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2 border-b border-foreground/10">
-              <h2 className="text-sm font-semibold">Scan contract</h2>
+              <h2 className="text-base font-semibold">Scan contract</h2>
               <div className="flex items-center gap-3">
                 {contract.scanUrl && (
                   <a

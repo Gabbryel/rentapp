@@ -56,9 +56,7 @@ export default async function UserAuditPage({
 }: {
   params: { email: string };
 }) {
-  const me = await currentUser();
-  const allowed = me?.isAdmin || envIsAdmin(me?.email);
-  if (!allowed) redirect("/login");
+  // Temporarily allow public access; restrictions will be re-enabled later.
 
   const email = decodeURIComponent(params.email);
   const mongoConfigured = Boolean(
