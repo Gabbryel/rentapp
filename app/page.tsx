@@ -212,11 +212,7 @@ export default async function Home({
                 {" "}
                 · Data (EET/EEST): {bt ? bt.date : "—"}
               </span>
-              <form
-                action={refreshBtRate}
-                method="POST"
-                className="inline-block ml-auto"
-              >
+              <form action={refreshBtRate} className="inline-block ml-auto">
                 <ActionButton
                   className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
                   title="Actualizează cursul BT (vânzare EUR)"
@@ -242,11 +238,7 @@ export default async function Home({
                 {" "}
                 · Data (EET/EEST): {rai ? rai.date : "—"}
               </span>
-              <form
-                action={refreshRaiRate}
-                method="POST"
-                className="inline-block ml-auto"
-              >
+              <form action={refreshRaiRate} className="inline-block ml-auto">
                 <ActionButton
                   className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
                   title="Actualizează cursul Raiffeisen (vânzare EUR)"
@@ -261,11 +253,7 @@ export default async function Home({
               <SearchContracts initialQuery={q} />
               <IndexingFilters />
             </div>
-            <form
-              action={updateAllExchangeRates}
-              method="POST"
-              className="mt-2"
-            >
+            <form action={updateAllExchangeRates} className="mt-2">
               <ActionButton
                 className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs sm:text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60"
                 title={
