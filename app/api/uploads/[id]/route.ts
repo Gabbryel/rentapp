@@ -3,6 +3,16 @@ import { GridFSBucket, ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { Readable } from "node:stream";
 
+type GridFSFileDoc = {
+  _id: ObjectId;
+  filename: string;
+  length: number;
+  chunkSize: number;
+  uploadDate: Date;
+  metadata?: { originalName?: string; contractId?: string | null } | null;
+  contentType?: string;
+};
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (!process.env.MONGODB_URI) {
@@ -15,9 +25,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return new NextResponse("Not found", { status: 404 });
     }
     const id = new ObjectId(idStr);
-    const fileDocs = await db.collection("uploads.files").find({ _id: id }).limit(1).toArray();
+  const fileDocs = await db.collection("uploads.files").find({ _id: id }).limit(1).toArray();
     if (!fileDocs[0]) return new NextResponse("Not found", { status: 404 });
-    const file = fileDocs[0] as any;
+  const file = fileDocs[0] as GridFSFileDoc;
     const stream = bucket.openDownloadStream(id);
 
     const headers = new Headers();
@@ -28,9 +38,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (typeof file.length === "number") headers.set("Content-Length", String(file.length));
     if (file.uploadDate) headers.set("Last-Modified", new Date(file.uploadDate).toUTCString());
 
-  const webStream = (Readable as any).toWeb(stream as any) as ReadableStream;
+  const webStream = Readable.toWeb(stream as unknown as Readable) as ReadableStream;
     return new NextResponse(webStream, { headers });
-  } catch (e) {
+  } catch {
     return new NextResponse("Error", { status: 500 });
   }
 }

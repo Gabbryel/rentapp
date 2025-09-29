@@ -92,17 +92,10 @@ async function createContract(formData: FormData) {
     const orig = file.name || "scan";
     const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
     const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
-    const ext = (
-      fromNameExtMatch?.[1] ||
-      extFromMime(file.type) ||
-      "dat"
-    ).toLowerCase();
 
-    const res = await saveScanFile(
-      file,
-      `${sanitize(data.id)}-${base}`,
-      { contractId: data.id }
-    );
+    const res = await saveScanFile(file, `${sanitize(data.id)}-${base}`, {
+      contractId: data.id,
+    });
     data.scanUrl = res.url;
   } else if (urlInput) {
     data.scanUrl = urlInput || undefined;

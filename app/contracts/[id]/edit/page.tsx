@@ -76,7 +76,7 @@ export default async function EditContractPage({
       return null;
     };
 
-  let scanUrl: string | undefined = existingScanUrl;
+    let scanUrl: string | undefined = existingScanUrl;
     if (uploaded && uploaded instanceof File && uploaded.size > 0) {
       const file = uploaded as File;
       const okType = [
@@ -99,18 +99,12 @@ export default async function EditContractPage({
 
       const orig = file.name || "scan";
       const base = sanitize(orig.replace(/\.[^.]+$/, "")) || "scan";
+      // Keep filename base for nicer storage names; extension inferred by storage helper
       const fromNameExtMatch = /\.([a-z0-9]+)$/i.exec(orig ?? "");
-      const ext = (
-        fromNameExtMatch?.[1] ||
-        extFromMime(file.type) ||
-        "dat"
-      ).toLowerCase();
 
-      const res = await saveScanFile(
-        file,
-        `${sanitize(idFromParam)}-${base}`,
-        { contractId: idFromParam }
-      );
+      const res = await saveScanFile(file, `${sanitize(idFromParam)}-${base}`, {
+        contractId: idFromParam,
+      });
       scanUrl = res.url;
     } else if (urlInput) {
       scanUrl = urlInput || undefined;
@@ -171,10 +165,16 @@ export default async function EditContractPage({
     );
 
     // If the scan was removed or replaced, try to delete old local file
-    let scanDeletion: { deleted: boolean; reason: string; path?: string } | undefined;
+    let scanDeletion:
+      | { deleted: boolean; reason: string; path?: string }
+      | undefined;
     if (scanChange === "removed" || scanChange === "replaced") {
       const del = await deleteScanByUrl(prevContract.scanUrl ?? undefined);
-      scanDeletion = { ...del, path: undefined } as any;
+      scanDeletion = {
+        deleted: del.deleted,
+        reason: del.reason,
+        path: undefined,
+      };
     }
 
     await upsertContract(parsed.data);

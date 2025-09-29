@@ -226,7 +226,9 @@ export default async function ContractPage({
                     label="Șterge"
                     action={async () => {
                       "use server";
-                      const fileDeletion = await deleteScanByUrl(contract.scanUrl ?? undefined);
+                      const fileDeletion = await deleteScanByUrl(
+                        contract.scanUrl ?? undefined
+                      );
                       const ok = await deleteContractById(contract.id);
                       if (!ok)
                         throw new Error("Nu am putut șterge contractul.");
