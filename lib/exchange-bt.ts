@@ -56,7 +56,7 @@ export async function getDailyBtEurSell(options?: { forceRefresh?: boolean }) {
   const date = todayBucharest();
   const force = options?.forceRefresh === true;
 
-  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+  if (process.env.MONGODB_URI) {
     const db = await getDb();
     const coll = db.collection<BtRateDoc>("exchange_rates");
     if (!force) {

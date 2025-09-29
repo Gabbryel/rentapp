@@ -38,7 +38,7 @@ export async function getDailyEurRon(options?: { forceRefresh?: boolean }) {
   const force = options?.forceRefresh === true;
 
   // Prefer Mongo-backed cache if configured
-  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+  if (process.env.MONGODB_URI) {
     const db = await getDb();
     const coll = db.collection<RateDoc>("exchange_rates");
     if (!force) {

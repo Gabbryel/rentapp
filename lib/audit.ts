@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export async function logAction(input: Omit<AuditLog, "at" | "userEmail"> & { userEmail?: string | null }) {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return;
+  if (!process.env.MONGODB_URI) return;
   const db = await getDb();
   const user = await currentUser();
   const doc: AuditLog = {
@@ -18,7 +18,7 @@ export async function logAction(input: Omit<AuditLog, "at" | "userEmail"> & { us
 }
 
 export async function listLogs(limit = 100) {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return [] as AuditLog[];
+  if (!process.env.MONGODB_URI) return [] as AuditLog[];
   const db = await getDb();
   return db
     .collection<AuditLog>("audit_logs")
@@ -27,7 +27,7 @@ export async function listLogs(limit = 100) {
 }
 
 export async function listLogsByUser(userEmail: string, limit = 100) {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return [] as AuditLog[];
+  if (!process.env.MONGODB_URI) return [] as AuditLog[];
   const db = await getDb();
   return db
     .collection<AuditLog>("audit_logs")

@@ -41,7 +41,7 @@ export default async function ContractPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                {process.env.MONGODB_URI ? (
             <Link
               href={`/contracts/${contract.id}/edit`}
               className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
@@ -220,7 +220,7 @@ export default async function ContractPage({
                     Descarcă
                   </a>
                 )}
-                {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                {process.env.MONGODB_URI ? (
                   <DeleteButton
                     label="Șterge"
                     action={async () => {

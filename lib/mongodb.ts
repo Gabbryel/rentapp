@@ -23,16 +23,13 @@ export async function getDb(): Promise<Db> {
   }
 
   // Prefer explicit env, else derive from URI path, else error
-  let desiredName = envName ?? extractDbNameFromUri(uri) ?? undefined;
+  let desiredName = envName ?? extractDbNameFromUri(uri) ?? "rentapp"; // safe default
   if (desiredName && desiredName.includes(".")) {
     // sanitize accidental host assignment
     desiredName = desiredName.split(".")[0];
   }
-  if (!desiredName) {
-    throw new Error(
-      "Database name not found. Set MONGODB_DB or include '/<db>' in MONGODB_URI (e.g., mongodb+srv://.../rentapp)."
-    );
-  }
+  // If name ended up empty after sanitization, fall back to a sensible default
+  if (!desiredName) desiredName = "rentapp";
 
   if (!global._mongoClientPromise) {
     const opts: MongoClientOptions = {

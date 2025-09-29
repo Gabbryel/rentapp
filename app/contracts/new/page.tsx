@@ -117,9 +117,9 @@ async function createContract(formData: FormData) {
     );
   }
 
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+  if (!process.env.MONGODB_URI) {
     throw new Error(
-      "MongoDB nu este configurat. Adăugați MONGODB_URI și MONGODB_DB în .env."
+      "MongoDB nu este configurat. Adăugați MONGODB_URI în .env."
     );
   }
 
@@ -147,16 +147,14 @@ async function createContract(formData: FormData) {
 }
 
 export default function NewContractPage() {
-  const mongoConfigured = Boolean(
-    process.env.MONGODB_URI && process.env.MONGODB_DB
-  );
+  const mongoConfigured = Boolean(process.env.MONGODB_URI);
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
       <h1 className="text-2xl sm:text-3xl font-bold">Adaugă contract</h1>
       {!mongoConfigured && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-          MongoDB nu este configurat. Completați variabilele MONGODB_URI și
-          MONGODB_DB în .env pentru a salva.
+          MongoDB nu este configurat. Completați variabila MONGODB_URI în .env
+          pentru a salva.
         </p>
       )}
 

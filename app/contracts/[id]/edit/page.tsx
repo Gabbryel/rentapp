@@ -164,9 +164,9 @@ export default async function EditContractPage({
       );
     }
 
-    if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+    if (!process.env.MONGODB_URI) {
       throw new Error(
-        "MongoDB nu este configurat. Adăugați MONGODB_URI și MONGODB_DB în .env."
+        "MongoDB nu este configurat. Adăugați MONGODB_URI în .env."
       );
     }
 
@@ -201,9 +201,7 @@ export default async function EditContractPage({
     redirect(`/contracts/${idFromParam}`);
   }
 
-  const mongoConfigured = Boolean(
-    process.env.MONGODB_URI && process.env.MONGODB_DB
-  );
+  const mongoConfigured = Boolean(process.env.MONGODB_URI);
 
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
@@ -218,8 +216,8 @@ export default async function EditContractPage({
       </div>
       {!mongoConfigured && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-          MongoDB nu este configurat. Completați variabilele MONGODB_URI și
-          MONGODB_DB în .env pentru a salva.
+          MongoDB nu este configurat. Completați variabila MONGODB_URI în .env
+          pentru a salva.
         </p>
       )}
 

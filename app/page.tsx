@@ -169,7 +169,7 @@ export default async function Home({
 
   async function updateAllExchangeRates() {
     "use server";
-    if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+    if (!process.env.MONGODB_URI) {
       return;
     }
     const { rate } = await getDailyEurRon({ forceRefresh: true });
@@ -269,7 +269,7 @@ export default async function Home({
               <ActionButton
                 className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs sm:text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60"
                 title={
-                  !(process.env.MONGODB_URI && process.env.MONGODB_DB)
+                  !process.env.MONGODB_URI
                     ? "MongoDB nu este configurat"
                     : "Actualizează cursul pentru toate contractele"
                 }
@@ -333,7 +333,7 @@ export default async function Home({
                       Activ
                     </span>
                   )}
-                  {process.env.MONGODB_URI && process.env.MONGODB_DB ? (
+                  {process.env.MONGODB_URI ? (
                     <div className="flex items-center gap-1">
                       <Link
                         href={`/contracts/${c.id}/edit`}

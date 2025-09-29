@@ -13,7 +13,7 @@ function hashPassword(password: string, salt: string) {
 
 export async function registerUser(email: string, password: string): Promise<User> {
   const parsed = RegisterSchema.parse({ email, password });
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+  if (!process.env.MONGODB_URI) {
     throw new Error("MongoDB nu este configurat");
   }
   const db = await getDb();
@@ -27,7 +27,7 @@ export async function registerUser(email: string, password: string): Promise<Use
 }
 
 export async function authenticate(email: string, password: string): Promise<User | null> {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return null;
+  if (!process.env.MONGODB_URI) return null;
   const db = await getDb();
   const user = await db.collection<User>("users").findOne({ email });
   if (!user) return null;
@@ -38,7 +38,7 @@ export async function authenticate(email: string, password: string): Promise<Use
 
 export async function createSession(user: User) {
   const token = randomBytes(24).toString("hex");
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return;
+  if (!process.env.MONGODB_URI) return;
   const db = await getDb();
   await db.collection<Session>("sessions").insertOne({ token, email: user.email, createdAt: new Date() });
   const cookieStore = await cookies();
@@ -46,7 +46,7 @@ export async function createSession(user: User) {
 }
 
 export async function currentUser(): Promise<User | null> {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) return null;
+  if (!process.env.MONGODB_URI) return null;
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
@@ -60,7 +60,7 @@ export async function currentUser(): Promise<User | null> {
 export async function signOut() {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
-  if (token && process.env.MONGODB_URI && process.env.MONGODB_DB) {
+  if (token && process.env.MONGODB_URI) {
     const db = await getDb();
     await db.collection<Session>("sessions").deleteOne({ token });
   }

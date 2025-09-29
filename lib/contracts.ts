@@ -215,7 +215,7 @@ for (const c of MOCK_CONTRACTS) ContractSchema.parse(c);
 
 export async function fetchContracts(): Promise<ContractType[]> {
   // If MongoDB is configured, read from DB; else fallback to mocks
-  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+  if (process.env.MONGODB_URI) {
     try {
       const db = await getDb();
       const docs = await db
@@ -237,7 +237,7 @@ export async function fetchContracts(): Promise<ContractType[]> {
 }
 
 export async function fetchContractById(id: string): Promise<ContractType | null> {
-  if (process.env.MONGODB_URI && process.env.MONGODB_DB) {
+  if (process.env.MONGODB_URI) {
     try {
       const db = await getDb();
       const doc = await db
@@ -254,7 +254,7 @@ export async function fetchContractById(id: string): Promise<ContractType | null
 
 export async function upsertContract(contract: ContractType) {
   ContractSchema.parse(contract);
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+  if (!process.env.MONGODB_URI) {
     throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
   }
   const db = await getDb();
@@ -264,7 +264,7 @@ export async function upsertContract(contract: ContractType) {
 }
 
 export async function deleteContractById(id: string): Promise<boolean> {
-  if (!(process.env.MONGODB_URI && process.env.MONGODB_DB)) {
+  if (!process.env.MONGODB_URI) {
     throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
   }
   const db = await getDb();
