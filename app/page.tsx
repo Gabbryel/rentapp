@@ -253,6 +253,14 @@ export default async function Home({
               <SearchContracts initialQuery={q} />
               <IndexingFilters />
             </div>
+            <div className="mt-2 text-right">
+              <Link
+                href="/contracts/new"
+                className="inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-1.5 text-xs sm:text-sm font-semibold text-background hover:bg-foreground/90"
+              >
+                Adaugă contract
+              </Link>
+            </div>
             <form action={updateAllExchangeRates} className="mt-2">
               <ActionButton
                 className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs sm:text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60"
