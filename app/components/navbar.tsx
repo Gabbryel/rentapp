@@ -52,7 +52,9 @@ export default function Navbar() {
           const data = await res.json();
           setDbConnected(Boolean(data.connected));
           setDbName(data?.db?.name ?? null);
-          setDbLatency(typeof data?.latencyMs === "number" ? data.latencyMs : null);
+          setDbLatency(
+            typeof data?.latencyMs === "number" ? data.latencyMs : null
+          );
           setDbLocation(data?.cluster?.location ?? null);
           setDbProvider(data?.cluster?.provider ?? null);
         } else {
@@ -140,7 +142,15 @@ export default function Navbar() {
                   dbConnected === null
                     ? "Verific conexiunea la baza de date..."
                     : dbConnected
-                    ? `DB: ${dbName ?? "—"}${dbLatency != null ? ` • ${dbLatency}ms` : ""} • ${dbLocation ?? "?"}${dbProvider ? (dbProvider === "atlas" ? " (Atlas)" : "") : ""}`
+                    ? `DB: ${dbName ?? "—"}${
+                        dbLatency != null ? ` • ${dbLatency}ms` : ""
+                      } • ${dbLocation ?? "?"}${
+                        dbProvider
+                          ? dbProvider === "atlas"
+                            ? " (Atlas)"
+                            : ""
+                          : ""
+                      }`
                     : "DB offline"
                 }
                 aria-live="polite"
@@ -242,7 +252,15 @@ export default function Navbar() {
                     dbConnected === null
                       ? "Verific conexiunea la baza de date..."
                       : dbConnected
-                      ? `DB: ${dbName ?? "—"}${dbLatency != null ? ` • ${dbLatency}ms` : ""} • ${dbLocation ?? "?"}${dbProvider ? (dbProvider === "atlas" ? " (Atlas)" : "") : ""}`
+                      ? `DB: ${dbName ?? "—"}${
+                          dbLatency != null ? ` • ${dbLatency}ms` : ""
+                        } • ${dbLocation ?? "?"}${
+                          dbProvider
+                            ? dbProvider === "atlas"
+                              ? " (Atlas)"
+                              : ""
+                            : ""
+                        }`
                       : "DB offline"
                   }
                   aria-live="polite"
@@ -260,7 +278,13 @@ export default function Navbar() {
                   />
                   <span>
                     {dbConnected
-                      ? `Baza de date: conectat${dbLocation ? ` (${dbLocation}${dbProvider === "atlas" ? ", Atlas" : ""})` : ""}`
+                      ? `Baza de date: conectat${
+                          dbLocation
+                            ? ` (${dbLocation}${
+                                dbProvider === "atlas" ? ", Atlas" : ""
+                              })`
+                            : ""
+                        }`
                       : dbConnected === null
                       ? "Baza de date: verific..."
                       : "Baza de date: offline"}
