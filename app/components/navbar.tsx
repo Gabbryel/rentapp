@@ -14,6 +14,11 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [dbName, setDbName] = useState<string | null>(null);
+  const [dbLatency, setDbLatency] = useState<number | null>(null);
+  const [dbLocation, setDbLocation] = useState<"local" | "remote" | null>(null);
+  const [dbProvider, setDbProvider] = useState<"atlas" | "other" | null>(null);
 
   // Close menu on route change
   useEffect(() => setOpen(false), [pathname]);
@@ -36,10 +41,44 @@ export default function Navbar() {
         // ignore
       }
     };
+    const loadDb = async () => {
+      try {
+        const res = await fetch("/api/db/status", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (aborted) return;
+        if (res.ok) {
+          const data = await res.json();
+          setDbConnected(Boolean(data.connected));
+          setDbName(data?.db?.name ?? null);
+          setDbLatency(typeof data?.latencyMs === "number" ? data.latencyMs : null);
+          setDbLocation(data?.cluster?.location ?? null);
+          setDbProvider(data?.cluster?.provider ?? null);
+        } else {
+          setDbConnected(false);
+          setDbName(null);
+          setDbLatency(null);
+          setDbLocation(null);
+          setDbProvider(null);
+        }
+      } catch {
+        if (aborted) return;
+        setDbConnected(false);
+        setDbName(null);
+        setDbLatency(null);
+        setDbLocation(null);
+        setDbProvider(null);
+      }
+    };
     loadMe();
+    loadDb();
 
     // Also refetch when tab regains focus to keep it fresh
-    const onFocus = () => loadMe();
+    const onFocus = () => {
+      loadMe();
+      loadDb();
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       aborted = true;
@@ -94,6 +133,33 @@ export default function Navbar() {
           {/* Desktop CTA */}
           <div className="hidden sm:block">
             <div className="flex items-center gap-2">
+              {/* DB status indicator */}
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
+                title={
+                  dbConnected === null
+                    ? "Verific conexiunea la baza de date..."
+                    : dbConnected
+                    ? `DB: ${dbName ?? "—"}${dbLatency != null ? ` • ${dbLatency}ms` : ""} • ${dbLocation ?? "?"}${dbProvider ? (dbProvider === "atlas" ? " (Atlas)" : "") : ""}`
+                    : "DB offline"
+                }
+                aria-live="polite"
+              >
+                <span
+                  className={
+                    "h-2 w-2 rounded-full " +
+                    (dbConnected === null
+                      ? "bg-foreground/40"
+                      : dbConnected
+                      ? "bg-emerald-500"
+                      : "bg-red-500")
+                  }
+                  aria-hidden="true"
+                />
+                <span>
+                  DB{dbConnected && dbLocation ? ` • ${dbLocation}` : ""}
+                </span>
+              </span>
               <Link
                 href="/contracts/new"
                 className="rounded-full bg-foreground px-3.5 py-2 text-sm font-semibold text-background shadow-sm transition hover:bg-foreground/90"
@@ -168,6 +234,39 @@ export default function Navbar() {
         {open && (
           <div className="sm:hidden pb-3">
             <div className="flex flex-col gap-1">
+              {/* DB status indicator (mobile) */}
+              <div className="px-3 py-2">
+                <span
+                  className="inline-flex items-center gap-2 rounded-md border border-foreground/10 px-2 py-1 text-xs text-foreground/70"
+                  title={
+                    dbConnected === null
+                      ? "Verific conexiunea la baza de date..."
+                      : dbConnected
+                      ? `DB: ${dbName ?? "—"}${dbLatency != null ? ` • ${dbLatency}ms` : ""} • ${dbLocation ?? "?"}${dbProvider ? (dbProvider === "atlas" ? " (Atlas)" : "") : ""}`
+                      : "DB offline"
+                  }
+                  aria-live="polite"
+                >
+                  <span
+                    className={
+                      "h-2.5 w-2.5 rounded-full " +
+                      (dbConnected === null
+                        ? "bg-foreground/40"
+                        : dbConnected
+                        ? "bg-emerald-500"
+                        : "bg-red-500")
+                    }
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {dbConnected
+                      ? `Baza de date: conectat${dbLocation ? ` (${dbLocation}${dbProvider === "atlas" ? ", Atlas" : ""})` : ""}`
+                      : dbConnected === null
+                      ? "Baza de date: verific..."
+                      : "Baza de date: offline"}
+                  </span>
+                </span>
+              </div>
               {links.map((l) => {
                 const isActive =
                   l.href === "/"

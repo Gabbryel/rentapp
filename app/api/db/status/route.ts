@@ -7,6 +7,7 @@ type DBStatus = {
   latencyMs?: number;
   db?: { name: string };
   counts?: { contracts: number; users: number; audit_logs: number };
+  cluster?: { location: "local" | "remote"; provider?: "atlas" | "other" };
   error?: string;
 };
 
@@ -19,6 +20,24 @@ export async function GET() {
     connected: false,
   };
   try {
+    // Classify cluster location from URI without exposing credentials
+    const uri = process.env.MONGODB_URI;
+    if (uri) {
+      try {
+        const u = new URL(uri);
+        const host = (u.hostname || "").toLowerCase();
+        const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+        const isLocal = localHosts.has(host) || host.endsWith(".local");
+        const isAtlas = host.endsWith("mongodb.net");
+        res.cluster = {
+          location: isLocal ? "local" : "remote",
+          provider: isAtlas ? "atlas" : "other",
+        };
+      } catch {
+        // ignore parsing issues; leave cluster undefined
+      }
+    }
+
     const start = Date.now();
     const db = await getDb();
     await db.command({ ping: 1 });
