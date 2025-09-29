@@ -4,7 +4,8 @@ import { deleteContractById, fetchContractById } from "@/lib/contracts";
 import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import DeleteButton from "@/app/components/delete-button";
-import { logAction, deleteLocalUploadIfPresent } from "@/lib/audit";
+import { logAction } from "@/lib/audit";
+import { deleteScanByUrl } from "@/lib/storage";
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("ro-RO", {
@@ -225,10 +226,7 @@ export default async function ContractPage({
                     label="Șterge"
                     action={async () => {
                       "use server";
-                      // Try to delete local scan file if applicable before removing DB record
-                      const fileDeletion = await deleteLocalUploadIfPresent(
-                        contract.scanUrl ?? undefined
-                      );
+                      const fileDeletion = await deleteScanByUrl(contract.scanUrl ?? undefined);
                       const ok = await deleteContractById(contract.id);
                       if (!ok)
                         throw new Error("Nu am putut șterge contractul.");
@@ -249,18 +247,18 @@ export default async function ContractPage({
             </div>
             <div className="bg-foreground/5">
               {contract.scanUrl ? (
-                /\.pdf(?:$|[?#])/i.test(contract.scanUrl) ? (
-                  <object
-                    data={contract.scanUrl}
-                    type="application/pdf"
+                /^\/api\/uploads\//i.test(contract.scanUrl) ? (
+                  <iframe
+                    src={contract.scanUrl}
+                    title={`Scan contract ${contract.name}`}
                     className="w-full aspect-[4/3]"
-                  >
-                    <iframe
-                      src={contract.scanUrl}
-                      title={`Scan contract ${contract.name}`}
-                      className="w-full h-full"
-                    />
-                  </object>
+                  />
+                ) : /\.pdf(?:$|[?#])/i.test(contract.scanUrl) ? (
+                  <iframe
+                    src={contract.scanUrl}
+                    title={`Scan contract ${contract.name}`}
+                    className="w-full aspect-[4/3]"
+                  />
                 ) : (
                   <Image
                     src={contract.scanUrl}

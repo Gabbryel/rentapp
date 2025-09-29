@@ -10,7 +10,10 @@ const ScanUrl = z
     "scanUrl trebuie să fie o cale publică (începe cu /) sau un URL valid"
   )
   .refine(
-    (s: string) => /\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#])/i.test(s),
+    (s: string) =>
+      // Accept classic public file extensions or GridFS API URL without extension
+      /\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#])/i.test(s) ||
+      /^\/api\/uploads\/([a-f\d]{24})(?:$|[?#])/i.test(s),
     "scan trebuie să fie o imagine (png, jpg, jpeg, gif, webp, svg) sau un PDF"
   );
 

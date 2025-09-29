@@ -3,8 +3,7 @@ import { upsertContract } from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import { redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { saveScanFile } from "@/lib/storage";
 import MultiDateInput from "@/app/components/multi-date-input";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
 
@@ -99,13 +98,12 @@ async function createContract(formData: FormData) {
       "dat"
     ).toLowerCase();
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadsDir, { recursive: true });
-    const filename = `${sanitize(data.id)}-${base}.${ext}`;
-    const filepath = path.join(uploadsDir, filename);
-    const arrayBuffer = await file.arrayBuffer();
-    await fs.writeFile(filepath, Buffer.from(arrayBuffer));
-    data.scanUrl = `/uploads/${filename}`;
+    const res = await saveScanFile(
+      file,
+      `${sanitize(data.id)}-${base}`,
+      { contractId: data.id }
+    );
+    data.scanUrl = res.url;
   } else if (urlInput) {
     data.scanUrl = urlInput || undefined;
   }

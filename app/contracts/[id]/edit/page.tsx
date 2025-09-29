@@ -1,15 +1,10 @@
 import { fetchContractById, upsertContract } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
-import {
-  logAction,
-  computeDiffContract,
-  deleteLocalUploadIfPresent,
-} from "@/lib/audit";
+import { logAction, computeDiffContract } from "@/lib/audit";
 import { notFound, redirect } from "next/navigation";
 import type { ZodIssue } from "zod";
 import Link from "next/link";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
 import MultiDateInput from "@/app/components/multi-date-input";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
 import { getDailyEurRon } from "@/lib/exchange";
@@ -81,7 +76,7 @@ export default async function EditContractPage({
       return null;
     };
 
-    let scanUrl: string | undefined = existingScanUrl;
+  let scanUrl: string | undefined = existingScanUrl;
     if (uploaded && uploaded instanceof File && uploaded.size > 0) {
       const file = uploaded as File;
       const okType = [
@@ -111,13 +106,12 @@ export default async function EditContractPage({
         "dat"
       ).toLowerCase();
 
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      await fs.mkdir(uploadsDir, { recursive: true });
-      const filename = `${sanitize(idFromParam)}-${base}.${ext}`;
-      const filepath = path.join(uploadsDir, filename);
-      const arrayBuffer = await file.arrayBuffer();
-      await fs.writeFile(filepath, Buffer.from(arrayBuffer));
-      scanUrl = `/uploads/${filename}`;
+      const res = await saveScanFile(
+        file,
+        `${sanitize(idFromParam)}-${base}`,
+        { contractId: idFromParam }
+      );
+      scanUrl = res.url;
     } else if (urlInput) {
       scanUrl = urlInput || undefined;
     }
@@ -177,13 +171,10 @@ export default async function EditContractPage({
     );
 
     // If the scan was removed or replaced, try to delete old local file
-    let scanDeletion:
-      | { deleted: boolean; reason: string; path?: string }
-      | undefined;
+    let scanDeletion: { deleted: boolean; reason: string; path?: string } | undefined;
     if (scanChange === "removed" || scanChange === "replaced") {
-      scanDeletion = await deleteLocalUploadIfPresent(
-        prevContract.scanUrl ?? undefined
-      );
+      const del = await deleteScanByUrl(prevContract.scanUrl ?? undefined);
+      scanDeletion = { ...del, path: undefined } as any;
     }
 
     await upsertContract(parsed.data);
