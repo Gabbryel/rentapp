@@ -12,6 +12,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import MultiDateInput from "@/app/components/multi-date-input";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
+import { getDailyEurRon } from "@/lib/exchange";
 
 export default async function EditContractPage({
   params,
@@ -37,11 +38,11 @@ export default async function EditContractPage({
       (formData.get("exchangeRateRON") as string) || "";
     const tvaRaw = (formData.get("tvaPercent") as string) || "";
     const corrRaw = (formData.get("correctionPercent") as string) || "";
-    const amountEUR = (() => {
+    let amountEUR = (() => {
       const n = Number(amountEURRaw.replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
     })();
-    const exchangeRateRON = (() => {
+    let exchangeRateRON = (() => {
       const n = Number(exchangeRateRONRaw.replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
     })();
@@ -119,6 +120,27 @@ export default async function EditContractPage({
       scanUrl = `/uploads/${filename}`;
     } else if (urlInput) {
       scanUrl = urlInput || undefined;
+    }
+
+    // Autofill logic to soften validation:
+    // If amount provided but rate missing, try previous rate or today's EUR/RON
+    if (typeof amountEUR === "number" && typeof exchangeRateRON !== "number") {
+      if (typeof prevContract.exchangeRateRON === "number") {
+        exchangeRateRON = prevContract.exchangeRateRON;
+      } else {
+        try {
+          const { rate } = await getDailyEurRon({ forceRefresh: false });
+          if (Number.isFinite(rate) && rate > 0) exchangeRateRON = rate;
+        } catch {
+          // ignore; validation will catch if still missing
+        }
+      }
+    }
+    // If rate provided but amount missing, try to keep previous amount
+    if (typeof exchangeRateRON === "number" && typeof amountEUR !== "number") {
+      if (typeof prevContract.amountEUR === "number") {
+        amountEUR = prevContract.amountEUR;
+      }
     }
 
     const parsed = ContractSchema.safeParse({

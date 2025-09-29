@@ -108,7 +108,7 @@ export default function Navbar() {
                   >
                     {email}
                   </span>
-                  <form action="/api/logout" method="post">
+                  <form action="/api/logout" method="POST">
                     <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
                       Ieși
                     </button>
@@ -211,7 +211,7 @@ export default function Navbar() {
                   >
                     {email}
                   </span>
-                  <form action="/api/logout" method="post">
+                  <form action="/api/logout" method="POST">
                     <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
                       Ieși
                     </button>

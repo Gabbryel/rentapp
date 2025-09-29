@@ -197,33 +197,35 @@ export default async function Home({
           </div>
           <div className="w-full sm:w-auto">
             {/* Exchange rates moved above the search bar */}
-            {bt ? (
-              <div className="mt-2 rounded-lg bg-foreground/5 p-3 sm:p-4 text-sm flex items-center gap-2 sm:gap-3 flex-wrap">
-                <span className="text-foreground/60">
-                  Curs BT (vânzare EUR):{" "}
-                </span>
+            <div className="mt-2 rounded-lg bg-foreground/5 p-3 sm:p-4 text-sm flex items-center gap-2 sm:gap-3 flex-wrap">
+              <span className="text-foreground/60">
+                Curs BT (vânzare EUR):{" "}
+              </span>
+              {bt ? (
                 <span className="font-medium text-fuchsia-700 dark:text-fuchsia-400">
                   {bt.rate.toFixed(4)} RON/EUR
                 </span>
-                <span className="text-foreground/50">
-                  {" "}
-                  · Data (EET/EEST): {bt.date}
-                </span>
-                <form
-                  action={refreshBtRate}
-                  method="post"
-                  className="inline-block ml-auto"
+              ) : (
+                <span className="text-foreground/60 italic">Indisponibil</span>
+              )}
+              <span className="text-foreground/50">
+                {" "}
+                · Data (EET/EEST): {bt ? bt.date : "—"}
+              </span>
+              <form
+                action={refreshBtRate}
+                method="POST"
+                className="inline-block ml-auto"
+              >
+                <ActionButton
+                  className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
+                  title="Actualizează cursul BT (vânzare EUR)"
+                  successMessage="Cursul BT a fost actualizat"
                 >
-                  <ActionButton
-                    className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
-                    title="Actualizează cursul BT (vânzare EUR)"
-                    successMessage="Cursul BT a fost actualizat"
-                  >
-                    Actualizează cursul BT
-                  </ActionButton>
-                </form>
-              </div>
-            ) : null}
+                  Actualizează cursul BT
+                </ActionButton>
+              </form>
+            </div>
 
             <div className="mt-2 rounded-lg bg-foreground/5 p-3 sm:p-4 text-sm flex items-center gap-2 sm:gap-3 flex-wrap">
               <span className="text-foreground/60">
@@ -242,7 +244,7 @@ export default async function Home({
               </span>
               <form
                 action={refreshRaiRate}
-                method="post"
+                method="POST"
                 className="inline-block ml-auto"
               >
                 <ActionButton
@@ -261,7 +263,7 @@ export default async function Home({
             </div>
             <form
               action={updateAllExchangeRates}
-              method="post"
+              method="POST"
               className="mt-2"
             >
               <ActionButton

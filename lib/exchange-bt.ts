@@ -63,13 +63,26 @@ export async function getDailyBtEurSell(options?: { forceRefresh?: boolean }) {
       const doc = await coll.findOne({ key: "BT_EUR_SELL", date });
       if (doc) return { rate: doc.rate, date, source: "db" as const };
     }
-    const rate = await fetchBtEurSell();
-    await coll.updateOne(
-      { key: "BT_EUR_SELL", date },
-      { $set: { key: "BT_EUR_SELL", date, rate, fetchedAt: new Date() } },
-      { upsert: true }
-    );
-    return { rate, date, source: "bt" as const };
+    try {
+      const rate = await fetchBtEurSell();
+      await coll.updateOne(
+        { key: "BT_EUR_SELL", date },
+        { $set: { key: "BT_EUR_SELL", date, rate, fetchedAt: new Date() } },
+        { upsert: true }
+      );
+      return { rate, date, source: "bt" as const };
+    } catch (e) {
+      // Fallback: return the latest cached BT rate if available
+      const latest = await coll
+        .find({ key: "BT_EUR_SELL" })
+        .sort({ date: -1 })
+        .limit(1)
+        .toArray();
+      if (latest[0]) {
+        return { rate: latest[0].rate, date: latest[0].date, source: "db" as const };
+      }
+      throw e;
+    }
   }
 
   // Without DB, just fetch live (no durable cache)
