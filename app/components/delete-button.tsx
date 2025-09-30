@@ -21,7 +21,7 @@ export default function DeleteButton({
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("app:toast", {
-          detail: { message: label || "Acțiune finalizată" },
+          detail: { message: label || "Acțiune finalizată", type: "success" },
         })
       );
     }

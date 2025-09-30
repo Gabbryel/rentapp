@@ -1,59 +1,66 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+
+import { useEffect, useRef } from "react";
+
+type ModalProps = {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+  maxWidthClassName?: string; // e.g., "max-w-3xl"
+};
 
 export default function Modal({
-  children,
+  open,
+  onClose,
   title,
-  fallbackHref,
-}: {
-  children: React.ReactNode;
-  title?: string;
-  fallbackHref?: string;
-}) {
-  const router = useRouter();
+  children,
+  maxWidthClassName = "max-w-3xl",
+}: ModalProps) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const firstFocusableRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        // Prefer going back to preserve background state
-        router.back();
-      }
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [router]);
+    document.addEventListener("keydown", onKey);
+    // focus the first button (close) for accessibility
+    firstFocusableRef.current?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Dialog"}
+    >
       <div
-        className="absolute inset-0 bg-black/50"
-        onClick={() => router.back()}
-        aria-hidden
-      />
-      <div className="relative z-10 w-[92vw] max-w-2xl max-h-[90vh] overflow-auto rounded-xl border border-foreground/20 bg-background shadow-2xl">
-        <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-foreground/10 bg-background/80 px-4 py-2 backdrop-blur">
-          <h3 className="text-sm font-semibold truncate">{title ?? "Formular"}</h3>
-          {fallbackHref ? (
-            <Link
-              href={fallbackHref}
-              className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
-            >
-              Închide
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
-            >
-              Închide
-            </button>
-          )}
+        className={`w-full ${maxWidthClassName} max-h-[85vh] rounded-xl bg-background shadow-xl ring-1 ring-foreground/10 overflow-hidden flex flex-col`}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-foreground/10">
+          <div className="text-base font-semibold truncate min-w-0">
+            {title}
+          </div>
+          <button
+            ref={firstFocusableRef}
+            type="button"
+            className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+            onClick={onClose}
+          >
+            Închide
+          </button>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="bg-foreground/5 overflow-auto">{children}</div>
       </div>
     </div>
   );

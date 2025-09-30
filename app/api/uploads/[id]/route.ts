@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
     const db = await getDb();
     const bucket = new GridFSBucket(db, { bucketName: "uploads" });
-    const { id: idStr } = await params;
+  const { id: idStr } = await params;
     if (!/^[a-f\d]{24}$/i.test(idStr)) {
       return new NextResponse("Not found", { status: 404 });
     }

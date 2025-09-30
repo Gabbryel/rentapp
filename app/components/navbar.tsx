@@ -4,10 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
-const links = [
-  { href: "/", label: "Contracte" },
-  { href: "/about", label: "Despre" },
-];
+const links = [{ href: "/", label: "Contracte" }];
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -122,7 +119,7 @@ export default function Navbar() {
               <Link
                 href="/admin"
                 className={`rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-foreground/5 ${
-                  pathname === "/admin"
+                  pathname.startsWith("/admin")
                     ? "text-foreground"
                     : "text-foreground/70"
                 }`}
@@ -170,12 +167,7 @@ export default function Navbar() {
                   DB{dbConnected && dbLocation ? ` • ${dbLocation}` : ""}
                 </span>
               </span>
-              <Link
-                href="/contracts/new"
-                className="rounded-full bg-foreground px-3.5 py-2 text-sm font-semibold text-background shadow-sm transition hover:bg-foreground/90"
-              >
-                Adaugă contract
-              </Link>
+              {/* Removed Add Contract from navbar */}
               {email ? (
                 <>
                   <span
@@ -320,12 +312,7 @@ export default function Navbar() {
                   Admin
                 </Link>
               )}
-              <Link
-                href="/contracts/new"
-                className="mt-1 rounded-md bg-foreground px-3 py-2 text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                Adaugă contract
-              </Link>
+              {/* Removed Add Contract from mobile navbar */}
               {email ? (
                 <div className="flex items-center justify-between gap-3 px-3 mt-2">
                   <span

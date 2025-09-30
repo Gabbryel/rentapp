@@ -66,3 +66,25 @@ export async function signOut() {
   }
   cookieStore.delete("session");
 }
+
+// Admin helpers
+function adminEmailsFromEnv(): string[] {
+  return (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function isEnvAdmin(email?: string | null): boolean {
+  const admins = adminEmailsFromEnv();
+  if (admins.length === 0) return false;
+  return email ? admins.includes(email) : false;
+}
+
+export async function requireAdmin(): Promise<void> {
+  const user = await currentUser();
+  const admin = Boolean(user?.isAdmin || isEnvAdmin(user?.email ?? null));
+  if (!admin) {
+    throw new Error("Unauthorized");
+  }
+}

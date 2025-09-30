@@ -1,4 +1,5 @@
 import { authenticate, createSession } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { redirect } from "next/navigation";
 
 export default function LoginPage() {
@@ -9,6 +10,14 @@ export default function LoginPage() {
     const user = await authenticate(email, password);
     if (!user) throw new Error("Email sau parolă greșită");
     await createSession(user);
+    try {
+      await logAction({
+        action: "auth.login",
+        targetType: "user",
+        targetId: user.email,
+        meta: {},
+      });
+    } catch {}
     redirect("/");
   }
   return (

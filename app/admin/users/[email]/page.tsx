@@ -1,19 +1,8 @@
-import { currentUser } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 import { getUserByEmail } from "@/lib/users";
 import { listLogsByUser } from "@/lib/audit";
 import type { AuditLog } from "@/lib/schemas/audit";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-
-function envIsAdmin(email: string | undefined | null) {
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (admins.length === 0) return false;
-  return email ? admins.includes(email) : false;
-}
 
 function fmtDate(d: Date | string) {
   return new Date(d).toLocaleString("ro-RO");
@@ -54,11 +43,12 @@ function isMetaChanges(m: unknown): m is MetaChanges {
 export default async function UserAuditPage({
   params,
 }: {
-  params: { email: string };
+  params: Promise<{ email: string }>;
 }) {
   // Temporarily allow public access; restrictions will be re-enabled later.
 
-  const email = decodeURIComponent(params.email);
+  const { email: encoded } = await params;
+  const email = decodeURIComponent(encoded);
   const mongoConfigured = Boolean(
     process.env.MONGODB_URI && process.env.MONGODB_DB
   );

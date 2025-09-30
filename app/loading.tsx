@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-8">
       <div className="mx-auto max-w-screen-2xl">
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-center">
           Contracte
         </h1>
         <div className="mt-2 flex items-center gap-3">

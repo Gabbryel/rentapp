@@ -29,6 +29,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Fluid typography utilities for large headings */
+.text-fluid-4xl { font-size: clamp(1.75rem, 1.2rem + 2.0vw, 2.5rem); line-height: 1.15; }
+.text-fluid-3xl { font-size: clamp(1.5rem, 1.05rem + 1.8vw, 2.25rem); line-height: 1.2; }
+.text-fluid-2xl { font-size: clamp(1.25rem, 0.95rem + 1.2vw, 1.75rem); line-height: 1.25; }
+
 /* Enforce minimum font-size of 1rem across the app, even if a tiny utility is used */
 *:where(.text-xs,
         .text-sm,

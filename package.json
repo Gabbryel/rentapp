@@ -4,20 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "db:seed:mongo": "tsx scripts/seed-mongo.ts",
     "db:count": "tsx scripts/db-count.ts",
     "db:sample": "tsx scripts/db-sample.ts",
+    "partners:backfill": "tsx scripts/backfill-partner-ids.ts",
     "contracts:update:rate": "tsx scripts/update-exchange-rate.ts",
-    "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts",
-    "exchange:rai:refresh": "tsx scripts/refresh-rai-rate.ts"
+    "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts"
   },
   "dependencies": {
     "mongodb": "^6",
     "next": "15.5.4",
     "nodemailer": "^7.0.6",
+    "pdf-lib": "^1.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^4.1.11"

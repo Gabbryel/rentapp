@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type ToastItem = {
   id: number;
   message: string;
+  type?: "success" | "error";
 };
 
 export default function Toaster() {
@@ -13,10 +14,15 @@ export default function Toaster() {
   useEffect(() => {
     let idCounter = 1;
     const onToast = (e: Event) => {
-      const detail = (e as CustomEvent<{ message: string }>).detail;
+      const detail = (
+        e as CustomEvent<{ message: string; type?: "success" | "error" }>
+      ).detail;
       if (!detail?.message) return;
       const id = idCounter++;
-      setToasts((prev) => [...prev, { id, message: detail.message }]);
+      setToasts((prev) => [
+        ...prev,
+        { id, message: detail.message, type: detail.type },
+      ]);
       // Auto-dismiss after 2.5s
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -37,7 +43,11 @@ export default function Toaster() {
             role="status"
           >
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+              <div
+                className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                  t.type === "error" ? "bg-red-500" : "bg-emerald-500"
+                }`}
+              />
               <div className="text-foreground/90">{t.message}</div>
             </div>
           </div>

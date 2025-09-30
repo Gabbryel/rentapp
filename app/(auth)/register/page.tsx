@@ -1,4 +1,5 @@
 import { registerUser, createSession } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 import { redirect } from "next/navigation";
 
 export default function RegisterPage() {
@@ -8,6 +9,14 @@ export default function RegisterPage() {
     const password = String(formData.get("password") || "");
     const user = await registerUser(email, password);
     await createSession(user);
+    try {
+      await logAction({
+        action: "auth.register",
+        targetType: "user",
+        targetId: user.email,
+        meta: {},
+      });
+    } catch {}
     redirect("/");
   }
   return (

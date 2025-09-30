@@ -38,6 +38,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#051932",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -52,7 +54,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Navbar />
-  <div className="w-full">{children}</div>
+        <div className="w-full">{children}</div>
         <Toaster />
       </body>
     </html>

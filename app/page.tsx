@@ -1,96 +1,115 @@
 import Link from "next/link";
-import { deleteContractById, fetchContracts } from "@/lib/contracts";
+import { fetchContracts } from "@/lib/contracts";
 import type { Contract } from "@/lib/schemas/contract";
 import SearchContracts from "@/app/components/search-contracts";
 import IndexingFilters from "@/app/components/indexing-filters";
-import DeleteButton from "@/app/components/delete-button";
-import { redirect } from "next/navigation";
+// import DeleteButton from "@/app/components/delete-button";
+// import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { getDailyEurRon } from "@/lib/exchange";
 import { getDailyBtEurSell } from "@/lib/exchange-bt";
-import { getDailyRaiEurSell } from "@/lib/exchange-rai";
-import { revalidatePath } from "next/cache";
 import ActionButton from "@/app/components/action-button";
+import { getEuroInflationPercent } from "@/lib/inflation";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import InflationVerify from "@/app/components/inflation-verify";
+import { logAction } from "@/lib/audit";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; range?: string }>;
+  searchParams?: Promise<{ q?: string; range?: string; filterBy?: string }>;
 }) {
-  const { q = "", range = "" } = (await searchParams) ?? {};
+  // Ensure this page is always rendered dynamically and not cached
+  noStore();
+  const params = (await searchParams) ?? {};
+  const { q = "", range = "", filterBy = "" } = params;
+
+  // Fetch contracts and apply simple text filtering
   const all = await fetchContracts();
-  const query = q.trim().toLowerCase();
-  let contracts = query
-    ? all.filter(
-        (c) =>
-          c.name.toLowerCase().includes(query) ||
-          c.partner.toLowerCase().includes(query) ||
-          (c.owner?.toLowerCase?.().includes(query) ?? false)
-      )
-    : all;
-
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString("ro-RO", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
+  let contracts: Contract[] = all;
+  if (q) {
+    const qq = String(q).toLowerCase();
+    contracts = contracts.filter((c) => {
+      return (
+        (c.name || "").toLowerCase().includes(qq) ||
+        (c.partner || "").toLowerCase().includes(qq) ||
+        (c.owner || "").toLowerCase().includes(qq)
+      );
     });
+  }
 
+  // Dates helpers
   const now = new Date();
   const startOfToday = new Date(
     now.getFullYear(),
     now.getMonth(),
     now.getDate()
   );
-  const nextIndexing = (dates?: string[]) => {
-    if (!dates || dates.length === 0) return null;
-    const sorted = [...dates].sort();
-    const next = sorted.find((d) => new Date(d) >= startOfToday);
-    return next ?? sorted[sorted.length - 1];
-  };
 
-  const nextRelevantDate = (c: Contract): Date | null => {
-    const nextIdx = nextIndexing(c.indexingDates);
-    const candidates: Date[] = [];
-    if (nextIdx) candidates.push(new Date(nextIdx));
-    if (c.endDate) candidates.push(new Date(c.endDate));
-    if (candidates.length === 0) return null;
-    candidates.sort((a, b) => a.getTime() - b.getTime());
-    return candidates[0];
+  // Formatting helpers
+  const fmt = (d: string | Date) => {
+    const dt = typeof d === "string" ? new Date(d) : d;
+    return new Intl.DateTimeFormat("ro-RO", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(dt);
   };
-
-  // Only consider an upcoming (today or future) indexing date for sorting precedence
-  const upcomingIndexingDate = (c: Contract): Date | null => {
-    const n = nextIndexing(c.indexingDates);
-    if (!n) return null;
-    const d = new Date(n);
-    return d >= startOfToday ? d : null;
-  };
-
   const fmtEUR = (n: number) =>
-    n.toLocaleString("ro-RO", {
+    new Intl.NumberFormat("ro-RO", {
       style: "currency",
       currency: "EUR",
-      maximumFractionDigits: 2,
-    });
+    }).format(n);
   const fmtRON = (n: number) =>
-    n.toLocaleString("ro-RO", {
+    new Intl.NumberFormat("ro-RO", {
       style: "currency",
       currency: "RON",
       maximumFractionDigits: 2,
-    });
+    }).format(n);
+
+  // Indexing helpers
+  const nextIndexing = (dates?: Array<string | null | undefined>) => {
+    const ds = (dates ?? [])
+      .filter((d): d is string => !!d)
+      .map((s) => new Date(s))
+      .filter((d) => !isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+    for (const d of ds) {
+      if (d >= startOfToday) return d.toISOString().slice(0, 10);
+    }
+    return null;
+  };
+  const upcomingIndexingDate = (c: Contract) => {
+    const n = nextIndexing(c.indexingDates);
+    return n ? new Date(n) : null;
+  };
+
+  // Helper to get YYYY-MM month key from ISO/date string
+  const monthKey = (iso: string) => {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  };
 
   // Optional filter by next indexing within N days
   if (range === "15" || range === "60") {
     const days = range === "15" ? 15 : 60;
     const end = new Date(startOfToday);
     end.setDate(end.getDate() + days);
-    contracts = contracts.filter((c) => {
-      const n = nextIndexing(c.indexingDates);
-      if (!n) return false;
-      const d = new Date(n);
-      return d >= startOfToday && d <= end;
-    });
+    if (filterBy === "indexing") {
+      contracts = contracts.filter((c) => {
+        const n = nextIndexing(c.indexingDates);
+        if (!n) return false;
+        const d = new Date(n);
+        return d >= startOfToday && d <= end;
+      });
+    } else if (filterBy === "end") {
+      contracts = contracts.filter((c) => {
+        const d = new Date(c.endDate);
+        return d >= startOfToday && d <= end;
+      });
+    }
   }
 
   // Sorting: expired to the end; among active, upcoming indexing date prevails; fallback to endDate
@@ -134,6 +153,89 @@ export default async function Home({
     { eur: 0, ronBase: 0, tva: 0, ronWithTva: 0 }
   );
 
+  // New totals: monthly-equivalent (yearly divided by 12) and total yearly
+  const monthlyEqTotals = contracts.reduce(
+    (acc, c) => {
+      // EUR (monthly equivalent)
+      let monthlyEur = 0;
+      if (c.rentType === "yearly") {
+        const sumYear = (c.yearlyInvoices ?? []).reduce(
+          (s, r) => s + (r.amountEUR || 0),
+          0
+        );
+        monthlyEur = sumYear > 0 ? sumYear / 12 : 0;
+      } else if (typeof c.amountEUR === "number") {
+        monthlyEur = c.amountEUR;
+      }
+      acc.eur += monthlyEur;
+      // RON before and after correction (no VAT)
+      if (monthlyEur > 0 && typeof c.exchangeRateRON === "number") {
+        const baseRon = monthlyEur * c.exchangeRateRON;
+        const corrPct =
+          typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+        const corrected = baseRon * (1 + corrPct / 100);
+        acc.ronBase += baseRon;
+        acc.ronCorrected += corrected;
+      }
+      return acc;
+    },
+    { eur: 0, ronBase: 0, ronCorrected: 0 }
+  );
+
+  const yearlyTotals = contracts.reduce(
+    (acc, c) => {
+      // EUR (yearly total)
+      let yearlyEur = 0;
+      if (c.rentType === "yearly") {
+        yearlyEur = (c.yearlyInvoices ?? []).reduce(
+          (s, r) => s + (r.amountEUR || 0),
+          0
+        );
+      } else if (typeof c.amountEUR === "number") {
+        yearlyEur = c.amountEUR * 12;
+      }
+      acc.eur += yearlyEur;
+      // RON before and after correction (no VAT)
+      if (yearlyEur > 0 && typeof c.exchangeRateRON === "number") {
+        const baseRon = yearlyEur * c.exchangeRateRON;
+        const corrPct =
+          typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+        const corrected = baseRon * (1 + corrPct / 100);
+        acc.ronBase += baseRon;
+        acc.ronCorrected += corrected;
+      }
+      return acc;
+    },
+    { eur: 0, ronBase: 0, ronCorrected: 0 }
+  );
+
+  // Precompute Euro inflation by baseline month to avoid repeated fetches
+  // Baseline = last indexing date not after today (if any) else startDate, truncated to YYYY-MM
+  const uniqueFromMonths = new Set<string>();
+  for (const c of contracts) {
+    const idxPast = (c.indexingDates ?? [])
+      .filter((d) => !!d && new Date(d) <= startOfToday)
+      .sort();
+    const from = idxPast.length > 0 ? idxPast[idxPast.length - 1] : c.startDate;
+    uniqueFromMonths.add(monthKey(from));
+  }
+  const inflationByFromMonth: Record<
+    string,
+    { percent: number; fromMonth: string; toMonth: string }
+  > = {};
+  for (const fm of uniqueFromMonths) {
+    try {
+      const res = await getEuroInflationPercent({ from: `${fm}-01` });
+      inflationByFromMonth[fm] = {
+        percent: res.percent,
+        fromMonth: res.fromMonth,
+        toMonth: res.toMonth,
+      };
+    } catch {
+      // ignore missing inflation for this month
+    }
+  }
+
   // Fetch BT daily EUR selling rate (cached in DB by date)
   let bt: { rate: number; date: string } | null = null;
   try {
@@ -141,31 +243,52 @@ export default async function Home({
     bt = { rate: res.rate, date: res.date };
   } catch {}
 
-  let rai: { rate: number; date: string } | null = null;
+  // Fetch BNR official EUR/RON rate (cached by date)
+  let bnr: { rate: number; date: string } | null = null;
   try {
-    const res = await getDailyRaiEurSell({ forceRefresh: false });
-    rai = { rate: res.rate, date: res.date };
+    const res = await getDailyEurRon({ forceRefresh: false });
+    bnr = { rate: res.rate, date: res.date };
   } catch {}
+
+  // Raiffeisen rate removed
 
   async function refreshBtRate() {
     "use server";
     try {
-      await getDailyBtEurSell({ forceRefresh: true });
+      const r = await getDailyBtEurSell({ forceRefresh: true });
+      try {
+        await logAction({
+          action: "exchange.refresh",
+          targetType: "system",
+          targetId: "BT",
+          meta: { rate: r.rate, date: r.date },
+        });
+      } catch {}
     } catch {
       // swallow errors to avoid client "unexpected response"; we still revalidate
     }
     revalidatePath("/");
   }
 
-  async function refreshRaiRate() {
+  async function refreshBnrRate() {
     "use server";
     try {
-      await getDailyRaiEurSell({ forceRefresh: true });
+      const r = await getDailyEurRon({ forceRefresh: true });
+      try {
+        await logAction({
+          action: "exchange.refresh",
+          targetType: "system",
+          targetId: "BNR",
+          meta: { rate: r.rate, date: r.date },
+        });
+      } catch {}
     } catch {
       // swallow errors to avoid client "unexpected response"; we still revalidate
     }
     revalidatePath("/");
   }
+
+  // Raiffeisen refresh removed
 
   async function updateAllExchangeRates() {
     "use server";
@@ -180,308 +303,526 @@ export default async function Home({
         { amountEUR: { $exists: true } },
         { $set: { exchangeRateRON: rate } }
       );
+    try {
+      await logAction({
+        action: "exchange.refreshAll",
+        targetType: "system",
+        targetId: "contracts",
+        meta: { rate },
+      });
+    } catch {}
     revalidatePath("/");
   }
 
-  return (
-    <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mx-auto max-w-screen-2xl">
-        <header className="flex items-end justify-between gap-6 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-              Contracte
-            </h1>
-            <p className="text-foreground/70 text-sm sm:text-base">
-              Placeholder-e pentru fiecare contract din baza de date
+  // Per-card inflation refresh (uses baseline month from the card)
+  async function refreshInflationFor(formData: FormData) {
+    "use server";
+    try {
+      const fromMonth = String(formData.get("fromMonth") || "").trim();
+      const from = fromMonth ? `${fromMonth}-01` : "2000-01-01";
+      await getEuroInflationPercent({ from, forceRefresh: true });
+    } catch {}
+    revalidatePath("/");
+  }
+
+  // Render a contract card (shared for active/expired lists)
+  const renderCard = (c: Contract) => (
+    <article
+      key={c.id}
+      className="rounded-xl border border-foreground/15 p-6 sm:p-7 hover:border-foreground/30 transition-colors text-base font-mono bg-background/60 shadow-sm space-y-4 sm:space-y-5 overflow-hidden"
+    >
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
+        <h2
+          className="text-base font-semibold truncate tracking-tight flex-1 min-w-0"
+          title={c.name}
+        >
+          <Link href={`/contracts/${c.id}`} className="hover:underline">
+            {c.name}
+          </Link>
+        </h2>
+        <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+          {new Date(c.endDate) < now ? (
+            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
+              Expirat
+            </span>
+          ) : (
+            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              Activ
+            </span>
+          )}
+        </div>
+      </div>
+      <p
+        className="text-base text-foreground/80 truncate break-words"
+        title={c.partner}
+      >
+        Partener: {c.partner}
+      </p>
+      <p
+        className="text-base text-foreground/70 truncate break-words"
+        title={c.owner}
+      >
+        Proprietar: {c.owner ?? "Markov Services s.r.l."}
+      </p>
+
+      {/* Rent structure summary */}
+      {(() => {
+        if (c.rentType === "yearly") {
+          const total = (c.yearlyInvoices ?? []).reduce(
+            (s, r) => s + (r.amountEUR || 0),
+            0
+          );
+          const count = (c.yearlyInvoices ?? []).length;
+          if (count === 0) return null;
+          return (
+            <p className="text-sm text-foreground/70">
+              Chirie anuală · {count} factur{count === 1 ? "ă" : "i"} · total{" "}
+              {fmtEUR(total)}
             </p>
-          </div>
-          <div className="w-full sm:w-auto">
-            {/* Exchange rates moved above the search bar */}
-            <div className="mt-2 rounded-lg bg-foreground/5 p-3 sm:p-4 text-sm flex items-center gap-2 sm:gap-3 flex-wrap">
-              <span className="text-foreground/60">
-                Curs BT (vânzare EUR):{" "}
-              </span>
-              {bt ? (
-                <span className="font-medium text-fuchsia-700 dark:text-fuchsia-400">
-                  {bt.rate.toFixed(4)} RON/EUR
-                </span>
-              ) : (
-                <span className="text-foreground/60 italic">Indisponibil</span>
-              )}
-              <span className="text-foreground/50">
-                {" "}
-                · Data (EET/EEST): {bt ? bt.date : "—"}
-              </span>
-              <form action={refreshBtRate} className="inline-block ml-auto">
-                <ActionButton
-                  className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
-                  title="Actualizează cursul BT (vânzare EUR)"
-                  successMessage="Cursul BT a fost actualizat"
-                >
-                  Actualizează cursul BT
-                </ActionButton>
-              </form>
-            </div>
+          );
+        }
+        if (typeof c.monthlyInvoiceDay === "number") {
+          return (
+            <p className="text-sm text-foreground/70">
+              Chirie lunară · facturare ziua {c.monthlyInvoiceDay}
+            </p>
+          );
+        }
+        return <p className="text-sm text-foreground/60">Chirie lunară</p>;
+      })()}
 
-            <div className="mt-2 rounded-lg bg-foreground/5 p-3 sm:p-4 text-sm flex items-center gap-2 sm:gap-3 flex-wrap">
-              <span className="text-foreground/60">
-                Curs Raiffeisen (vânzare EUR):{" "}
-              </span>
-              {rai ? (
-                <span className="font-medium text-amber-700 dark:text-amber-400">
-                  {rai.rate.toFixed(4)} RON/EUR
-                </span>
-              ) : (
-                <span className="text-foreground/60 italic">Indisponibil</span>
-              )}
-              <span className="text-foreground/50">
-                {" "}
-                · Data (EET/EEST): {rai ? rai.date : "—"}
-              </span>
-              <form action={refreshRaiRate} className="inline-block ml-auto">
-                <ActionButton
-                  className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
-                  title="Actualizează cursul Raiffeisen (vânzare EUR)"
-                  successMessage="Cursul Raiffeisen a fost actualizat"
-                >
-                  Actualizează cursul RAI
-                </ActionButton>
-              </form>
+      {(() => {
+        const eur =
+          c.rentType === "yearly"
+            ? (c.yearlyInvoices ?? []).reduce(
+                (s, r) => s + (r.amountEUR || 0),
+                0
+              )
+            : typeof c.amountEUR === "number"
+            ? c.amountEUR
+            : undefined;
+        if (typeof eur !== "number") return null;
+        const eurLabel =
+          c.rentType === "yearly" ? "EUR (anual)" : "EUR (lunar)";
+        const hasRate = typeof c.exchangeRateRON === "number";
+        const corrPct =
+          typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+        const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
+        const baseRon = hasRate
+          ? eur * (c.exchangeRateRON as number)
+          : undefined;
+        const ronAfterCorrection =
+          typeof baseRon === "number"
+            ? baseRon * (1 + corrPct / 100)
+            : undefined;
+        const ronAfterCorrectionTva =
+          typeof ronAfterCorrection === "number"
+            ? ronAfterCorrection * (1 + tvaPct / 100)
+            : undefined;
+        return (
+          <>
+            <div className="rounded-md bg-foreground/5 p-3 space-y-1">
+              <div className="font-semibold text-base text-indigo-700 dark:text-indigo-400">
+                {eurLabel}: {fmtEUR(eur)}
+              </div>
+              {hasRate ? (
+                <div className="font-semibold text-base text-cyan-700 dark:text-cyan-400">
+                  Curs: {(c.exchangeRateRON as number).toFixed(4)} RON/EUR
+                </div>
+              ) : null}
+              {typeof baseRon === "number" ? (
+                <div className="font-semibold text-base">
+                  RON: {fmtRON(baseRon)}
+                </div>
+              ) : null}
+              {typeof ronAfterCorrection === "number" ? (
+                <div className="font-semibold text-base text-sky-700 dark:text-sky-400">
+                  RON după corecție{corrPct ? ` (${corrPct}%)` : ""}:{" "}
+                  {fmtRON(ronAfterCorrection)}
+                </div>
+              ) : null}
+              {typeof ronAfterCorrectionTva === "number" ? (
+                <div className="font-semibold text-base text-emerald-700 dark:text-emerald-400">
+                  RON după corecție + TVA{tvaPct ? ` (${tvaPct}%)` : ""}:{" "}
+                  {fmtRON(ronAfterCorrectionTva)}
+                </div>
+              ) : null}
             </div>
+            {(() => {
+              const next = nextIndexing(c.indexingDates);
+              if (!next) return null;
+              const nd = new Date(next);
+              let cls = "text-foreground/70";
+              if (nd >= startOfToday) {
+                const diffDays = Math.ceil(
+                  (nd.getTime() - startOfToday.getTime()) /
+                    (1000 * 60 * 60 * 24)
+                );
+                if (diffDays < 15) cls = "text-red-600";
+                else if (diffDays <= 60) cls = "text-yellow-600";
+              }
+              return (
+                <p className={`mt-2 text-xs truncate ${cls}`}>
+                  Indexare: {fmt(next)}
+                </p>
+              );
+            })()}
+          </>
+        );
+      })()}
 
-            <div className="flex items-center gap-3 w-full">
-              <SearchContracts initialQuery={q} />
-              <IndexingFilters />
-            </div>
-            <div className="mt-2 text-right">
-              <Link
-                href="/contracts/new"
-                className="inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-1.5 text-xs sm:text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                Adaugă contract
-              </Link>
-            </div>
-            <form action={updateAllExchangeRates} className="mt-2">
-              <ActionButton
-                className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs sm:text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60"
-                title={
-                  !process.env.MONGODB_URI
-                    ? "MongoDB nu este configurat"
-                    : "Actualizează cursul pentru toate contractele"
+      {/* Inflation */}
+      {(() => {
+        const idxPast = (c.indexingDates ?? [])
+          .filter((d) => !!d && new Date(d) <= startOfToday)
+          .sort();
+        const from =
+          idxPast.length > 0 ? idxPast[idxPast.length - 1] : c.startDate;
+        const inf = inflationByFromMonth[monthKey(from)];
+        if (!inf) {
+          return (
+            <p className="mt-1 text-xs truncate text-foreground/60">
+              Inflație EUR (HICP): <span className="italic">Indisponibil</span>
+            </p>
+          );
+        }
+        const signColor =
+          inf.percent >= 0
+            ? "text-amber-700 dark:text-amber-400"
+            : "text-emerald-700 dark:text-emerald-400";
+        return (
+          <div className="mt-1 text-xs text-foreground/70 flex items-center gap-2 flex-wrap">
+            <span>
+              Inflație EUR (HICP):{" "}
+              <span className={`font-medium ${signColor}`}>
+                {inf.percent.toFixed(2)}%
+              </span>{" "}
+              <span className="text-foreground/50">
+                ({inf.fromMonth} → {inf.toMonth})
+              </span>
+            </span>
+            {(() => {
+              const badge = (() => {
+                if (
+                  c.inflationVerified === true &&
+                  c.inflationFromMonth === inf.fromMonth &&
+                  c.inflationToMonth === inf.toMonth
+                ) {
+                  return (
+                    <span className="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                      Confirmat
+                    </span>
+                  );
                 }
-                successMessage="Cursul a fost actualizat pentru toate contractele"
+                if (
+                  c.inflationVerified === false &&
+                  c.inflationFromMonth === inf.fromMonth &&
+                  c.inflationToMonth === inf.toMonth
+                ) {
+                  return (
+                    <span className="px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                      Nealiniat
+                    </span>
+                  );
+                }
+                return null;
+              })();
+              return badge;
+            })()}
+            <span className="ml-1">
+              <InflationVerify
+                contractId={c.id}
+                fromMonth={inf.fromMonth}
+                toMonth={inf.toMonth}
+              />
+            </span>
+            <form action={refreshInflationFor} className="ml-1 inline-block">
+              <input type="hidden" name="fromMonth" value={inf.fromMonth} />
+              <ActionButton
+                className="rounded-md border border-foreground/20 px-2 py-1 text-[11px] font-semibold hover:bg-foreground/5"
+                title="Actualizează seria de inflație EUR (HICP)"
+                successMessage="Seria de inflație a fost actualizată"
               >
-                Actualizează cursul (toate contractele)
+                Actualizează inflația
               </ActionButton>
             </form>
-            <div className="text-right sm:text-left">
-              <div className="text-sm sm:text-base text-foreground/60 shrink-0">
-                Total: {contracts.length}
+          </div>
+        );
+      })()}
+
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-md bg-foreground/5 p-3">
+          <dt className="text-xs text-foreground/60">Semnat</dt>
+          <dd className="font-medium text-base">{fmt(c.signedAt)}</dd>
+        </div>
+        <div className="rounded-md bg-foreground/5 p-3">
+          <dt className="text-xs text-foreground/60">Început</dt>
+          <dd className="font-medium text-base">{fmt(c.startDate)}</dd>
+        </div>
+        <div className="rounded-md bg-foreground/5 p-3">
+          <dt className="text-xs text-foreground/60">Expiră</dt>
+          <dd className="font-medium text-base">{fmt(c.endDate)}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+
+  return (
+    <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mx-auto max-w-screen-2xl">
+        <h1 className="text-fluid-4xl font-semibold tracking-tight mb-8">
+          Contracte
+        </h1>
+        {/* KPIs */}
+        {(() => {
+          const activeAll = all.filter(
+            (c) => new Date(c.endDate) >= startOfToday
+          );
+          const within = (days: number) => {
+            const end = new Date(startOfToday);
+            end.setDate(end.getDate() + days);
+            return activeAll.filter((c) => {
+              const n = nextIndexing(c.indexingDates);
+              if (!n) return false;
+              const d = new Date(n);
+              return d >= startOfToday && d <= end;
+            }).length;
+          };
+          const upcoming15 = within(15);
+          const upcoming60 = within(60);
+          return (
+            <section className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+              <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">
+                  Contracte
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {contracts.length}
+                </div>
               </div>
-              <div className="text-xs sm:text-sm text-foreground/60">
-                {"EUR: "}
-                <span className="font-medium text-indigo-700 dark:text-indigo-400">
+              <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">
+                  EUR
+                </div>
+                <div className="mt-1 text-xl font-semibold text-indigo-700 dark:text-indigo-400">
                   {fmtEUR(totals.eur)}
-                </span>
-                {" · RON: "}
-                <span className="font-medium text-sky-700 dark:text-sky-400">
+                </div>
+              </div>
+              <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">
+                  RON
+                </div>
+                <div className="mt-1 text-xl font-semibold text-sky-700 dark:text-sky-400">
                   {fmtRON(totals.ronBase)}
-                </span>
-                {" · RON (cu TVA): "}
-                <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                </div>
+                {totals.tva > 0 && (
+                  <div className="text-[11px] text-foreground/60">
+                    TVA: {fmtRON(totals.tva)}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">
+                  RON cu TVA
+                </div>
+                <div className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-400">
                   {fmtRON(totals.ronWithTva)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">
+                  Indexări
+                </div>
+                <div className="mt-1 text-sm">
+                  <span className="font-semibold">{upcoming15}</span> în 15 zile
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold">{upcoming60}</span> în 60 zile
+                </div>
+              </div>
+            </section>
+          );
+        })()}
+
+        {/* Totals for contracts: monthly equivalent and yearly (EUR, RON before/after correction, no VAT) */}
+        <section className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+          <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+            <div className="text-xs uppercase tracking-wide text-foreground/60">
+              Lunar (echivalent)
+            </div>
+            <div className="mt-2 space-y-1 text-sm">
+              <div>
+                <span className="text-foreground/60">EUR:</span>{" "}
+                <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                  {fmtEUR(monthlyEqTotals.eur)}
                 </span>
-                {totals.tva > 0 ? (
-                  <>
-                    {" "}
-                    <span className="text-rose-700 dark:text-rose-400">
-                      (TVA: {fmtRON(totals.tva)})
-                    </span>
-                  </>
-                ) : null}
+              </div>
+              <div>
+                <span className="text-foreground/60">RON (fără corecție):</span>{" "}
+                <span className="font-semibold">
+                  {fmtRON(monthlyEqTotals.ronBase)}
+                </span>
+              </div>
+              <div>
+                <span className="text-foreground/60">RON după corecție:</span>{" "}
+                <span className="font-semibold text-sky-700 dark:text-sky-400">
+                  {fmtRON(monthlyEqTotals.ronCorrected)}
+                </span>
               </div>
             </div>
           </div>
-        </header>
-
-        <section className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-5">
-          {contracts.map((c) => (
-            <article
-              key={c.id}
-              className="rounded-xl border border-foreground/15 p-5 sm:p-6 hover:border-foreground/30 transition-colors text-base font-mono bg-background/60 shadow-sm space-y-3 sm:space-y-4 overflow-hidden"
-            >
-              <div className="flex items-start justify-between gap-3 sm:gap-4">
-                <h2
-                  className="text-base font-semibold truncate tracking-tight flex-1 min-w-0"
-                  title={c.name}
-                >
-                  <Link href={`/contracts/${c.id}`} className="hover:underline">
-                    {c.name}
-                  </Link>
-                </h2>
-                <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
-                  {new Date(c.endDate) < now ? (
-                    <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
-                      Expirat
-                    </span>
-                  ) : (
-                    <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                      Activ
-                    </span>
-                  )}
-                  {process.env.MONGODB_URI ? (
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={`/contracts/${c.id}/edit`}
-                        className="rounded-sm border border-foreground/20 p-1 hover:bg-foreground/5"
-                        aria-label="Editează"
-                        title="Editează"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-3 w-3"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                        </svg>
-                      </Link>
-                      <DeleteButton
-                        label="Șterge"
-                        iconOnly
-                        className="rounded-sm border border-red-500/30 bg-red-500/10 p-1 text-red-600 hover:bg-red-500/15"
-                        action={async () => {
-                          "use server";
-                          const ok = await deleteContractById(c.id);
-                          if (!ok)
-                            throw new Error("Nu am putut șterge contractul.");
-                          redirect("/");
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
+          <div className="rounded-xl border border-foreground/10 bg-background/70 p-6">
+            <div className="text-xs uppercase tracking-wide text-foreground/60">
+              Total anual
+            </div>
+            <div className="mt-2 space-y-1 text-sm">
+              <div>
+                <span className="text-foreground/60">EUR:</span>{" "}
+                <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                  {fmtEUR(yearlyTotals.eur)}
+                </span>
               </div>
-              <p
-                className="text-base text-foreground/80 truncate break-words"
-                title={c.partner}
-              >
-                Partener: {c.partner}
-              </p>
-              <p
-                className="text-base text-foreground/70 truncate break-words"
-                title={c.owner}
-              >
-                Proprietar: {c.owner ?? "Markov Services s.r.l."}
-              </p>
-
-              {typeof c.amountEUR === "number" &&
-              typeof c.exchangeRateRON === "number" ? (
-                <>
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-md bg-foreground/5 p-3">
-                      <dt className="text-foreground/60">EUR</dt>
-                      <dd className="font-semibold text-base text-indigo-700 dark:text-indigo-400">
-                        {fmtEUR(c.amountEUR)}
-                      </dd>
-                    </div>
-                    <div className="rounded-md bg-foreground/5 p-3">
-                      <dt className="text-foreground/60">Curs</dt>
-                      <dd className="font-semibold text-base text-cyan-700 dark:text-cyan-400">
-                        {c.exchangeRateRON.toFixed(4)} RON/EUR
-                      </dd>
-                    </div>
-                    <div className="rounded-md bg-foreground/5 p-3 sm:col-span-2">
-                      <dt className="text-foreground/60">
-                        {typeof c.tvaPercent === "number" && c.tvaPercent > 0
-                          ? `RON (cu TVA ${c.tvaPercent}%)`
-                          : "RON"}
-                      </dt>
-                      <dd className="font-semibold text-base">
-                        {(() => {
-                          const baseRon = c.amountEUR! * c.exchangeRateRON!;
-                          const corr =
-                            typeof c.correctionPercent === "number"
-                              ? c.correctionPercent
-                              : 0;
-                          const corrected = baseRon * (1 + corr / 100);
-                          const tva =
-                            typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
-                          const withTva = corrected * (1 + tva / 100);
-                          const tvaAmt = corrected * (tva / 100);
-                          return (
-                            <>
-                              <div className="text-emerald-700 dark:text-emerald-400">
-                                {fmtRON(withTva)}
-                              </div>
-                              {typeof c.correctionPercent === "number" ? (
-                                <div className="text-xs text-sky-700 dark:text-sky-400">
-                                  RON (după corecție): {fmtRON(corrected)}
-                                </div>
-                              ) : null}
-                              {corr > 0 ? (
-                                <div className="text-xs text-amber-700 dark:text-amber-400">
-                                  Corecție {corr}%:{" "}
-                                  {fmtRON(corrected - baseRon)}
-                                </div>
-                              ) : null}
-                              {tva > 0 && tvaAmt > 0 ? (
-                                <div className="text-xs text-rose-700 dark:text-rose-400">
-                                  TVA {tva}%: {fmtRON(tvaAmt)}
-                                </div>
-                              ) : null}
-                            </>
-                          );
-                        })()}
-                      </dd>
-                    </div>
-                  </dl>
-                  {(() => {
-                    const next = nextIndexing(c.indexingDates);
-                    if (!next) return null;
-                    const nd = new Date(next);
-                    let cls = "text-foreground/70";
-                    if (nd >= startOfToday) {
-                      const diffDays = Math.ceil(
-                        (nd.getTime() - startOfToday.getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      );
-                      if (diffDays < 15) cls = "text-red-600";
-                      else if (diffDays <= 60) cls = "text-yellow-600";
-                    }
-                    return (
-                      <p className={`mt-2 text-xs truncate ${cls}`}>
-                        Indexare: {fmt(next)}
-                      </p>
-                    );
-                  })()}
-                </>
-              ) : null}
-
-              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-md bg-foreground/5 p-3">
-                  <dt className="text-xs text-foreground/60">Semnat</dt>
-                  <dd className="font-medium text-base">{fmt(c.signedAt)}</dd>
-                </div>
-                <div className="rounded-md bg-foreground/5 p-3">
-                  <dt className="text-xs text-foreground/60">Început</dt>
-                  <dd className="font-medium text-base">{fmt(c.startDate)}</dd>
-                </div>
-                <div className="rounded-md bg-foreground/5 p-3">
-                  <dt className="text-xs text-foreground/60">Expiră</dt>
-                  <dd className="font-medium text-base">{fmt(c.endDate)}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+              <div>
+                <span className="text-foreground/60">RON (fără corecție):</span>{" "}
+                <span className="font-semibold">
+                  {fmtRON(yearlyTotals.ronBase)}
+                </span>
+              </div>
+              <div>
+                <span className="text-foreground/60">RON după corecție:</span>{" "}
+                <span className="font-semibold text-sky-700 dark:text-sky-400">
+                  {fmtRON(yearlyTotals.ronCorrected)}
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
+
+        {/* Exchange rates */}
+        <section className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+          <div className="rounded-xl border border-foreground/10 bg-foreground/5 p-5 sm:p-6 text-sm flex items-center gap-3 flex-wrap">
+            <span className="text-foreground/60">Curs BT (vânzare EUR): </span>
+            {bt ? (
+              <span className="font-medium text-fuchsia-700 dark:text-fuchsia-400">
+                {bt.rate.toFixed(4)} RON/EUR
+              </span>
+            ) : (
+              <span className="text-foreground/60 italic">Indisponibil</span>
+            )}
+            <span className="text-foreground/50">
+              · Data (EET/EEST): {bt ? bt.date : "—"}
+            </span>
+            <form action={refreshBtRate} className="inline-block ml-auto">
+              <ActionButton
+                className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
+                title="Actualizează cursul BT (vânzare EUR)"
+                successMessage="Cursul BT a fost actualizat"
+              >
+                Actualizează cursul BT
+              </ActionButton>
+            </form>
+          </div>
+          <div className="rounded-xl border border-foreground/10 bg-foreground/5 p-5 sm:p-6 text-sm flex items-center gap-3 flex-wrap">
+            <span className="text-foreground/60">Curs BNR (EUR/RON): </span>
+            {bnr ? (
+              <span className="font-medium text-blue-700 dark:text-blue-400">
+                {bnr.rate.toFixed(4)} RON/EUR
+              </span>
+            ) : (
+              <span className="text-foreground/60 italic">Indisponibil</span>
+            )}
+            <span className="text-foreground/50">
+              · Data (EET/EEST): {bnr ? bnr.date : "—"}
+            </span>
+            {bnr && bt
+              ? (() => {
+                  const diff = ((bt.rate - bnr.rate) / bnr.rate) * 100;
+                  const sign = diff >= 0 ? "+" : "";
+                  const color =
+                    diff >= 0
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-emerald-700 dark:text-emerald-400";
+                  return (
+                    <span className="text-foreground/60">
+                      · Diferență BT vs BNR:{" "}
+                      <span className={`font-medium ${color}`}>
+                        {sign}
+                        {diff.toFixed(2)}%
+                      </span>
+                    </span>
+                  );
+                })()
+              : null}
+            <form action={refreshBnrRate} className="inline-block ml-auto">
+              <ActionButton
+                className="rounded-md border border-foreground/20 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold hover:bg-foreground/5"
+                title="Actualizează cursul BNR (EUR/RON)"
+                successMessage="Cursul BNR a fost actualizat"
+              >
+                Actualizează cursul BNR
+              </ActionButton>
+            </form>
+          </div>
+        </section>
+
+        {/* Toolbar: search + filters + bulk update */}
+        <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5">
+          <div className="flex items-center gap-3 flex-1">
+            <SearchContracts initialQuery={q} />
+            <IndexingFilters />
+          </div>
+          {(q || range) && (
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-md border border-foreground/20 px-3 py-1.5 text-sm font-medium hover:bg-foreground/5"
+            >
+              Reset filtre
+            </Link>
+          )}
+          <form action={updateAllExchangeRates} className="sm:ml-auto">
+            <ActionButton
+              className="rounded-md border border-foreground/20 px-3 py-1.5 text-sm font-semibold hover:bg-foreground/5 disabled:opacity-60"
+              title={
+                !process.env.MONGODB_URI
+                  ? "MongoDB nu este configurat"
+                  : "Actualizează cursul pentru toate contractele"
+              }
+              successMessage="Cursul a fost actualizat pentru toate contractele"
+            >
+              Actualizează cursul (toate contractele)
+            </ActionButton>
+          </form>
+        </div>
+
+        {contracts.length === 0 ? (
+          <div className="mt-6 rounded-xl border border-foreground/15 p-8 text-center text-foreground/60">
+            Nu există contracte de afișat.
+          </div>
+        ) : (
+          <section className="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5 lg:gap-8">
+            {(() => {
+              const active = contracts.filter(
+                (c) => new Date(c.endDate) >= now
+              );
+              const expired = contracts.filter(
+                (c) => new Date(c.endDate) < now
+              );
+              return (
+                <>
+                  {active.map(renderCard)}
+                  {expired.length > 0 && (
+                    <div className="col-span-full mt-10 mb-3 text-xs uppercase tracking-wide text-foreground/50 flex items-center gap-2">
+                      <span className="h-px flex-1 bg-foreground/15" />
+                      Expirate
+                      <span className="h-px flex-1 bg-foreground/15" />
+                    </div>
+                  )}
+                  {expired.map(renderCard)}
+                </>
+              );
+            })()}
+          </section>
+        )}
       </div>
     </main>
   );

@@ -11,7 +11,7 @@ function sanitize(s: string) {
 export async function saveScanFile(
   file: File,
   baseName: string,
-  opts?: { contractId?: string }
+  opts?: { contractId?: string; partnerId?: string }
 ): Promise<{ url: string; storage: "gridfs" | "local"; id?: string }> {
   const original = file.name || "scan";
   const base = sanitize(baseName || original.replace(/\.[^.]+$/, "")) || "scan";
@@ -26,7 +26,7 @@ export async function saveScanFile(
     const readable = Readable.from(buffer);
     const uploadStream = bucket.openUploadStream(filename, {
       contentType: file.type || inferMime(ext) || "application/octet-stream",
-      metadata: { originalName: original, contractId: opts?.contractId ?? null },
+      metadata: { originalName: original, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null },
     });
     await new Promise<void>((resolve, reject) => {
       readable.pipe(uploadStream).on("finish", () => resolve()).on("error", reject);

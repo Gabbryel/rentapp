@@ -5,213 +5,404 @@ const MOCK_CONTRACTS: ContractType[] = [
   {
     id: "c1",
     name: "Lease #1001",
+    partnerId: "p1",
     partner: "Acme Corp",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
+    rentType: "monthly",
+    monthlyInvoiceDay: 5,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 20,
   },
   {
     id: "c2",
     name: "Lease #1002",
+    partnerId: "p2",
     partner: "Globex LLC",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
+    rentType: "monthly",
+    monthlyInvoiceDay: 10,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 15,
   },
   {
     id: "c3",
     name: "Maintenance Agreement A",
+    partnerId: "p3",
     partner: "Initech",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
+    rentType: "monthly",
+    monthlyInvoiceDay: 15,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 30,
   },
   {
     id: "c4",
     name: "Service Contract 2025",
+    partnerId: "p4",
     partner: "Umbrella Co",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
+    rentType: "monthly",
+    monthlyInvoiceDay: 12,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 10,
   },
   {
     id: "c5",
     name: "Short-term Lease Q3",
+    partnerId: "p5",
     partner: "Stark Industries",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
+    rentType: "monthly",
+    monthlyInvoiceDay: 8,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 15,
   },
   {
     id: "c6",
     name: "Property Mgmt Alpha",
+    partnerId: "p6",
     partner: "Wayne Enterprises",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
+    rentType: "monthly",
+    monthlyInvoiceDay: 20,
     scanUrl: "/contract-scan.svg",
+    paymentDueDays: 25,
   },
   {
     id: "c7",
     name: "Renewal Lease #2001",
+    partnerId: "p7",
     partner: "Hooli",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
+    rentType: "monthly",
+    monthlyInvoiceDay: 7,
+    extensionDate: "2026-06-30",
+    paymentDueDays: 20,
   },
   {
     id: "c8",
     name: "Equipment Rental B",
+    partnerId: "p8",
     partner: "Soylent Corp",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-04-05",
     startDate: "2025-04-15",
     endDate: "2025-10-15",
+    paymentDueDays: 14,
+    rentType: "monthly",
+    monthlyInvoiceDay: 3,
   },
   {
     id: "c9",
     name: "Parking Spaces 12-20",
+    partnerId: "p9",
     partner: "Duff Beer",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2024-09-01",
     startDate: "2024-09-15",
     endDate: "2025-09-14",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 9,
   },
   {
     id: "c10",
     name: "Seasonal Lease Winter",
+    partnerId: "p10",
     partner: "Cyberdyne Systems",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2024-10-10",
     startDate: "2024-12-01",
     endDate: "2025-03-01",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 1,
   },
   {
     id: "c11",
     name: "Service Level Addendum",
+    partnerId: "p11",
     partner: "MomCorp",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-07-01",
     startDate: "2025-07-10",
     endDate: "2026-07-09",
+    paymentDueDays: 15,
+    rentType: "monthly",
+    monthlyInvoiceDay: 11,
   },
   {
     id: "c12",
     name: "Property Mgmt Beta",
+    partnerId: "p12",
     partner: "Tyrell Corporation",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-01-05",
     startDate: "2025-01-15",
     endDate: "2026-01-14",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 14,
   },
   {
     id: "c13",
     name: "Warehouse Lease A",
+    partnerId: "p13",
     partner: "Oscorp",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2024-07-20",
     startDate: "2024-08-01",
     endDate: "2025-07-31",
+    paymentDueDays: 30,
+    rentType: "monthly",
+    monthlyInvoiceDay: 6,
   },
   {
     id: "c14",
     name: "Short-term Lease Q4",
+    partnerId: "p14",
     partner: "Aperture Science",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-09-10",
     startDate: "2025-10-01",
     endDate: "2025-12-31",
+    paymentDueDays: 10,
+    rentType: "monthly",
+    monthlyInvoiceDay: 4,
   },
   {
     id: "c15",
     name: "Office Expansion East",
+    partnerId: "p15",
     partner: "Black Mesa",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-05-25",
     startDate: "2025-06-01",
     endDate: "2026-05-31",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 16,
   },
   {
     id: "c16",
     name: "Retail Kiosk Summer",
+    partnerId: "p16",
     partner: "Nuka-Cola",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-03-28",
     startDate: "2025-05-01",
     endDate: "2025-09-01",
+    paymentDueDays: 25,
+    rentType: "monthly",
+    monthlyInvoiceDay: 18,
   },
   {
     id: "c17",
     name: "Maintenance Agreement B",
+    partnerId: "p17",
     partner: "Wonka Industries",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2024-12-01",
     startDate: "2025-01-10",
     endDate: "2025-07-10",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 13,
   },
   {
     id: "c18",
     name: "Service Contract 2026",
+    partnerId: "p18",
     partner: "Blue Sun",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-08-15",
     startDate: "2026-01-01",
     endDate: "2026-12-31",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 2,
   },
   {
     id: "c19",
     name: "Lease #3003",
+    partnerId: "p19",
     partner: "Gringotts Bank",
     owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2025-02-02",
     startDate: "2025-02-15",
     endDate: "2026-02-14",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 22,
   },
   {
     id: "c20",
     name: "Storage Units Block C",
+    partnerId: "p20",
     partner: "Vault-Tec",
     owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-06-05",
     startDate: "2025-06-15",
     endDate: "2026-06-14",
+    paymentDueDays: 20,
+    rentType: "monthly",
+    monthlyInvoiceDay: 19,
   },
 ];
 
 // Validate mock data at module load (throws if invalid during dev)
 for (const c of MOCK_CONTRACTS) ContractSchema.parse(c);
+
+function toYmd(input: unknown): string | undefined {
+  if (typeof input === "string" && input) return input;
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    const y = input.getFullYear();
+    const m = String(input.getMonth() + 1).padStart(2, "0");
+    const d = String(input.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  return undefined;
+}
+
+function normalizeRaw(raw: unknown): Partial<ContractType> {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const numOrUndef = (v: unknown): number | undefined => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+    if (typeof v === "string") {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
+  };
+  const idxRaw = Array.isArray(r.indexingDates) ? (r.indexingDates as unknown[]) : [];
+  const idx: string[] = idxRaw
+    .map((v) => toYmd(v))
+    .filter((s): s is string => typeof s === "string");
+  const amountEUR = numOrUndef(r.amountEUR);
+  const exchangeRateRON = numOrUndef(r.exchangeRateRON);
+  const tvaPercent =
+    typeof r.tvaPercent === "number"
+      ? r.tvaPercent
+      : Number.isInteger(Number(r.tvaPercent))
+      ? Number(r.tvaPercent)
+      : undefined;
+  const correctionPercent =
+    typeof r.correctionPercent === "number"
+      ? r.correctionPercent
+      : Number.isInteger(Number(r.correctionPercent))
+      ? Number(r.correctionPercent)
+      : undefined;
+  return {
+    id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
+    name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
+    partnerId: typeof r.partnerId === "string" ? r.partnerId : undefined,
+    partner: typeof r.partner === "string" ? r.partner : (r.partner as string | undefined),
+    owner: (r.owner as string) ?? "Markov Services s.r.l.",
+    signedAt: toYmd(r.signedAt)!,
+    startDate: toYmd(r.startDate)!,
+    endDate: toYmd(r.endDate)!,
+    extensionDate: toYmd(r.extensionDate),
+    paymentDueDays: ((): number | undefined => {
+      const n = Number(r.paymentDueDays);
+      return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
+    })(),
+    rentType: ((): "monthly" | "yearly" => (r.rentType === "yearly" ? "yearly" : "monthly"))(),
+    monthlyInvoiceDay: ((): number | undefined => {
+      const rt: "monthly" | "yearly" = r.rentType === "yearly" ? "yearly" : "monthly";
+      if (rt !== "monthly") return undefined;
+      // explicit day first
+      const n = Number(r.monthlyInvoiceDay);
+      if (Number.isInteger(n) && n >= 1 && n <= 31) return n;
+      // fallback: derive from invoiceDate if present
+  const inv = toYmd((r as Record<string, unknown>).invoiceDate);
+      if (inv) {
+        const d = new Date(inv);
+        const day = d.getDate();
+        if (Number.isInteger(day) && day >= 1 && day <= 31) return day;
+      }
+      // final fallback for legacy data
+      return 1;
+    })(),
+    yearlyInvoices: ((): { month: number; day: number; amountEUR: number }[] | undefined => {
+      const rawY = (r as Record<string, unknown>).yearlyInvoices as unknown;
+      const arr: unknown[] = Array.isArray(rawY) ? rawY : [];
+      const mapped = arr
+        .map((it) => {
+          const rec = (it ?? {}) as Record<string, unknown>;
+          return {
+            month: Number(rec.month),
+            day: Number(rec.day),
+            amountEUR: Number(rec.amountEUR),
+          };
+        })
+        .filter(
+          (x) =>
+            Number.isInteger(x.month) && x.month >= 1 && x.month <= 12 &&
+            Number.isInteger(x.day) && x.day >= 1 && x.day <= 31 &&
+            Number.isFinite(x.amountEUR) && x.amountEUR > 0
+        );
+      return mapped.length > 0 ? mapped : undefined;
+    })(),
+    indexingDates: idx,
+    scanUrl: ((): string | undefined => {
+      const v = r.scanUrl;
+      if (v == null) return undefined;
+      if (typeof v === "string") return v;
+      return undefined;
+    })(),
+    amountEUR: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
+    exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
+    tvaPercent,
+    correctionPercent,
+    inflationVerified: typeof r.inflationVerified === "boolean" ? r.inflationVerified : undefined,
+    inflationVerifiedAt: toYmd(r.inflationVerifiedAt),
+    inflationFromMonth: typeof r.inflationFromMonth === "string" ? r.inflationFromMonth : undefined,
+    inflationToMonth: typeof r.inflationToMonth === "string" ? r.inflationToMonth : undefined,
+    inflationLocalPercent: numOrUndef(r.inflationLocalPercent),
+    inflationAiPercent: numOrUndef(r.inflationAiPercent),
+  } as Partial<ContractType>;
+}
 
 export async function fetchContracts(): Promise<ContractType[]> {
   // If MongoDB is configured, read from DB; else fallback to mocks
@@ -222,12 +413,23 @@ export async function fetchContracts(): Promise<ContractType[]> {
         .collection<ContractType>("contracts")
         .find({}, { projection: { _id: 0 } })
         .toArray();
-      // Validate and return, adding default owner if missing
-      return docs.map((d: unknown) => {
-        const doc = d as Partial<ContractType>;
-        return ContractSchema.parse({ ...doc, owner: doc.owner ?? "Markov Services s.r.l." });
+      // Validate each document safely and return only valid ones; never fall back to mocks due to validation issues
+      const valid: ContractType[] = [];
+      for (const raw of docs) {
+        const partial = normalizeRaw(raw);
+        const parsed = ContractSchema.safeParse(partial);
+        if (parsed.success) valid.push(parsed.data);
+        else {
+          const badId = typeof (partial as Record<string, unknown>)?.id === "string"
+            ? (partial as Record<string, unknown>).id
+            : undefined;
+          console.warn("Contract invalid, omis din listă:", {
+            id: badId,
+            issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+          });
+        }
       }
-      );
+      return valid;
     } catch (err) {
       console.warn("Mongo indisponibil în prezent; folosesc datele mock.", err);
     }
@@ -243,7 +445,14 @@ export async function fetchContractById(id: string): Promise<ContractType | null
       const doc = await db
         .collection<ContractType>("contracts")
         .findOne({ id }, { projection: { _id: 0 } });
-  return doc ? ContractSchema.parse({ ...doc, owner: (doc as Partial<ContractType>).owner ?? "Markov Services s.r.l." }) : null;
+      if (!doc) return null;
+      const parsed = ContractSchema.safeParse(normalizeRaw(doc));
+      if (parsed.success) return parsed.data;
+      console.warn("Contract invalid pentru id, omis:", {
+        id,
+        issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+      });
+      return null;
     } catch (err) {
       console.warn("Mongo indisponibil; căutare în dataset-ul mock.", err);
     }
