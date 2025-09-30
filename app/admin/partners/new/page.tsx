@@ -3,6 +3,7 @@ import { logAction } from "@/lib/audit";
 import type { Partner } from "@/lib/schemas/partner";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { createMessage } from "@/lib/messages";
 
 async function savePartner(formData: FormData) {
   "use server";
@@ -23,6 +24,9 @@ async function savePartner(formData: FormData) {
       targetId: p.id,
       meta: { name: p.name },
     });
+  } catch {}
+  try {
+    await createMessage({ text: `Partener nou: ${p.name}` });
   } catch {}
   revalidatePath("/admin/partners");
 }

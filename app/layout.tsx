@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/app/components/navbar";
 import Toaster from "@/app/components/toaster";
+import FlashHub from "@/app/components/flash-hub";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({
         <Navbar />
         <div className="w-full">{children}</div>
         <Toaster />
+        <FlashHub />
       </body>
     </html>
   );

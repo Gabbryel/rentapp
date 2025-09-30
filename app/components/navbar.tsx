@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
-const links = [{ href: "/", label: "Contracte" }];
+const links = [
+  { href: "/", label: "Contracte" },
+  { href: "/messages", label: "Mesaje" },
+];
 
 export default function Navbar() {
   const pathname = usePathname();

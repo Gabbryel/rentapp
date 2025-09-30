@@ -12,6 +12,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { logAction } from "@/lib/audit";
+import { createMessage } from "@/lib/messages";
 
 export default async function EditPartnerPage({
   params,
@@ -46,6 +47,9 @@ export default async function EditPartnerPage({
         meta: { name: partner.name },
       });
     } catch {}
+    try {
+      await createMessage({ text: `Partener actualizat: ${partner.name}` });
+    } catch {}
     revalidatePath("/admin/partners");
     redirect("/admin/partners");
   }
@@ -62,6 +66,9 @@ export default async function EditPartnerPage({
           targetId: current.id,
           meta: { name: current.name, deleted },
         });
+      } catch {}
+      try {
+        await createMessage({ text: `Partener șters: ${current.name}` });
       } catch {}
     }
     revalidatePath("/admin/partners");

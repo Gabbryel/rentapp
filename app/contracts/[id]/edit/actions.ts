@@ -3,8 +3,10 @@
 import { fetchContractById, upsertContract } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
 import { logAction, computeDiffContract } from "@/lib/audit";
+import { createMessage } from "@/lib/messages";
 import type { ZodIssue } from "zod";
 import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
+import { notifyContractUpdated } from "@/lib/notify";
 import { getDailyEurRon } from "@/lib/exchange";
 import { redirect } from "next/navigation";
 
@@ -207,6 +209,12 @@ export async function updateContractAction(
         yearlyInvoices: parsed.data.yearlyInvoices,
       },
     });
+      try { await notifyContractUpdated(parsed.data); } catch {}
+      try {
+        await createMessage({
+          text: `Contract actualizat: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate}`,
+        });
+      } catch {}
 
     redirect(`/contracts/${id}`);
   } catch (e: unknown) {

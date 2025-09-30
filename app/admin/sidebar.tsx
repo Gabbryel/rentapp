@@ -9,6 +9,7 @@ const navItems: NavItem[] = [
   { href: "/admin/contracts", label: "Contracte" },
   { href: "/admin/partners", label: "Parteneri" },
   { href: "/admin/users", label: "Utilizatori" },
+  { href: "/admin/notifications", label: "Notificări" },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {

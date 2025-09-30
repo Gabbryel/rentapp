@@ -3,6 +3,8 @@
 import { ContractSchema } from "@/lib/schemas/contract";
 import { upsertContract } from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
+import { createMessage } from "@/lib/messages";
+import { notifyContractCreated } from "@/lib/notify";
 import type { ZodIssue } from "zod";
 import { saveScanFile } from "@/lib/storage";
 import { redirect } from "next/navigation";
@@ -206,7 +208,15 @@ export async function createContractAction(
         yearlyInvoices: parsed.data.yearlyInvoices,
       },
     });
-    // On success, redirect to details
+  // Notify subscribers
+  try { await notifyContractCreated(parsed.data); } catch {}
+  // Broadcast to Messages + toasts
+  try {
+    await createMessage({
+      text: `Contract nou: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate}`,
+    });
+  } catch {}
+  // On success, redirect to details
     redirect(`/contracts/${parsed.data.id}`);
   } catch (e: unknown) {
     // Allow Next.js redirect to bubble up to the router
