@@ -434,15 +434,15 @@ export default async function Home() {
                           <div className="text-sm font-medium">
                             {d.contract.name}
                           </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-[#E9E294] text-lg">
-                                {d.contract.partner}
-                              </span>
-                              <span className="text-foreground/60">
-                                · Data: {fmt(d.issuedAt)}
-                              </span>
-                            </div>
-                            <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[1rem]">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[#E9E294] text-lg">
+                              {d.contract.partner}
+                            </span>
+                            <span className="text-foreground/60">
+                              · Data: {fmt(d.issuedAt)}
+                            </span>
+                          </div>
+                          <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[1rem]">
                             <div>
                               <span className="text-foreground/60">EUR:</span>{" "}
                               <span className="font-medium text-indigo-700 dark:text-indigo-400">
@@ -529,7 +529,7 @@ export default async function Home() {
                             />
                           ) : null}
                           <ActionButton
-                              className={`rounded-md border px-2.5 py-1.5 text-base font-semibold ${
+                            className={`rounded-md border px-2.5 py-1.5 text-base font-semibold ${
                               already
                                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-not-allowed"
                                 : "border-foreground/20 hover:bg-foreground/5"
@@ -545,7 +545,7 @@ export default async function Home() {
                             Emite factura
                           </ActionButton>
                           {already ? (
-                              <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-base">
+                            <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-base">
                               deja emisă
                             </span>
                           ) : null}
