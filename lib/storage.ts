@@ -44,6 +44,43 @@ export async function saveScanFile(
   return { url: `/uploads/${filename}`, storage: "local" };
 }
 
+// Save a raw buffer as an upload (useful for generated PDFs). Mirrors saveScanFile behavior.
+export async function saveBufferAsUpload(
+  data: Uint8Array,
+  filename: string,
+  contentType: string,
+  opts?: { contractId?: string; partnerId?: string }
+): Promise<{ url: string; storage: "gridfs" | "local"; id?: string }> {
+  const base = sanitize(filename.replace(/\.[^.]+$/, "")) || "file";
+  const ext = (filename.split(".").pop() || "dat").toLowerCase();
+  const finalName = `${base}.${ext}`;
+  if (process.env.MONGODB_URI) {
+    try {
+      const db = await getDb();
+      const bucket = new GridFSBucket(db, { bucketName: "uploads" });
+      const readable = Readable.from(Buffer.from(data));
+      const uploadStream = bucket.openUploadStream(finalName, {
+        contentType: contentType || inferMime(ext) || "application/octet-stream",
+        metadata: { originalName: filename, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null },
+      });
+      await new Promise<void>((resolve, reject) => {
+        readable.pipe(uploadStream).on("finish", () => resolve()).on("error", reject);
+      });
+      const id = uploadStream.id as ObjectId;
+      return { url: `/api/uploads/${id.toString()}`, storage: "gridfs", id: id.toString() };
+    } catch {
+      // fall through to local save
+    }
+  }
+
+  // Local dev fallback
+  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  await fs.mkdir(uploadsDir, { recursive: true });
+  const filePath = path.join(uploadsDir, finalName);
+  await fs.writeFile(filePath, Buffer.from(data));
+  return { url: `/uploads/${finalName}`, storage: "local" };
+}
+
 export async function deleteScanByUrl(url?: string | null) {
   if (!url) return { deleted: false as const, reason: "no-scan" as const };
   if (url.startsWith("/api/uploads/")) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type ModalProps = {
   open: boolean;
@@ -19,6 +20,8 @@ export default function Modal({
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const firstFocusableRef = useRef<HTMLButtonElement | null>(null);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  const [supportsBackdrop, setSupportsBackdrop] = useState<boolean>(true);
 
   useEffect(() => {
     if (!open) return;
@@ -31,12 +34,57 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  // Setup portal root on mount
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const el = document.createElement("div");
+    el.setAttribute("data-modal-portal", "");
+    setPortalEl(el);
+    document.body.appendChild(el);
+    return () => {
+      try {
+        document.body.removeChild(el);
+      } catch {}
+    };
+  }, []);
 
-  return (
+  // Detect backdrop-filter support (including -webkit- prefix)
+  useEffect(() => {
+    try {
+      const ok =
+        typeof CSS !== "undefined" &&
+        (CSS.supports("backdrop-filter: blur(2px)") ||
+          CSS.supports("-webkit-backdrop-filter: blur(2px)"));
+      setSupportsBackdrop(!!ok);
+    } catch {
+      setSupportsBackdrop(false);
+    }
+  }, []);
+
+  // Toggle body class for fallback blur when a modal is open
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (open) {
+      document.body.classList.add("has-modal-open");
+      if (!supportsBackdrop) {
+        document.body.classList.add("modal-fallback-blur");
+      }
+    } else {
+      document.body.classList.remove("has-modal-open");
+      document.body.classList.remove("modal-fallback-blur");
+    }
+    return () => {
+      document.body.classList.remove("has-modal-open");
+      document.body.classList.remove("modal-fallback-blur");
+    };
+  }, [open, supportsBackdrop]);
+
+  if (!open || !portalEl) return null;
+
+  return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/70 supports-[backdrop-filter]:bg-background/60 backdrop-blur-md p-4"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -45,9 +93,9 @@ export default function Modal({
       aria-label={title || "Dialog"}
     >
       <div
-        className={`w-full ${maxWidthClassName} max-h-[85vh] rounded-xl bg-background shadow-xl ring-1 ring-foreground/10 overflow-hidden flex flex-col`}
+        className={`w-full ${maxWidthClassName} max-h-[85vh] rounded-xl bg-background shadow-xl ring-1 ring-foreground/10 overflow-hidden flex flex-col text-base`}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-foreground/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-foreground/10 bg-background">
           <div className="text-base font-semibold truncate min-w-0">
             {title}
           </div>
@@ -60,8 +108,9 @@ export default function Modal({
             Închide
           </button>
         </div>
-        <div className="bg-foreground/5 overflow-auto">{children}</div>
+        <div className="bg-background overflow-auto">{children}</div>
       </div>
-    </div>
+    </div>,
+    portalEl
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { fetchContractById, upsertContract } from "@/lib/contracts";
+import { fetchContractById, upsertContract, generateIndexingDatesFromSchedule } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
 import { logAction, computeDiffContract } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
@@ -24,9 +24,12 @@ export async function updateContractAction(
   const rawValues = {
     id,
     name: (formData.get("name") as string) ?? "",
+    assetId: (formData.get("assetId") as string) || "",
+    asset: (formData.get("asset") as string) || "",
     partnerId: (formData.get("partnerId") as string) || "",
     partner: (formData.get("partner") as string) ?? "",
-    owner: (formData.get("owner") as string) || "Markov Services s.r.l.",
+  ownerId: (formData.get("ownerId") as string) || "",
+  owner: (formData.get("owner") as string) || "",
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
@@ -37,8 +40,15 @@ export async function updateContractAction(
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
     indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
-    existingScanUrl: (formData.get("existingScanUrl") as string) || "",
-    scanUrl: (formData.get("scanUrl") as string) || "",
+  indexingScheduleDay: (formData.get("indexingScheduleDay") as string) || "",
+  indexingScheduleMonth: (formData.get("indexingScheduleMonth") as string) || "",
+  indexingEveryMonths: (formData.get("indexingEveryMonths") as string) || "",
+    // Multi-scan edit fields
+    existingUrl: (formData.getAll("existingUrl") as string[]) || [],
+    existingTitle: (formData.getAll("existingTitle") as string[]) || [],
+    existingRemoveIdx: (formData.getAll("existingRemoveIdx") as string[]) || [],
+    scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
+    scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
     rentType: (formData.get("rentType") as string) || "",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
     // yearly invoices rows
@@ -79,10 +89,10 @@ export async function updateContractAction(
       return n;
     })();
     const correctionPercent = (() => {
-      const n = Number(String(rawValues.correctionPercent));
-      if (!Number.isInteger(n)) return undefined;
+      const n = Number(String(rawValues.correctionPercent).replace(",", "."));
+      if (!Number.isFinite(n)) return undefined;
       if (n < 0 || n > 100) return undefined;
-      return n;
+      return Math.round(n * 10000) / 10000;
     })();
 
     // Autofill logic similar to server page
@@ -102,11 +112,29 @@ export async function updateContractAction(
       }
     }
 
-    let scanUrl: string | undefined = rawValues.existingScanUrl || undefined;
-    const uploaded = formData.get("scanFile");
-    const urlInput = rawValues.scanUrl || null;
-    if (uploaded && uploaded instanceof File && uploaded.size > 0) {
-      const file = uploaded as File;
+    // Multi-scan processing
+    const existingUrls = (rawValues.existingUrl as string[]) || [];
+    const existingTitles = (rawValues.existingTitle as string[]) || [];
+    const removeIdxSet = new Set(((rawValues.existingRemoveIdx as string[]) || []).map((s) => String(s)));
+
+    const nextScans: { url: string; title?: string }[] = [];
+    const removedUrls: string[] = [];
+    for (let i = 0; i < existingUrls.length; i++) {
+      const url = existingUrls[i];
+      const title = (existingTitles[i] || "").trim() || undefined;
+      if (removeIdxSet.has(String(i))) {
+        removedUrls.push(url);
+      } else if (url) {
+        nextScans.push({ url, title });
+      }
+    }
+    // Delete removed from storage best-effort
+    for (const u of removedUrls) {
+      try { await deleteScanByUrl(u); } catch {}
+    }
+    // New uploads
+    const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
+    for (const file of files) {
       const okType = [
         "application/pdf",
         "image/png",
@@ -116,31 +144,33 @@ export async function updateContractAction(
         "image/svg+xml",
       ].includes(file.type);
       if (!okType) {
-        return {
-          ok: false,
-          message:
-            "Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)",
-          values: rawValues,
-        };
+        return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: rawValues };
       }
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        return { ok: false, message: "Fișierul este prea mare (max 10MB)", values: rawValues };
+        return { ok: false, message: "Fișier prea mare (max 10MB)", values: rawValues };
       }
       const orig = file.name || "scan";
       const base = orig.replace(/\.[^.]+$/, "");
       const res = await saveScanFile(file, `${String(id)}-${base}`, { contractId: id });
-      scanUrl = res.url;
-    } else if (urlInput) {
-      scanUrl = urlInput || undefined;
+      nextScans.push({ url: res.url });
     }
+    // New URLs
+    const urls = (rawValues.scanUrls as string[]) || [];
+    const titles = (rawValues.scanTitles as string[]) || [];
+    urls.forEach((u, i) => {
+      if (u) nextScans.push({ url: u, title: (titles[i] || "").trim() || undefined });
+    });
 
-    const parsed = ContractSchema.safeParse({
+    const base = {
       id,
       name: rawValues.name,
+      assetId: rawValues.assetId || undefined,
+      asset: rawValues.asset || undefined,
       partnerId: rawValues.partnerId || undefined,
-      partner: rawValues.partner,
-      owner: rawValues.owner,
+  partner: rawValues.partner,
+  ownerId: rawValues.ownerId || undefined,
+  owner: rawValues.owner,
       signedAt: rawValues.signedAt,
       startDate: rawValues.startDate,
       endDate: rawValues.endDate,
@@ -149,8 +179,10 @@ export async function updateContractAction(
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
       })(),
-      indexingDates: rawValues.indexingDates,
-      scanUrl,
+  indexingDates: rawValues.indexingDates,
+  scans: nextScans,
+  // Back-compat single field derived from first scan
+  scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
       amountEUR,
       exchangeRateRON,
       tvaPercent,
@@ -176,7 +208,40 @@ export async function updateContractAction(
         }
         return rows.length > 0 ? rows : undefined;
       })(),
-    });
+    } as Record<string, unknown>;
+
+    // Recompute name from asset + partner if present
+    if (typeof base.asset === "string" && base.asset && typeof base.partner === "string" && base.partner) {
+      base.name = `${base.asset} ${base.partner}`.trim();
+    }
+
+    // Schedule computation
+    const schedDayRaw = String(rawValues.indexingScheduleDay || "").trim();
+    const schedMonthRaw = String(rawValues.indexingScheduleMonth || "").trim();
+    const schedEveryRaw = String(rawValues.indexingEveryMonths || "").trim();
+    const schedDay = Number(schedDayRaw);
+    const schedMonth = Number(schedMonthRaw);
+    const schedEvery = Number(schedEveryRaw);
+    const hasSchedule =
+      Number.isInteger(schedDay) && schedDay >= 1 &&
+      Number.isInteger(schedMonth) && schedMonth >= 1;
+    if (hasSchedule) {
+      const gen = generateIndexingDatesFromSchedule({
+        startDate: String(base.startDate),
+        endDate: String(base.endDate),
+        day: schedDay,
+        month: schedMonth,
+        everyMonths: Number.isInteger(schedEvery) ? schedEvery : 12,
+      });
+      const manual = Array.isArray(base.indexingDates) ? (base.indexingDates as string[]) : [];
+      const all = Array.from(new Set([...manual, ...gen])).sort();
+      base.indexingDates = all;
+      base.indexingScheduleDay = schedDay;
+      base.indexingScheduleMonth = schedMonth;
+      base.indexingEveryMonths = Number.isInteger(schedEvery) && schedEvery >= 1 ? schedEvery : 12;
+    }
+
+    const parsed = ContractSchema.safeParse(base);
 
     if (!parsed.success) {
       return {
@@ -186,14 +251,19 @@ export async function updateContractAction(
       };
     }
 
+    if (!parsed.data.ownerId || !parsed.data.owner) {
+      return { ok: false, message: "Selectează proprietarul din listă.", values: rawValues };
+    }
+
+    if (!parsed.data.assetId || !parsed.data.asset) {
+      return { ok: false, message: "Selectează un asset pentru contract.", values: rawValues };
+    }
+
     if (!process.env.MONGODB_URI) {
       return { ok: false, message: "MongoDB nu este configurat.", values: rawValues };
     }
 
     const { changes, scanChange } = computeDiffContract(prev, parsed.data);
-    if (scanChange === "removed" || scanChange === "replaced") {
-      await deleteScanByUrl(prev.scanUrl ?? undefined);
-    }
 
     await upsertContract(parsed.data);
     await logAction({
@@ -201,9 +271,17 @@ export async function updateContractAction(
       targetType: "contract",
       targetId: id,
       meta: {
+        assetId: (parsed.data as any).assetId,
+        asset: (parsed.data as any).asset,
         name: parsed.data.name,
         changes,
-        scanChange,
+  scanChange,
+  scansCount: parsed.data.scans?.length ?? 0,
+    owner: parsed.data.owner,
+    ownerId: (parsed.data as any).ownerId,
+        indexingScheduleDay: (parsed.data as any).indexingScheduleDay,
+        indexingScheduleMonth: (parsed.data as any).indexingScheduleMonth,
+        indexingEveryMonths: (parsed.data as any).indexingEveryMonths,
         rentType: parsed.data.rentType,
         monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
         yearlyInvoices: parsed.data.yearlyInvoices,
@@ -211,8 +289,25 @@ export async function updateContractAction(
     });
       try { await notifyContractUpdated(parsed.data); } catch {}
       try {
+        const scansBefore = Array.isArray(prev.scans) ? prev.scans.length : 0;
+        const scansAfter = parsed.data.scans?.length ?? 0;
+        const scansDelta = scansAfter - scansBefore;
+        const scanChangeLabel = scanChange && scanChange !== "none" ? ` • scanUrl: ${scanChange}` : "";
+        const sched = (parsed.data as any).indexingScheduleDay && (parsed.data as any).indexingScheduleMonth
+          ? ` • Indexare: ziua ${(parsed.data as any).indexingScheduleDay}, luna ${(parsed.data as any).indexingScheduleMonth}${(parsed.data as any).indexingEveryMonths ? ", la ${(parsed.data as any).indexingEveryMonths} luni" : ""}`
+          : "";
+        const fmtVal = (v: unknown) => {
+          if (v === null || typeof v === "undefined") return "—";
+          if (typeof v === "string") return v;
+          if (typeof v === "number" || typeof v === "boolean") return String(v);
+          try { return JSON.stringify(v); } catch { return String(v); }
+        };
+        const changedFields = changes
+          .map((c) => `${c.field}: ${fmtVal(c.from)} → ${fmtVal(c.to)}`)
+          .join("; ");
+        const diffSection = changedFields ? ` • Modificări: ${changedFields}` : "";
         await createMessage({
-          text: `Contract actualizat: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate}`,
+          text: `Contract actualizat: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate} • Scanuri: ${scansBefore} → ${scansAfter} (${scansDelta >= 0 ? "+" : ""}${scansDelta})${scanChangeLabel}${sched}${diffSection}`,
         });
       } catch {}
 

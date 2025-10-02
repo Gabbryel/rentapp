@@ -33,19 +33,37 @@ export const ISODate = z
     return `${yyyy}-${mm}-${dd}` === `${m[1]}-${m[2]}-${m[3]}`;
   }, "data trebuie în formatul YYYY-MM-DD (poate include timp)");
 
+export const ContractScanItemSchema = z.object({
+  url: ScanUrl,
+  title: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
+});
+
 export const ContractSchema = z
   .object({
     id: z.string().min(1, "id obligatoriu"),
     name: z.string().min(1, "nume obligatoriu"),
+    // Asset linkage (optional for backward-compat); UI enforces selection
+    assetId: z.string().optional(),
+    asset: z.string().optional(),
     partnerId: z.string().optional(),
     partner: z.string().min(1, "partener obligatoriu"),
-    owner: z
-      .enum(["Markov Services s.r.l.", "MKS Properties s.r.l."])
-      .default("Markov Services s.r.l."),
+    // Owner linkage from owners collection
+    ownerId: z.string().optional(),
+    // Denormalized owner name for display; UI now enforces selection from list
+    owner: z.string().min(1, "proprietar obligatoriu"),
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
     indexingDates: z.array(ISODate).default([]),
+    // Optional periodic indexing schedule: day (1-31), month (1-12), every N months (default 12)
+    indexingScheduleDay: z.number().int().min(1).max(31).optional(),
+    indexingScheduleMonth: z.number().int().min(1).max(12).optional(),
+    indexingEveryMonths: z.number().int().min(1).max(120).optional(),
     // Optional additional dates
     extensionDate: ISODate.optional(),
   // Payment term in days from invoice date
@@ -62,15 +80,17 @@ export const ContractSchema = z
         })
       )
       .optional(),
-  // Accept a PDF/image URL or null/undefined
+  // Deprecated single scan field (kept for backward-compat in reads)
   scanUrl: ScanUrl.nullish(),
+  // New: multiple scans
+  scans: z.array(ContractScanItemSchema).default([]),
   // Optional amounts: if one is provided, both must be provided and > 0
   amountEUR: z.number().positive().optional(),
   exchangeRateRON: z.number().positive().optional(),
   // TVA percent (0-100), integer
   tvaPercent: z.number().int().min(0).max(100).optional(),
-  // Correction percent (0-100), integer; applied to base amount before TVA
-  correctionPercent: z.number().int().min(0).max(100).optional(),
+  // Correction percent (0-100), can be decimal; applied to base amount before TVA
+  correctionPercent: z.number().min(0).max(100).optional(),
   // Optional persisted inflation verification
   inflationVerified: z.boolean().optional(),
   inflationVerifiedAt: ISODate.optional(),
@@ -136,4 +156,6 @@ export const ContractSchema = z
   });
 
 export type Contract = z.infer<typeof ContractSchema>;
-export type Owner = "Markov Services s.r.l." | "MKS Properties s.r.l.";
+// Deprecated: static Owner union. Kept for older code hints only.
+export type Owner = string;
+export type ContractScanItem = z.infer<typeof ContractScanItemSchema>;

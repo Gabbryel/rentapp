@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -84,4 +84,69 @@ select:focus,
 textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* Global pointer cursor and white border on hover for interactive elements */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+button:hover,
+a:hover,
+[role="button"]:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover {
+  border-color: #ffffff !important;
+}
+
+/* Layering and blur for modals */
+.modal-open-blur {
+  filter: blur(4px);
+}
+
+/* Ensure modal overlays are on top of everything */
+.z-modal-overlay { z-index: 1000; }
+.z-modal-content { z-index: 1001; }
+
+/* Stronger overlay blur already applied via class, provide fallback: */
+body.modal-fallback-blur .app-root-for-blur {
+  /* Fallback content blur when backdrop-filter is not supported */
+  filter: blur(6px);
+}
+
+/* Opaque surfaces: modals, menus, dropdowns, popovers */
+.popover,
+.menu,
+.dropdown,
+.context-menu,
+.select-dropdown,
+.combobox-panel,
+.listbox-panel,
+[role="menu"],
+[role="listbox"],
+[data-popover],
+.radix-themes,
+.radix-popover-content,
+.radix-dropdown-menu-content {
+  background: var(--background) !important;
+  backdrop-filter: none !important;
+}
+
+/* Ensure panel/overlay backdrops are opaque when used */
+.backdrop,
+.overlay,
+[data-overlay] {
+  background: var(--background) !important;
+}
+
+/* Select and native dropdowns should be opaque */
+select,
+select:disabled,
+select:focus {
+  background-color: var(--background) !important;
 }

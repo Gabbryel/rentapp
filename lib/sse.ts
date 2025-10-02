@@ -29,14 +29,16 @@ const CLIENTS: Map<number, Client> = G.__SSE_CLIENTS__!;
 
 if (!G.__SSE_HEARTBEAT__) {
   G.__SSE_HEARTBEAT__ = setInterval(() => {
-    try {
-      for (const c of CLIENTS.values()) {
+    const toRemove: number[] = [];
+    for (const c of CLIENTS.values()) {
+      try {
         // SSE comment as heartbeat to keep connections alive
         c.send(`:ping ${Date.now()}\n\n`);
+      } catch {
+        toRemove.push(c.id);
       }
-    } catch {
-      // ignore
     }
+    for (const id of toRemove) CLIENTS.delete(id);
   }, 20000);
 }
 
@@ -51,13 +53,15 @@ export function addClient(send: (text: string) => void) {
 
 export function publish(event: AppEvent) {
   const data = `data: ${JSON.stringify(event)}\n\n`;
+  const toRemove: number[] = [];
   for (const c of CLIENTS.values()) {
     try {
       c.send(data);
     } catch {
-      // drop on error
+      toRemove.push(c.id);
     }
   }
+  for (const id of toRemove) CLIENTS.delete(id);
 }
 
 export function publishToast(message: string, kind: ToastKind = "info") {

@@ -4,6 +4,8 @@ import { createContractAction, type FormState } from "./actions";
 import MultiDateInput from "@/app/components/multi-date-input";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
 import PartnerSelect from "@/app/components/partner-select";
+import AssetSelect from "@/app/components/asset-select";
+import OwnerSelect from "@/app/components/owner-select";
 export default function NewContractPage() {
   const [state, formAction] = useActionState<FormState, FormData>(
     createContractAction,
@@ -56,11 +58,16 @@ export default function NewContractPage() {
             </div>
           ) : null}
           <div>
-            <label className="block text-sm font-medium">ID (opțional)</label>
+            <label className="block text-sm font-medium">
+              ID (va fi generat)
+            </label>
             <input
               name="id"
-              defaultValue={(state.values.id as string) || ""}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              readOnly
+              value={
+                (state.values.id as string) || "(generat din asset + partener)"
+              }
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -100,11 +107,11 @@ export default function NewContractPage() {
               <input
                 name="correctionPercent"
                 type="number"
-                step="1"
+                step="0.01"
                 min="0"
                 max="100"
-                inputMode="numeric"
-                placeholder="ex: 10"
+                inputMode="decimal"
+                placeholder="ex: 10.5"
                 defaultValue={(state.values.correctionPercent as string) || ""}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
@@ -193,28 +200,23 @@ export default function NewContractPage() {
           </div>
           <div>
             <label className="block text-sm font-medium">Proprietar</label>
-            <select
-              name="owner"
-              defaultValue={
-                (state.values.owner as string) || "Markov Services s.r.l."
-              }
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            >
-              <option value="Markov Services s.r.l.">
-                Markov Services s.r.l.
-              </option>
-              <option value="MKS Properties s.r.l.">
-                MKS Properties s.r.l.
-              </option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Nume</label>
-            <input
-              name="name"
+            <OwnerSelect
+              idName="ownerId"
+              nameName="owner"
               required
-              defaultValue={(state.values.name as string) || ""}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              defaultId={(state.values.ownerId as string) || ""}
+              defaultName={(state.values.owner as string) || ""}
+            />
+          </div>
+          {/* Asset + Partner -> contract name/id are computed server-side */}
+          <div>
+            <label className="block text-sm font-medium">Asset</label>
+            <AssetSelect
+              idName="assetId"
+              nameName="asset"
+              required
+              defaultId={(state.values.assetId as string) || ""}
+              defaultName={(state.values.asset as string) || ""}
             />
           </div>
           <div>
@@ -224,6 +226,18 @@ export default function NewContractPage() {
               nameName="partner"
               required
               defaultName={(state.values.partner as string) || ""}
+            />
+          </div>
+          {/* Optional preview name field (read-only) to hint the final name pattern */}
+          <div>
+            <label className="block text-sm font-medium">
+              Nume (va fi generat)
+            </label>
+            <input
+              name="name"
+              readOnly
+              value={(state.values.name as string) || "(asset + partener)"}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -286,42 +300,109 @@ export default function NewContractPage() {
               />
             </div>
           </div>
-          <MultiDateInput
-            name="indexingDates"
-            initial={(state.values.indexingDates as string[]) || []}
-          />
-          <div className="space-y-2">
-            <div>
-              <label className="block text-sm font-medium">
-                Încarcă scan (PDF sau imagine)
-              </label>
-              <input
-                type="file"
-                name="scanFile"
-                accept="application/pdf,image/*"
-                className="mt-1 block w-full text-sm"
-              />
-              <p className="mt-1 text-xs text-foreground/60">
-                Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.
-              </p>
+          {/* Manual indexing dates removed; use periodic schedule below */}
+          {/* Periodic indexing schedule */}
+          <fieldset className="rounded-md border border-foreground/10 p-3">
+            <legend className="px-1 text-xs text-foreground/60">
+              Program indexare periodică (opțional)
+            </legend>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium">Zi (1-31)</label>
+                <input
+                  name="indexingScheduleDay"
+                  type="number"
+                  min={1}
+                  max={31}
+                  inputMode="numeric"
+                  defaultValue={String(state.values.indexingScheduleDay ?? "")}
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">
+                  Luna start (1-12)
+                </label>
+                <input
+                  name="indexingScheduleMonth"
+                  type="number"
+                  min={1}
+                  max={12}
+                  inputMode="numeric"
+                  defaultValue={String(
+                    state.values.indexingScheduleMonth ?? ""
+                  )}
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">
+                  La fiecare (luni)
+                </label>
+                <input
+                  name="indexingEveryMonths"
+                  type="number"
+                  min={1}
+                  max={120}
+                  inputMode="numeric"
+                  placeholder="ex: 12 (anual)"
+                  defaultValue={String(state.values.indexingEveryMonths ?? "")}
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium">
-                sau introdu URL
-              </label>
-              <input
-                name="scanUrl"
-                placeholder="/uploads/contract.pdf sau https://exemplu.com/contract.pdf"
-                pattern=".*\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#]).*"
-                title="Acceptat: PDF sau imagine (png, jpg, jpeg, gif, webp, svg)"
-                defaultValue={(state.values.scanUrl as string) || ""}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-xs text-foreground/60">
-                Dacă alegi fișier, acesta va avea prioritate față de URL.
-              </p>
+            <p className="mt-2 text-xs text-foreground/60">
+              Dacă completezi câmpurile de mai sus, datele generate vor fi
+              combinate cu cele introduse manual.
+            </p>
+          </fieldset>
+          <fieldset className="rounded-md border border-foreground/10 p-3">
+            <legend className="px-1 text-xs text-foreground/60">
+              Documente (scan-uri)
+            </legend>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium">
+                  Încarcă fișiere
+                </label>
+                <input
+                  name="scanFiles"
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*"
+                  className="mt-1 block w-full text-sm"
+                />
+                <p className="mt-1 text-xs text-foreground/60">
+                  Poți selecta mai multe fișiere. Max 10MB per fișier.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">
+                  sau URL-uri (câte unul pe rând)
+                </label>
+                <input
+                  name="scanUrls"
+                  placeholder="/uploads/doc1.pdf"
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+                <input
+                  name="scanTitles"
+                  placeholder="Titlu doc1 (opțional)"
+                  className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+                <input
+                  name="scanUrls"
+                  placeholder="https://exemplu.com/doc2.png"
+                  className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+                <input
+                  name="scanTitles"
+                  placeholder="Titlu doc2 (opțional)"
+                  className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+              </div>
             </div>
-          </div>
+          </fieldset>
           <div className="pt-2 flex justify-center">
             <button
               disabled={!mongoConfigured}

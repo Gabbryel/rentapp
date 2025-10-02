@@ -7,6 +7,8 @@ type BtRateDoc = {
   fetchedAt: Date;
 };
 
+let memCache: { date: string; rate: number } | null = null;
+
 function todayBucharest(): string {
   const parts = new Intl.DateTimeFormat("ro-RO", {
     timeZone: "Europe/Bucharest",
@@ -20,11 +22,17 @@ function todayBucharest(): string {
   return `${y}-${m}-${d}`;
 }
 
-async function fetchBtEurSell(): Promise<number> {
-  // Public page listing BT FX rates for in-branch transactions
+function parseDdMmYyyyToIso(d: string): string | null {
+  // Accept dd.mm.yyyy or dd/mm/yyyy
+  const m = d.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+async function fetchBtEurSell(): Promise<{ rate: number; pageDate?: string }> {
   const res = await fetch("https://www.bancatransilvania.ro/curs-valutar", {
     cache: "no-store",
-    // Some CDNs behave better with a UA; harmless here
     headers: {
       "User-Agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
@@ -33,7 +41,7 @@ async function fetchBtEurSell(): Promise<number> {
   if (!res.ok) throw new Error(`BT request failed: ${res.status}`);
   const html = await res.text();
 
-  // Strip scripts/styles/tags to avoid DOM parsing and normalize whitespace
+  // Strip tags and normalize whitespace for a robust regex search
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -41,38 +49,63 @@ async function fetchBtEurSell(): Promise<number> {
     .replace(/\s+/g, " ")
     .trim();
 
-  // Expect a row like: "EUR 5.0754 5.0050 5.1550" => [BNR, Buy, Sell]
-  const rowMatch = /\bEUR\b\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i.exec(text);
-  if (!rowMatch) throw new Error("EUR selling rate row not found on BT page");
-  const sellStr = rowMatch[3];
-  const sell = Number(sellStr.replace(/,/g, "."));
-  if (!Number.isFinite(sell) || sell <= 0) {
-    throw new Error("Invalid BT selling rate value");
+  // Try three-column table first: (buy, middle, sell). If only two numbers present, use second as sell
+  let sell: number | null = null;
+  const m3 = /\bEUR\b\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i.exec(text);
+  if (m3) {
+    sell = Number(m3[3].replace(/,/g, "."));
+  } else {
+    const m2 = /\bEUR\b\s+([\d.,]+)\s+([\d.,]+)/i.exec(text);
+    if (m2) sell = Number(m2[2].replace(/,/g, "."));
   }
-  return sell;
+  if (!Number.isFinite(sell) || (sell as number) <= 0) {
+    throw new Error("EUR selling rate not found or invalid on BT page");
+  }
+
+  // Extract visible page date if present
+  let pageDate: string | undefined = undefined;
+  const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}[./]\d{2}[./]\d{4})/);
+  if (dateMatch) {
+    const raw = dateMatch[0];
+    pageDate = /\d{4}-\d{2}-\d{2}/.test(raw) ? raw : parseDdMmYyyyToIso(raw) ?? undefined;
+  }
+
+  return { rate: sell!, pageDate };
 }
 
 export async function getDailyBtEurSell(options?: { forceRefresh?: boolean }) {
-  const date = todayBucharest();
+  const today = todayBucharest();
   const force = options?.forceRefresh === true;
 
+  // Prefer Mongo-backed cache if configured
   if (process.env.MONGODB_URI) {
     const db = await getDb();
     const coll = db.collection<BtRateDoc>("exchange_rates");
     if (!force) {
-      const doc = await coll.findOne({ key: "BT_EUR_SELL", date });
-      if (doc) return { rate: doc.rate, date, source: "db" as const };
+      // First, prefer an exact doc for today
+      const todayDoc = await coll.findOne({ key: "BT_EUR_SELL", date: today });
+      if (todayDoc) return { rate: todayDoc.rate, date: todayDoc.date, source: "db" as const };
+      // Else, try latest available doc (helps when page isn't updated yet)
+      const latest = await coll
+        .find({ key: "BT_EUR_SELL" })
+        .sort({ date: -1 })
+        .limit(1)
+        .toArray();
+      if (latest[0]) {
+        return { rate: latest[0].rate, date: latest[0].date, source: "db" as const };
+      }
     }
     try {
-      const rate = await fetchBtEurSell();
+      const { rate, pageDate } = await fetchBtEurSell();
+      const dateToStore = pageDate ?? today;
       await coll.updateOne(
-        { key: "BT_EUR_SELL", date },
-        { $set: { key: "BT_EUR_SELL", date, rate, fetchedAt: new Date() } },
+        { key: "BT_EUR_SELL", date: dateToStore },
+        { $set: { key: "BT_EUR_SELL", date: dateToStore, rate, fetchedAt: new Date() } },
         { upsert: true }
       );
-      return { rate, date, source: "bt" as const };
+      return { rate, date: dateToStore, source: "bt" as const };
     } catch (e) {
-      // Fallback: return the latest cached BT rate if available
+      // On fetch failure, fallback to latest stored value if present
       const latest = await coll
         .find({ key: "BT_EUR_SELL" })
         .sort({ date: -1 })
@@ -85,12 +118,15 @@ export async function getDailyBtEurSell(options?: { forceRefresh?: boolean }) {
     }
   }
 
-  // Without DB, just fetch live (no durable cache)
-  const rate = await fetchBtEurSell();
+  // Fallback: in-memory cache for environments without DB
+  if (!force && memCache && memCache.date === today) {
+    return { rate: memCache.rate, date: today, source: "cache" as const };
+  }
+  const { rate, pageDate } = await fetchBtEurSell();
+  const date = pageDate ?? today;
+  memCache = { date, rate };
   return { rate, date, source: "bt" as const };
 }
 
-// Utility to determine when to trigger cron: BT updates are desired daily at 09:00 EET/EEST.
-// Deploy a cron job to GET /api/exchange/bt/refresh at 09:00 Europe/Bucharest.
 export const BT_CRON_NOTE =
   "Schedule a daily GET to /api/exchange/bt/refresh at 09:00 Europe/Bucharest to persist the rate.";

@@ -159,7 +159,7 @@ export default async function AdminContracts() {
                                   partner: c.partner,
                                 });
                                 await createMessage({
-                                  text: `Contract șters: ${c.name} • Partener: ${c.partner}`,
+                                  text: `Contract șters: ${c.name} • Partener: ${c.partner} • ID: ${c.id}`,
                                 });
                               }
                             } catch {}

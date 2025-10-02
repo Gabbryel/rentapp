@@ -8,6 +8,9 @@ const navItems: NavItem[] = [
   { href: "/admin", label: "Panou" },
   { href: "/admin/contracts", label: "Contracte" },
   { href: "/admin/partners", label: "Parteneri" },
+  { href: "/admin/owners", label: "Proprietari" },
+  { href: "/admin/invoices", label: "Facturi" },
+  { href: "/admin/assets", label: "Assets" },
   { href: "/admin/users", label: "Utilizatori" },
   { href: "/admin/notifications", label: "Notificări" },
 ];

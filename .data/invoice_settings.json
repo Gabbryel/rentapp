@@ -1,0 +1,10 @@
+{
+  "markov-services-s-r-l": {
+    "id": "markov-services-s-r-l",
+    "series": "MS",
+    "nextNumber": 8,
+    "padWidth": 5,
+    "includeYear": true,
+    "updatedAt": "2025-10-02T08:37:40.333Z"
+  }
+}

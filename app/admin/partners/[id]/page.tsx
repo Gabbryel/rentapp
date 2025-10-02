@@ -40,15 +40,48 @@ export default async function EditPartnerPage({
     };
     await upsertPartner(partner);
     try {
+      const fields: Array<keyof Partner> = [
+        "name",
+        "vatNumber",
+        "orcNumber",
+        "headquarters",
+      ];
+      const changes = fields
+        .map((f) => ({
+          field: String(f),
+          from: (current as any)[f],
+          to: (partner as any)[f],
+        }))
+        .filter((c) => c.from !== c.to);
       await logAction({
         action: "partner.update",
         targetType: "partner",
         targetId: partner.id,
-        meta: { name: partner.name },
+        meta: { name: partner.name, changes },
       });
     } catch {}
     try {
-      await createMessage({ text: `Partener actualizat: ${partner.name}` });
+      const fmt = (v: unknown) =>
+        v === null || typeof v === "undefined" ? "—" : String(v);
+      const fields = [
+        { k: "name", label: "Nume" },
+        { k: "vatNumber", label: "CUI" },
+        { k: "orcNumber", label: "Nr. ORC" },
+        { k: "headquarters", label: "Sediu" },
+      ] as const;
+      const diffs = fields
+        .map(({ k, label }) => ({
+          label,
+          from: (current as any)[k],
+          to: (partner as any)[k],
+        }))
+        .filter((c) => c.from !== c.to)
+        .map((c) => `${c.label}: ${fmt(c.from)} → ${fmt(c.to)}`)
+        .join("; ");
+      const diffText = diffs ? ` • Modificări: ${diffs}` : "";
+      await createMessage({
+        text: `Partener actualizat: ${partner.name} • ID: ${partner.id}${diffText}`,
+      });
     } catch {}
     revalidatePath("/admin/partners");
     redirect("/admin/partners");
@@ -68,7 +101,9 @@ export default async function EditPartnerPage({
         });
       } catch {}
       try {
-        await createMessage({ text: `Partener șters: ${current.name}` });
+        await createMessage({
+          text: `Partener șters: ${current.name} • ID: ${current.id}`,
+        });
       } catch {}
     }
     revalidatePath("/admin/partners");

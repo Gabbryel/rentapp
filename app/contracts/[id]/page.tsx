@@ -1,10 +1,19 @@
 import * as React from "react";
-import ScanSection from "@/app/components/scan-section";
+import ContractScans from "@/app/components/contract-scans";
+import ManageContractScans from "./scans/ManageContractScans";
 import Link from "next/link";
 import { fetchContractById } from "@/lib/contracts";
 import { getEuroInflationPercent } from "@/lib/inflation";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import {
+  listInvoicesForContract,
+  computeInvoiceFromContract,
+  issueInvoiceAndGeneratePdf,
+  deleteInvoiceById,
+  updateInvoiceNumber,
+} from "@/lib/invoices";
+import InvoiceViewer from "@/app/components/invoice-viewer";
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("ro-RO", {
@@ -18,6 +27,7 @@ const fmtEUR = (n: number) =>
   new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(
     n
   );
+
 const fmtRON = (n: number) =>
   new Intl.NumberFormat("ro-RO", {
     style: "currency",
@@ -33,8 +43,37 @@ export default async function ContractPage({
   const { id } = await params;
   const contract = await fetchContractById(id);
   if (!contract) return notFound();
+  const invoices = await listInvoicesForContract(id);
 
   const isExpired = new Date(contract.endDate) < new Date();
+
+  // Compute current month due date (within contract bounds)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+  const y = String(year).padStart(4, "0");
+  const m = String(month).padStart(2, "0");
+  const lastDay = new Date(year, month, 0).getDate();
+  const start = new Date(contract.startDate);
+  const end = new Date(contract.endDate);
+  let dueAt: string | null = null;
+  if (contract.rentType === "monthly") {
+    const day = Math.min(Math.max(1, contract.monthlyInvoiceDay ?? 1), lastDay);
+    const candidate = `${y}-${m}-${String(day).padStart(2, "0")}`;
+    const cd = new Date(candidate);
+    if (cd >= start && cd <= end) dueAt = candidate;
+  } else if ((contract.yearlyInvoices?.length ?? 0) > 0) {
+    const hit = contract.yearlyInvoices!.find((yi) => yi.month === month);
+    if (hit) {
+      const day = Math.min(Math.max(1, hit.day), lastDay);
+      const candidate = `${y}-${m}-${String(day).padStart(2, "0")}`;
+      const cd = new Date(candidate);
+      if (cd >= start && cd <= end) dueAt = candidate;
+    }
+  }
+  const alreadyIssuedForThisMonth = Boolean(
+    dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+  );
 
   // Inflation since last indexing date or start date, up to current month
   let inflation: {
@@ -74,6 +113,45 @@ export default async function ContractPage({
     revalidatePath(`/contracts/${id}`);
   }
 
+  async function issueInvoice(formData: FormData) {
+    "use server";
+    const issuedAt = String(formData.get("issuedAt") || "");
+    if (!issuedAt) return;
+    try {
+      const contract = await fetchContractById(id);
+      if (!contract) return;
+      if (
+        typeof contract.amountEUR !== "number" ||
+        typeof contract.exchangeRateRON !== "number"
+      )
+        return;
+      const inv = computeInvoiceFromContract({ contract, issuedAt });
+      await issueInvoiceAndGeneratePdf(inv);
+    } catch {}
+    revalidatePath(`/contracts/${id}`);
+  }
+
+  async function deleteInvoice(formData: FormData) {
+    "use server";
+    const invId = String(formData.get("invoiceId") || "");
+    if (!invId) return;
+    try {
+      await deleteInvoiceById(invId);
+    } catch {}
+    revalidatePath(`/contracts/${id}`);
+  }
+
+  async function editInvoiceNumber(formData: FormData) {
+    "use server";
+    const invId = String(formData.get("invoiceId") || "");
+    const number = String(formData.get("number") || "").trim();
+    if (!invId || !number) return;
+    try {
+      await updateInvoiceNumber(invId, number);
+    } catch {}
+    revalidatePath(`/contracts/${id}`);
+  }
+
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
       <div className="mb-6">
@@ -86,7 +164,22 @@ export default async function ContractPage({
         <div>
           <h1 className="text-fluid-4xl font-bold">{contract.name}</h1>
           <p className="text-base text-foreground/70">
-            Partener: {contract.partner}
+            Partener:{" "}
+            {contract.partnerId ? (
+              <Link
+                href={`/partners/${contract.partnerId}`}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {contract.partner}
+              </Link>
+            ) : (
+              <Link
+                href={`/partners/${encodeURIComponent(contract.partner)}`}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {contract.partner}
+              </Link>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -112,12 +205,16 @@ export default async function ContractPage({
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-1">
-          <div className="rounded-lg border border-foreground/15 p-4">
+          <div className="rounded-lg border border-foreground/15 p-4 bg-[#334443]">
             <h2 className="text-base font-semibold">Detalii</h2>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-base">
               <div>
                 <dt className="text-foreground/60">Proprietar</dt>
-                <dd className="font-medium">{contract.owner}</dd>
+                <dd className="font-medium">
+                  {String(
+                    (contract as { owner?: string }).owner || ""
+                  ).trim() || "—"}
+                </dd>
               </div>
               <div>
                 <dt className="text-foreground/60">Semnat</dt>
@@ -294,10 +391,24 @@ export default async function ContractPage({
         </div>
 
         <div className="lg:col-span-2">
-          <ScanSection
-            scanUrl={contract.scanUrl}
+          <ContractScans
+            scans={
+              (contract as { scans?: { url: string; title?: string }[] })
+                .scans || (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
+            }
             contractName={contract.name}
           />
+          {process.env.MONGODB_URI ? (
+            <ManageContractScans
+              id={contract.id}
+              scans={
+                (contract as { scans?: { url: string; title?: string }[] })
+                  .scans ||
+                (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
+              }
+              mongoConfigured={Boolean(process.env.MONGODB_URI)}
+            />
+          ) : null}
         </div>
       </section>
 
@@ -419,6 +530,113 @@ export default async function ContractPage({
           </div>
         </section>
       ) : null}
+
+      <section className="mt-8">
+        <div className="rounded-lg border border-foreground/15 p-4">
+          <h2 className="text-base font-semibold">Facturi emise</h2>
+          <form
+            action={issueInvoice}
+            className="mt-3 flex items-center gap-2 text-sm"
+          >
+            <label className="text-foreground/60" htmlFor="issuedAt">
+              Emite la data
+            </label>
+            <input
+              id="issuedAt"
+              name="issuedAt"
+              type="date"
+              className="rounded-md border border-foreground/20 bg-background px-2 py-1 text-sm"
+              defaultValue={dueAt ?? new Date().toISOString().slice(0, 10)}
+            />
+            <button
+              type="submit"
+              className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
+                alreadyIssuedForThisMonth
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-not-allowed"
+                  : "border-foreground/20 hover:bg-foreground/5"
+              }`}
+              disabled={alreadyIssuedForThisMonth}
+            >
+              Emite factura
+            </button>
+            {alreadyIssuedForThisMonth ? (
+              <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px]">
+                deja emisă pentru luna curentă{dueAt ? ` (${dueAt})` : ""}
+              </span>
+            ) : null}
+          </form>
+          <div className="mt-3 grid grid-cols-1 gap-3">
+            {invoices.length === 0 ? (
+              <div className="text-sm text-foreground/60">
+                Nicio factură emisă.
+              </div>
+            ) : (
+              invoices.map((inv) => {
+                // client-less modal: we’ll render a simple details + actions; modal micro-client would be heavier; use inline instead
+                return (
+                  <div
+                    key={inv.id}
+                    className="rounded-md bg-foreground/5 p-3 flex flex-col gap-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm">
+                        <div className="font-medium">
+                          {inv.issuedAt} · Total{" "}
+                          {new Intl.NumberFormat("ro-RO", {
+                            style: "currency",
+                            currency: "RON",
+                          }).format(inv.totalRON)}{" "}
+                          · Nr {inv.number ?? "—"}
+                        </div>
+                        <div className="text-foreground/60">
+                          EUR {inv.amountEUR.toFixed(2)} → corecție{" "}
+                          {inv.correctionPercent}% · curs{" "}
+                          {inv.exchangeRateRON.toFixed(4)} · TVA{" "}
+                          {inv.tvaPercent}%
+                        </div>
+                      </div>
+                      <InvoiceViewer
+                        pdfUrl={inv.pdfUrl}
+                        id={inv.id}
+                        title={`Factura ${inv.number || inv.id}`}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <form
+                        action={editInvoiceNumber}
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="invoiceId" value={inv.id} />
+                        <input
+                          name="number"
+                          placeholder="Număr factură"
+                          defaultValue={inv.number ?? ""}
+                          className="rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                        >
+                          Salvează
+                        </button>
+                      </form>
+                      <form action={deleteInvoice} className="ml-auto">
+                        <input type="hidden" name="invoiceId" value={inv.id} />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-red-300 text-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-50/10"
+                        >
+                          Șterge
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const links = [
-  { href: "/", label: "Contracte" },
+  { href: "/contracts", label: "Contracte" },
   { href: "/messages", label: "Mesaje" },
 ];
 
@@ -22,6 +22,20 @@ export default function Navbar() {
 
   // Close menu on route change
   useEffect(() => setOpen(false), [pathname]);
+  // Prevent background scroll when mobile menu is open
+  useEffect(() => {
+    if (open) {
+      document.documentElement.classList.add("overflow-hidden");
+      document.body.classList.add("overflow-hidden");
+    } else {
+      document.documentElement.classList.remove("overflow-hidden");
+      document.body.classList.remove("overflow-hidden");
+    }
+    return () => {
+      document.documentElement.classList.remove("overflow-hidden");
+      document.body.classList.remove("overflow-hidden");
+    };
+  }, [open]);
   useEffect(() => {
     let aborted = false;
     const controller = new AbortController();
@@ -90,7 +104,7 @@ export default function Navbar() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-foreground/10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-foreground/10 bg-background sm:bg-background/80 sm:backdrop-blur sm:supports-[backdrop-filter]:bg-background/60">
       <nav className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between gap-3">
           {/* Brand */}
@@ -103,9 +117,7 @@ export default function Navbar() {
           <div className="hidden sm:flex items-center gap-1">
             {links.map((l) => {
               const isActive =
-                l.href === "/"
-                  ? pathname === "/" || pathname.startsWith("/contracts")
-                  : pathname === l.href;
+                pathname === l.href || pathname.startsWith(l.href + "/");
               return (
                 <Link
                   key={l.href + l.label}
@@ -234,120 +246,127 @@ export default function Navbar() {
             </svg>
           </button>
         </div>
-
-        {/* Mobile menu */}
+        {/* Mobile menu overlay + panel (opaque) */}
         {open && (
-          <div className="sm:hidden pb-3">
-            <div className="flex flex-col gap-1">
-              {/* DB status indicator (mobile) */}
-              <div className="px-3 py-2">
-                <span
-                  className="inline-flex items-center gap-2 rounded-md border border-foreground/10 px-2 py-1 text-xs text-foreground/70"
-                  title={
-                    dbConnected === null
-                      ? "Verific conexiunea la baza de date..."
-                      : dbConnected
-                      ? `DB: ${dbName ?? "—"}${
-                          dbLatency != null ? ` • ${dbLatency}ms` : ""
-                        } • ${dbLocation ?? "?"}${
-                          dbProvider
-                            ? dbProvider === "atlas"
-                              ? " (Atlas)"
-                              : ""
-                            : ""
-                        }`
-                      : "DB offline"
-                  }
-                  aria-live="polite"
-                >
-                  <span
-                    className={
-                      "h-2.5 w-2.5 rounded-full " +
-                      (dbConnected === null
-                        ? "bg-foreground/40"
-                        : dbConnected
-                        ? "bg-emerald-500"
-                        : "bg-red-500")
-                    }
-                    aria-hidden="true"
-                  />
-                  <span>
-                    {dbConnected
-                      ? `Baza de date: conectat${
-                          dbLocation
-                            ? ` (${dbLocation}${
-                                dbProvider === "atlas" ? ", Atlas" : ""
-                              })`
-                            : ""
-                        }`
-                      : dbConnected === null
-                      ? "Baza de date: verific..."
-                      : "Baza de date: offline"}
-                  </span>
-                </span>
+          <>
+            {/* Backdrop to block content and close on click */}
+            <div
+              className="sm:hidden fixed inset-0 z-40 bg-background"
+              onClick={() => setOpen(false)}
+              aria-hidden="true"
+            />
+            {/* Slide-down panel from under the navbar */}
+            <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-background border-t border-foreground/10 shadow-md max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+              <div className="pb-3">
+                <div className="flex flex-col gap-1">
+                  {/* DB status indicator (mobile) */}
+                  <div className="px-3 py-2">
+                    <span
+                      className="inline-flex items-center gap-2 rounded-md border border-foreground/10 px-2 py-1 text-xs text-foreground/70"
+                      title={
+                        dbConnected === null
+                          ? "Verific conexiunea la baza de date..."
+                          : dbConnected
+                          ? `DB: ${dbName ?? "—"}${
+                              dbLatency != null ? ` • ${dbLatency}ms` : ""
+                            } • ${dbLocation ?? "?"}${
+                              dbProvider
+                                ? dbProvider === "atlas"
+                                  ? " (Atlas)"
+                                  : ""
+                                : ""
+                            }`
+                          : "DB offline"
+                      }
+                      aria-live="polite"
+                    >
+                      <span
+                        className={
+                          "h-2.5 w-2.5 rounded-full " +
+                          (dbConnected === null
+                            ? "bg-foreground/40"
+                            : dbConnected
+                            ? "bg-emerald-500"
+                            : "bg-red-500")
+                        }
+                        aria-hidden="true"
+                      />
+                      <span>
+                        {dbConnected
+                          ? `Baza de date: conectat${
+                              dbLocation
+                                ? ` (${dbLocation}${
+                                    dbProvider === "atlas" ? ", Atlas" : ""
+                                  })`
+                                : ""
+                            }`
+                          : dbConnected === null
+                          ? "Baza de date: verific..."
+                          : "Baza de date: offline"}
+                      </span>
+                    </span>
+                  </div>
+                  {links.map((l) => {
+                    const isActive =
+                      pathname === l.href || pathname.startsWith(l.href + "/");
+                    return (
+                      <Link
+                        key={l.href + l.label}
+                        href={l.href}
+                        className={`rounded-md px-3 py-2 text-sm font-medium hover:bg-foreground/5 ${
+                          isActive ? "text-foreground" : "text-foreground/70"
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    );
+                  })}
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className={`rounded-md px-3 py-2 text-sm font-medium hover:bg-foreground/5 ${
+                        pathname === "/admin"
+                          ? "text-foreground"
+                          : "text-foreground/70"
+                      }`}
+                    >
+                      Admin
+                    </Link>
+                  )}
+                  {email ? (
+                    <div className="flex items-center justify-between gap-3 px-3 mt-2">
+                      <span
+                        className="text-xs text-foreground/70 truncate"
+                        title={email}
+                      >
+                        {email}
+                      </span>
+                      <form action="/api/logout" method="POST">
+                        <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
+                          Ieși
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 px-3">
+                      <Link
+                        href="/login"
+                        className="text-sm text-foreground/80 hover:underline"
+                      >
+                        Intră
+                      </Link>
+                      <Link
+                        href="/register"
+                        className="text-sm text-foreground/80 hover:underline"
+                      >
+                        Înregistrare
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
-              {links.map((l) => {
-                const isActive =
-                  l.href === "/"
-                    ? pathname === "/" || pathname.startsWith("/contracts")
-                    : pathname === l.href;
-                return (
-                  <Link
-                    key={l.href + l.label}
-                    href={l.href}
-                    className={`rounded-md px-3 py-2 text-sm font-medium hover:bg-foreground/5 ${
-                      isActive ? "text-foreground" : "text-foreground/70"
-                    }`}
-                  >
-                    {l.label}
-                  </Link>
-                );
-              })}
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className={`rounded-md px-3 py-2 text-sm font-medium hover:bg-foreground/5 ${
-                    pathname === "/admin"
-                      ? "text-foreground"
-                      : "text-foreground/70"
-                  }`}
-                >
-                  Admin
-                </Link>
-              )}
-              {/* Removed Add Contract from mobile navbar */}
-              {email ? (
-                <div className="flex items-center justify-between gap-3 px-3 mt-2">
-                  <span
-                    className="text-xs text-foreground/70 truncate"
-                    title={email}
-                  >
-                    {email}
-                  </span>
-                  <form action="/api/logout" method="POST">
-                    <button className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5">
-                      Ieși
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 px-3">
-                  <Link
-                    href="/login"
-                    className="text-sm text-foreground/80 hover:underline"
-                  >
-                    Intră
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="text-sm text-foreground/80 hover:underline"
-                  >
-                    Înregistrare
-                  </Link>
-                </div>
-              )}
             </div>
-          </div>
+          </>
         )}
       </nav>
     </header>

@@ -8,6 +8,7 @@ type Props = {
   className?: string;
   title?: string;
   successMessage: string;
+  disabled?: boolean;
 };
 
 export default function ActionButton({
@@ -15,6 +16,7 @@ export default function ActionButton({
   className,
   title,
   successMessage,
+  disabled,
 }: Props) {
   const { pending } = useFormStatus();
 
@@ -35,7 +37,7 @@ export default function ActionButton({
       title={title}
       onClick={handleClick}
       className={className}
-      disabled={pending}
+      disabled={pending || disabled}
     >
       {pending ? "Se procesează…" : children}
     </button>

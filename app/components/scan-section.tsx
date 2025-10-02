@@ -39,9 +39,35 @@ export default function ScanSection({
         open={open}
         onClose={() => setOpen(false)}
         title={`Scan: ${contractName}`}
+        maxWidthClassName="max-w-5xl"
       >
         {scanUrl ? (
-          <ScanViewer url={scanUrl} title={`Scan contract ${contractName}`} />
+          <div className="flex flex-col">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-foreground/10 text-xs bg-background">
+              <div className="text-foreground/60">
+                Sfaturi iOS: Dacă nu vezi toate paginile sau nu încape pe ecran,
+                folosește „Deschide în filă nouă”.
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                <a
+                  href={scanUrl}
+                  target="_blank"
+                  className="rounded-md border border-foreground/20 px-2 py-1 font-semibold hover:bg-foreground/5"
+                  rel="noreferrer"
+                >
+                  Deschide în filă nouă
+                </a>
+                <a
+                  href={scanUrl}
+                  download
+                  className="rounded-md border border-foreground/20 px-2 py-1 font-semibold hover:bg-foreground/5"
+                >
+                  Descarcă
+                </a>
+              </div>
+            </div>
+            <ScanViewer url={scanUrl} title={`Scan contract ${contractName}`} />
+          </div>
         ) : (
           <div className="aspect-[4/3] grid place-items-center text-foreground/60">
             Niciun scan disponibil

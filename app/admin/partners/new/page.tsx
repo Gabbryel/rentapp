@@ -26,7 +26,9 @@ async function savePartner(formData: FormData) {
     });
   } catch {}
   try {
-    await createMessage({ text: `Partener nou: ${p.name}` });
+    await createMessage({
+      text: `Partener nou: ${p.name} • ID: ${p.id} • CUI: ${p.vatNumber}`,
+    });
   } catch {}
   revalidatePath("/admin/partners");
 }

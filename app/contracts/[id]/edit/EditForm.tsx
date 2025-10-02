@@ -5,6 +5,8 @@ import ExchangeRateField from "@/app/components/exchange-rate-field";
 import Link from "next/link";
 import { updateContractAction, type EditFormState } from "./actions";
 import PartnerSelect from "@/app/components/partner-select";
+import AssetSelect from "@/app/components/asset-select";
+import OwnerSelect from "@/app/components/owner-select";
 
 import type { Contract } from "@/lib/schemas/contract";
 
@@ -48,13 +50,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           readOnly
           className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
         />
-        <input
-          type="hidden"
-          name="existingScanUrl"
-          defaultValue={String(
-            state.values.existingScanUrl ?? contract.scanUrl ?? ""
-          )}
-        />
+        {/* deprecated single scan hidden field removed; multi-scan editor below */}
       </div>
       {/* Rent structure */}
       <div className="grid grid-cols-1 gap-3">
@@ -227,28 +223,35 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           <input
             name="correctionPercent"
             type="number"
-            step="1"
+            step="0.01"
             min="0"
             max="100"
-            inputMode="numeric"
+            inputMode="decimal"
             defaultValue={String(
               state.values.correctionPercent ??
                 (typeof contract.correctionPercent === "number"
                   ? contract.correctionPercent
                   : "")
             )}
-            placeholder="ex: 10"
+            placeholder="ex: 10.5"
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium">Nume</label>
-        <input
-          name="name"
-          defaultValue={String(state.values.name ?? contract.name)}
+        <label className="block text-sm font-medium">Asset</label>
+        <AssetSelect
+          idName="assetId"
+          nameName="asset"
           required
-          className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+          defaultId={(() => {
+            const v = state.values.assetId as unknown;
+            if (typeof v === "string") return v;
+            return (contract as any).assetId ?? "";
+          })()}
+          defaultName={String(
+            (state.values.asset as string) ?? (contract as any).asset ?? ""
+          )}
         />
       </div>
       <div>
@@ -268,17 +271,29 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
         />
       </div>
       <div>
+        <label className="block text-sm font-medium">Nume (generat)</label>
+        <input
+          name="name"
+          readOnly
+          value={String(state.values.name ?? contract.name)}
+          className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
         <label className="block text-sm font-medium">Proprietar</label>
-        <select
-          name="owner"
-          defaultValue={String(
-            state.values.owner ?? contract.owner ?? "Markov Services s.r.l."
+        <OwnerSelect
+          idName="ownerId"
+          nameName="owner"
+          required
+          defaultId={(() => {
+            const v = state.values.ownerId as unknown;
+            if (typeof v === "string") return v;
+            return (contract as any).ownerId ?? "";
+          })()}
+          defaultName={String(
+            (state.values.owner as string) ?? (contract as any).owner ?? ""
           )}
-          className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-        >
-          <option value="Markov Services s.r.l.">Markov Services s.r.l.</option>
-          <option value="MKS Properties s.r.l.">MKS Properties s.r.l.</option>
-        </select>
+        />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
@@ -354,41 +369,169 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           []
         }
       />
-      <div className="space-y-2">
-        <div>
-          <label className="block text-sm font-medium">
-            Încarcă scan (PDF sau imagine)
-          </label>
-          <input
-            type="file"
-            name="scanFile"
-            accept="application/pdf,image/*"
-            className="mt-1 block w-full text-sm"
-          />
-          <p className="mt-1 text-xs text-foreground/60">
-            Max 10MB. Tipuri permise: PDF, PNG, JPG/JPEG, GIF, WEBP, SVG.
-          </p>
+      {/* Periodic indexing schedule */}
+      <fieldset className="rounded-md border border-foreground/10 p-3">
+        <legend className="px-1 text-xs text-foreground/60">
+          Program indexare periodică (opțional)
+        </legend>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium">Zi (1-31)</label>
+            <input
+              name="indexingScheduleDay"
+              type="number"
+              min={1}
+              max={31}
+              inputMode="numeric"
+              defaultValue={String(
+                (state.values.indexingScheduleDay as string) ??
+                  (contract as any).indexingScheduleDay ??
+                  ""
+              )}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              Luna start (1-12)
+            </label>
+            <input
+              name="indexingScheduleMonth"
+              type="number"
+              min={1}
+              max={12}
+              inputMode="numeric"
+              defaultValue={String(
+                (state.values.indexingScheduleMonth as string) ??
+                  (contract as any).indexingScheduleMonth ??
+                  ""
+              )}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              La fiecare (luni)
+            </label>
+            <input
+              name="indexingEveryMonths"
+              type="number"
+              min={1}
+              max={120}
+              inputMode="numeric"
+              placeholder="ex: 12 (anual)"
+              defaultValue={String(
+                (state.values.indexingEveryMonths as string) ??
+                  (contract as any).indexingEveryMonths ??
+                  ""
+              )}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium">sau introdu URL</label>
-          <input
-            name="scanUrl"
-            placeholder="/uploads/contract.pdf sau https://exemplu.com/contract.pdf"
-            pattern={".*\\.(pdf|png|jpe?g|gif|webp|svg)(?:$|[?#]).*"}
-            title="Acceptat: PDF sau imagine (png, jpg, jpeg, gif, webp, svg)"
-            defaultValue={String(state.values.scanUrl ?? "")}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-xs text-foreground/60">
-            Dacă nu alegi nimic, rămâne scan-ul actual.
-          </p>
-          {contract.scanUrl ? (
-            <p className="mt-1 text-xs text-foreground/60">
-              Scan curent: {contract.scanUrl}
+        <p className="mt-2 text-xs text-foreground/60">
+          Dacă completezi câmpurile de mai sus, datele generate vor fi combinate
+          cu cele introduse manual.
+        </p>
+      </fieldset>
+      <fieldset className="rounded-md border border-foreground/10 p-3">
+        <legend className="px-1 text-xs text-foreground/60">
+          Documente (scan-uri)
+        </legend>
+        <div className="space-y-3">
+          {/* Existing scans list */}
+          {Array.isArray(contract.scans) && contract.scans.length > 0 ? (
+            <div className="space-y-2">
+              {contract.scans.map((s, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center"
+                >
+                  <div className="sm:col-span-3">
+                    <label className="block text-xs text-foreground/60">
+                      URL existent
+                    </label>
+                    <input
+                      name="existingUrl"
+                      readOnly
+                      defaultValue={s.url}
+                      className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-foreground/60">
+                      Titlu (opțional)
+                    </label>
+                    <input
+                      name="existingTitle"
+                      defaultValue={s.title ?? ""}
+                      placeholder="ex: Contract semnat"
+                      className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-1 flex items-end">
+                    <label className="inline-flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        name="existingRemoveIdx"
+                        value={String(i)}
+                        className="rounded border-foreground/30"
+                      />
+                      <span>Șterge</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-foreground/60">
+              Nu există scan-uri salvate.
             </p>
-          ) : null}
+          )}
+          {/* New uploads */}
+          <div>
+            <label className="block text-sm font-medium">
+              Încarcă fișiere noi
+            </label>
+            <input
+              name="scanFiles"
+              type="file"
+              multiple
+              accept="application/pdf,image/*"
+              className="mt-1 block w-full text-sm"
+            />
+            <p className="mt-1 text-xs text-foreground/60">
+              Poți selecta mai multe fișiere. Max 10MB per fișier.
+            </p>
+          </div>
+          {/* New URLs */}
+          <div>
+            <label className="block text-sm font-medium">
+              sau adaugă URL-uri
+            </label>
+            <input
+              name="scanUrls"
+              placeholder="/uploads/doc1.pdf"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+            <input
+              name="scanTitles"
+              placeholder="Titlu doc1 (opțional)"
+              className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+            <input
+              name="scanUrls"
+              placeholder="https://exemplu.com/doc2.png"
+              className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+            <input
+              name="scanTitles"
+              placeholder="Titlu doc2 (opțional)"
+              className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
         </div>
-      </div>
+      </fieldset>
       <div className="pt-2 flex items-center justify-center gap-3">
         <button
           disabled={!mongoConfigured}

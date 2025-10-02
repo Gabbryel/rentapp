@@ -1,17 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/app/components/navbar";
 import Toaster from "@/app/components/toaster";
 import FlashHub from "@/app/components/flash-hub";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
   subsets: ["latin"],
 });
 
@@ -51,11 +46,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/* PWA installability: metadata above injects manifest + apple meta/icons */}
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${robotoMono.variable} antialiased`}>
         <Navbar />
-        <div className="w-full">{children}</div>
+        <div id="app-root" className="w-full app-root-for-blur">
+          {children}
+        </div>
         <Toaster />
         <FlashHub />
       </body>

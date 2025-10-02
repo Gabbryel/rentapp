@@ -7,7 +7,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     name: "Lease #1001",
     partnerId: "p1",
     partner: "Acme Corp",
-    owner: "Markov Services s.r.l.",
+  owner: "Markov Services s.r.l.",
     indexingDates: [],
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
@@ -15,6 +15,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 5,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 20,
   },
   {
@@ -22,7 +23,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     name: "Lease #1002",
     partnerId: "p2",
     partner: "Globex LLC",
-    owner: "MKS Properties s.r.l.",
+  owner: "MKS Properties s.r.l.",
     indexingDates: [],
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
@@ -30,6 +31,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 10,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 15,
   },
   {
@@ -45,6 +47,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 15,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 30,
   },
   {
@@ -60,6 +63,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 12,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 10,
   },
   {
@@ -75,6 +79,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 8,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 15,
   },
   {
@@ -90,6 +95,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 20,
     scanUrl: "/contract-scan.svg",
+    scans: [],
     paymentDueDays: 25,
   },
   {
@@ -105,6 +111,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 7,
     extensionDate: "2026-06-30",
+    scans: [],
     paymentDueDays: 20,
   },
   {
@@ -120,6 +127,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 14,
     rentType: "monthly",
     monthlyInvoiceDay: 3,
+    scans: [],
   },
   {
     id: "c9",
@@ -134,6 +142,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 9,
+    scans: [],
   },
   {
     id: "c10",
@@ -148,6 +157,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 1,
+    scans: [],
   },
   {
     id: "c11",
@@ -162,6 +172,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 15,
     rentType: "monthly",
     monthlyInvoiceDay: 11,
+    scans: [],
   },
   {
     id: "c12",
@@ -176,6 +187,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 14,
+    scans: [],
   },
   {
     id: "c13",
@@ -190,6 +202,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 30,
     rentType: "monthly",
     monthlyInvoiceDay: 6,
+    scans: [],
   },
   {
     id: "c14",
@@ -204,6 +217,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 10,
     rentType: "monthly",
     monthlyInvoiceDay: 4,
+    scans: [],
   },
   {
     id: "c15",
@@ -218,6 +232,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 16,
+    scans: [],
   },
   {
     id: "c16",
@@ -232,6 +247,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 25,
     rentType: "monthly",
     monthlyInvoiceDay: 18,
+    scans: [],
   },
   {
     id: "c17",
@@ -246,6 +262,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 13,
+    scans: [],
   },
   {
     id: "c18",
@@ -260,6 +277,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 2,
+    scans: [],
   },
   {
     id: "c19",
@@ -274,6 +292,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 22,
+    scans: [],
   },
   {
     id: "c20",
@@ -288,6 +307,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     paymentDueDays: 20,
     rentType: "monthly",
     monthlyInvoiceDay: 19,
+    scans: [],
   },
 ];
 
@@ -330,12 +350,19 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
   const correctionPercent =
     typeof r.correctionPercent === "number"
       ? r.correctionPercent
-      : Number.isInteger(Number(r.correctionPercent))
-      ? Number(r.correctionPercent)
-      : undefined;
+      : (() => {
+          const v = r.correctionPercent as unknown;
+          if (typeof v === "string" && v.trim() !== "") {
+            const n = Number(v.replace(",", "."));
+            return Number.isFinite(n) ? n : undefined;
+          }
+          return undefined;
+        })();
   return {
     id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
     name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
+    assetId: typeof (r as any).assetId === "string" ? (r as any).assetId : undefined,
+    asset: typeof (r as any).asset === "string" ? (r as any).asset : undefined,
     partnerId: typeof r.partnerId === "string" ? r.partnerId : undefined,
     partner: typeof r.partner === "string" ? r.partner : (r.partner as string | undefined),
     owner: (r.owner as string) ?? "Markov Services s.r.l.",
@@ -391,6 +418,27 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       if (typeof v === "string") return v;
       return undefined;
     })(),
+    scans: ((): { url: string; title?: string }[] => {
+      const arr = Array.isArray((r as any).scans) ? ((r as any).scans as unknown[]) : [];
+      const mapped = arr
+        .map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>;
+          const url = typeof o.url === "string" ? o.url : undefined;
+          const title = typeof o.title === "string" && o.title.trim() ? o.title.trim() : undefined;
+          return url ? { url, title } : null;
+        })
+        .filter(Boolean) as { url: string; title?: string }[];
+      // Back-compat: if no scans array but scanUrl exists, include it as a single item
+      if (mapped.length === 0) {
+        const one = ((): { url: string; title?: string } | null => {
+          const v = r.scanUrl;
+          if (typeof v === "string" && v.trim()) return { url: v };
+          return null;
+        })();
+        return one ? [one] : [];
+      }
+      return mapped;
+    })(),
     amountEUR: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
@@ -401,6 +449,18 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     inflationToMonth: typeof r.inflationToMonth === "string" ? r.inflationToMonth : undefined,
     inflationLocalPercent: numOrUndef(r.inflationLocalPercent),
     inflationAiPercent: numOrUndef(r.inflationAiPercent),
+    indexingScheduleDay: ((): number | undefined => {
+      const n = Number((r as Record<string, unknown>).indexingScheduleDay);
+      return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
+    })(),
+    indexingScheduleMonth: ((): number | undefined => {
+      const n = Number((r as Record<string, unknown>).indexingScheduleMonth);
+      return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+    })(),
+    indexingEveryMonths: ((): number | undefined => {
+      const n = Number((r as Record<string, unknown>).indexingEveryMonths);
+      return Number.isInteger(n) && n >= 1 && n <= 120 ? n : undefined;
+    })(),
   } as Partial<ContractType>;
 }
 
@@ -459,6 +519,63 @@ export async function fetchContractById(id: string): Promise<ContractType | null
   }
   await new Promise((r) => setTimeout(r, 100));
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
+}
+
+// Compute indexing instances from schedule fields within contract bounds
+export function generateIndexingDatesFromSchedule(opts: {
+  startDate: string;
+  endDate: string;
+  day?: number; // 1-31
+  month?: number; // 1-12 (first occurrence anchor)
+  everyMonths?: number; // e.g., 12 = yearly
+}): string[] {
+  const results: string[] = [];
+  const { startDate, endDate } = opts;
+  const every = Number(opts.everyMonths ?? 12);
+  const anchorMonth = Number(opts.month ?? 1);
+  const day = Number(opts.day ?? 1);
+  if (!Number.isInteger(every) || every < 1 || every > 120) return results;
+  if (!Number.isInteger(anchorMonth) || anchorMonth < 1 || anchorMonth > 12) return results;
+  if (!Number.isInteger(day) || day < 1 || day > 31) return results;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (!(start instanceof Date) || isNaN(start.getTime())) return results;
+  if (!(end instanceof Date) || isNaN(end.getTime())) return results;
+  // Find first occurrence on/after start, anchored to given month/day
+  let y = start.getFullYear();
+  let m = anchorMonth - 1; // 0-based month
+  // If anchor < start month in first year, advance to next cycle that is >= start
+  while (true) {
+    const candidate = new Date(y, m, Math.min(day, 28));
+    // Adjust for real month length: if desired day > last day of month, clamp to last day
+    const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
+    const realDay = Math.min(day, lastDay);
+    const dt = new Date(y, m, realDay);
+    if (dt >= start) break;
+    // advance by every months
+    m += every;
+    while (m >= 12) {
+      y += 1;
+      m -= 12;
+    }
+    if (new Date(y, m, 1) > end) return results;
+  }
+  // Generate until end
+  while (true) {
+    const candidate = new Date(y, m, 1);
+    if (candidate > end) break;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const realDay = Math.min(day, lastDay);
+    const dt = new Date(y, m, realDay);
+    if (dt >= start && dt <= end) results.push(toYmd(dt)!);
+    // next occurrence
+    m += every;
+    while (m >= 12) {
+      y += 1;
+      m -= 12;
+    }
+  }
+  return results;
 }
 
 export async function upsertContract(contract: ContractType) {
