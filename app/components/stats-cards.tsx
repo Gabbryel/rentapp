@@ -9,6 +9,8 @@ declare global {
       monthEUR?: number;
       annualRON?: number;
       annualEUR?: number;
+      monthNetRON?: number;
+      annualNetRON?: number;
     }>;
   }
 }
@@ -75,6 +77,8 @@ export default function StatsCards() {
       monthEUR?: number;
       annualRON?: number;
       annualEUR?: number;
+      monthNetRON?: number;
+      annualNetRON?: number;
     }[]
   >(
     typeof window !== "undefined" && window.__statsOptimisticQueue
@@ -88,6 +92,8 @@ export default function StatsCards() {
     monthEUR?: number;
     annualRON?: number;
     annualEUR?: number;
+    monthNetRON?: number;
+    annualNetRON?: number;
   }[]>([]);
   const optimisticBatchTimerRef = useRef<number | null>(null);
 
@@ -105,15 +111,19 @@ export default function StatsCards() {
     let dMonthRON = 0,
       dMonthEUR = 0,
       dAnnualRON = 0,
-      dAnnualEUR = 0;
+      dAnnualEUR = 0,
+      dMonthNetRON = 0,
+      dAnnualNetRON = 0;
     for (const ev of batch) {
       const sign = ev.mode === "delete" ? -1 : 1;
       dMonthRON += sign * (ev.monthRON || 0);
       dMonthEUR += sign * (ev.monthEUR || 0);
       dAnnualRON += sign * (ev.annualRON || 0);
       dAnnualEUR += sign * (ev.annualEUR || 0);
+      dMonthNetRON += sign * (ev.monthNetRON || 0);
+      dAnnualNetRON += sign * (ev.annualNetRON || 0);
     }
-    if (!dMonthRON && !dMonthEUR && !dAnnualRON && !dAnnualEUR) return;
+    if (!dMonthRON && !dMonthEUR && !dAnnualRON && !dAnnualEUR && !dMonthNetRON && !dAnnualNetRON) return;
     setStats((prev) => {
       if (!prev) return prev;
       const next = {
@@ -122,6 +132,8 @@ export default function StatsCards() {
         actualMonthEUR: prev.actualMonthEUR + dMonthEUR,
         actualAnnualRON: prev.actualAnnualRON + dAnnualRON,
         actualAnnualEUR: prev.actualAnnualEUR + dAnnualEUR,
+        actualMonthNetRON: prev.actualMonthNetRON + dMonthNetRON,
+        actualAnnualNetRON: prev.actualAnnualNetRON + dAnnualNetRON,
       };
       statsRef.current = next;
       if (process.env.NODE_ENV !== "production") {
@@ -142,6 +154,8 @@ export default function StatsCards() {
               mEUR: b.monthEUR,
               aRON: b.annualRON,
               aEUR: b.annualEUR,
+              mNet: b.monthNetRON,
+              aNet: b.annualNetRON,
             }))
           );
           console.log(
@@ -161,8 +175,8 @@ export default function StatsCards() {
       }
       const now = Date.now();
       const changed: Record<string, number> = {};
-      if (dMonthRON || dMonthEUR) changed.actualMonth = now;
-      if (dAnnualRON || dAnnualEUR) changed.actualAnnual = now;
+      if (dMonthRON || dMonthEUR || dMonthNetRON) changed.actualMonth = now;
+      if (dAnnualRON || dAnnualEUR || dAnnualNetRON) changed.actualAnnual = now;
       if (Object.keys(changed).length) {
         setFlashState((fs) => ({ ...fs, ...changed }));
       }
@@ -197,6 +211,10 @@ export default function StatsCards() {
                     base.actualAnnualRON + sign * (d.annualRON || 0),
                   actualAnnualEUR:
                     base.actualAnnualEUR + sign * (d.annualEUR || 0),
+                  actualMonthNetRON:
+                    base.actualMonthNetRON + sign * (d.monthNetRON || 0),
+                  actualAnnualNetRON:
+                    base.actualAnnualNetRON + sign * (d.annualNetRON || 0),
                 };
               }
             }

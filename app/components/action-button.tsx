@@ -95,6 +95,8 @@ function ActionButtonBase({
                     monthEUR: num(ds.deltaMonthEur),
                     annualRON: num(ds.deltaAnnualRon),
                     annualEUR: num(ds.deltaAnnualEur),
+                        monthNetRON: num((ds as any).deltaMonthNetRon),
+                        annualNetRON: num((ds as any).deltaAnnualNetRon),
                   },
                 })
               );
