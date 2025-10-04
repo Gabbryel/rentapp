@@ -86,15 +86,17 @@ export default function StatsCards() {
       : []
   );
   // Batching of rapid optimistic events (after baseline loaded)
-  const optimisticBatchRef = useRef<{
-    mode: string;
-    monthRON?: number;
-    monthEUR?: number;
-    annualRON?: number;
-    annualEUR?: number;
-    monthNetRON?: number;
-    annualNetRON?: number;
-  }[]>([]);
+  const optimisticBatchRef = useRef<
+    {
+      mode: string;
+      monthRON?: number;
+      monthEUR?: number;
+      annualRON?: number;
+      annualEUR?: number;
+      monthNetRON?: number;
+      annualNetRON?: number;
+    }[]
+  >([]);
   const optimisticBatchTimerRef = useRef<number | null>(null);
 
   const applyOptimisticBatch = () => {
@@ -123,7 +125,15 @@ export default function StatsCards() {
       dMonthNetRON += sign * (ev.monthNetRON || 0);
       dAnnualNetRON += sign * (ev.annualNetRON || 0);
     }
-    if (!dMonthRON && !dMonthEUR && !dAnnualRON && !dAnnualEUR && !dMonthNetRON && !dAnnualNetRON) return;
+    if (
+      !dMonthRON &&
+      !dMonthEUR &&
+      !dAnnualRON &&
+      !dAnnualEUR &&
+      !dMonthNetRON &&
+      !dAnnualNetRON
+    )
+      return;
     setStats((prev) => {
       if (!prev) return prev;
       const next = {
@@ -235,7 +245,8 @@ export default function StatsCards() {
     const schedule = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (!pendingLoadRef.current) {
-        if (stats) setSyncing(true); else setStats(null);
+        if (stats) setSyncing(true);
+        else setStats(null);
       }
       debounceRef.current = window.setTimeout(() => {
         load();
@@ -290,7 +301,8 @@ export default function StatsCards() {
       let changed = false;
       const next: Record<string, number> = {};
       for (const [k, ts] of Object.entries(flashState)) {
-        if (now - ts < 800) next[k] = ts; else changed = true;
+        if (now - ts < 800) next[k] = ts;
+        else changed = true;
       }
       if (changed) setFlashState(next);
       if (!Object.keys(next).length) {
@@ -325,7 +337,12 @@ export default function StatsCards() {
       label: "Issued this month (net, excl. VAT)",
       value: stats ? fmtRON(stats.actualMonthNetRON) : null,
       sub: null,
-      progress: stats ? pct(stats.actualMonthNetRON, stats.prognosisMonthNetRON || stats.prognosisMonthRON) : null,
+      progress: stats
+        ? pct(
+            stats.actualMonthNetRON,
+            stats.prognosisMonthNetRON || stats.prognosisMonthRON
+          )
+        : null,
     },
     {
       label: "Prognosis annual (gross)",
@@ -339,6 +356,17 @@ export default function StatsCards() {
       sub: stats ? fmtEUR(stats.actualAnnualEUR) : null,
       progress: stats
         ? pct(stats.actualAnnualRON, stats.prognosisAnnualRON)
+        : null,
+    },
+    {
+      label: "Issued annual (net, excl. VAT)",
+      value: stats ? fmtRON(stats.actualAnnualNetRON) : null,
+      sub: null,
+      progress: stats
+        ? pct(
+            stats.actualAnnualNetRON,
+            stats.prognosisAnnualNetRON || stats.prognosisAnnualRON
+          )
         : null,
     },
   ];
@@ -370,53 +398,55 @@ export default function StatsCards() {
           </div>
         ) : null}
         {cards.map((c) => {
-            const isMonth = c.label.startsWith("Issued this month (gross");
-            const isAnnual = c.label === "Issued annual (gross)";
-            const flash = (isMonth && flashState.actualMonth) || (isAnnual && flashState.actualAnnual);
-            const activeFlash = flash ? Date.now() - flash < 800 : false;
-            return (
-              <div
-                key={c.label}
-                className={
-                  "rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
-                  (activeFlash
-                    ? "bg-emerald-500/10 ring-1 ring-emerald-400/50 shadow-sm"
-                    : "bg-background/60")
-                }
-              >
-            <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
-            {error ? (
-              <div className="text-sm text-red-600">{error}</div>
-            ) : c.value ? (
-              <>
-                <div className="text-xl font-semibold leading-tight">
-                  {c.value}
-                </div>
-                {c.sub && (
-                  <div className="text-[11px] text-foreground/50 mt-1">
-                    {c.sub}
+          const isMonth = c.label.startsWith("Issued this month (gross");
+          const isAnnual = c.label.startsWith("Issued annual (gross") || c.label.startsWith("Issued annual (net");
+          const flash =
+            (isMonth && flashState.actualMonth) ||
+            (isAnnual && flashState.actualAnnual);
+          const activeFlash = flash ? Date.now() - flash < 800 : false;
+          return (
+            <div
+              key={c.label}
+              className={
+                "rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
+                (activeFlash
+                  ? "bg-emerald-500/10 ring-1 ring-emerald-400/50 shadow-sm"
+                  : "bg-background/60")
+              }
+            >
+              <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
+              {error ? (
+                <div className="text-sm text-red-600">{error}</div>
+              ) : c.value ? (
+                <>
+                  <div className="text-xl font-semibold leading-tight">
+                    {c.value}
                   </div>
-                )}
-                {typeof c.progress === "number" && (
-                  <div className="mt-3">
-                    <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 transition-[width] duration-500 ease-out will-change-[width]"
-                        style={{ width: `${c.progress}%` }}
-                      />
-                    </div>
+                  {c.sub && (
                     <div className="text-[11px] text-foreground/50 mt-1">
-                      {c.progress}% realizat
+                      {c.sub}
                     </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className={skeletonClass} />
-                <div className="mt-2 h-3 w-16 rounded bg-foreground/10 animate-pulse" />
-              </>
-            )}
+                  )}
+                  {typeof c.progress === "number" && (
+                    <div className="mt-3">
+                      <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 transition-[width] duration-500 ease-out will-change-[width]"
+                          style={{ width: `${c.progress}%` }}
+                        />
+                      </div>
+                      <div className="text-[11px] text-foreground/50 mt-1">
+                        {c.progress}% realizat
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className={skeletonClass} />
+                  <div className="mt-2 h-3 w-16 rounded bg-foreground/10 animate-pulse" />
+                </>
+              )}
             </div>
           );
         })}
