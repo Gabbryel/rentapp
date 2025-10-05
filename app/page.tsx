@@ -153,6 +153,17 @@ export default async function HomePage() {
         try {
           invalidateYearInvoicesCache();
         } catch {}
+        // Actively wait for deletion to reflect (DB eventual consistency / file write)
+        try {
+          const start = Date.now();
+          for (let i = 0; i < 5; i++) {
+            const check = await findInvoiceByContractAndDate(contractId, issuedAt);
+            if (!check) break;
+            await new Promise((r) => setTimeout(r, 40));
+          }
+          const took = Date.now() - start;
+          // (Optional) could log took time to an internal logger if available
+        } catch {}
       }
     } catch {}
     revalidatePath("/");

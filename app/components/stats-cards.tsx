@@ -59,8 +59,7 @@ function pct(actual: number, prognosis: number) {
 const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 
 // Forced authoritative refresh delays after optimistic updates.
-// Issues: keep at 500ms (previous requirement).
-// Deletions: must update within 300ms per new requirement.
+// Issue events: 500ms, Delete events: 300ms (target user requirements).
 const FORCE_REFRESH_DELAY_ISSUE = 500; // ms
 const FORCE_REFRESH_DELAY_DELETE = 300; // ms
 
@@ -321,8 +320,10 @@ export default function StatsCards() {
               // In sync -> reset retry counter
               optimisticExpectedRef.current.retries = 0;
             }
-            debugRef.current.optimisticGross = optimisticExpectedRef.current.monthGross;
-            debugRef.current.optimisticNet = optimisticExpectedRef.current.monthNet;
+            debugRef.current.optimisticGross =
+              optimisticExpectedRef.current.monthGross;
+            debugRef.current.optimisticNet =
+              optimisticExpectedRef.current.monthNet;
             debugRef.current.retries = optimisticExpectedRef.current.retries;
             debugRef.current.lastRefreshAt = Date.now();
             return base;
@@ -516,9 +517,7 @@ export default function StatsCards() {
                 : "–"}
             </span>
           </div>
-          <div className="pt-1 text-foreground/40">
-            Cmd/Ctrl + D to toggle
-          </div>
+          <div className="pt-1 text-foreground/40">Cmd/Ctrl + D to toggle</div>
         </div>
       ) : null}
       {error && !stats ? (
