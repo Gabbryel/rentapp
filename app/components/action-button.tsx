@@ -34,14 +34,13 @@ function ActionButtonBase({
   const [clicked, setClicked] = useState(false);
   useEffect(() => {
     if (!pending && clicked) {
-      // Form submission finished.
+      // Form submission finished. Trigger a stats refresh and full page refresh so server components update.
       if (triggerStatsRefresh) {
-        // Only update stats; avoid full page refresh to keep UX snappy.
         window.dispatchEvent(new Event("app:stats:refresh"));
-      } else {
-        // Fallback for other actions that still require a full server component refresh.
-        try { router.refresh(); } catch {}
       }
+      try {
+        router.refresh();
+      } catch {}
       setClicked(false);
     } else if (!pending) {
       setClicked(false);
