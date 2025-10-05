@@ -497,6 +497,23 @@ export default function StatsCards() {
             -webkit-column-break-inside: avoid;
             margin: 0 0 1rem;
           }
+          .value-transition {
+            animation: fadeScale 480ms cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          @keyframes fadeScale {
+            0% {
+              opacity: 0;
+              transform: translateY(4px) scale(0.985);
+            }
+            60% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
         `}</style>
         {syncing && stats ? (
           <div className="absolute -top-6 right-0 text-[11px] text-foreground/50 italic">
@@ -537,25 +554,6 @@ export default function StatsCards() {
                       {fmtInt(Math.abs(deltaBubble.value))} RON
                     </div>
                   ) : null}
-                  <style jsx>{`
-                    .value-transition {
-                      animation: fadeScale 480ms cubic-bezier(0.4, 0, 0.2, 1);
-                    }
-                    @keyframes fadeScale {
-                      0% {
-                        opacity: 0;
-                        transform: translateY(4px) scale(0.985);
-                      }
-                      60% {
-                        opacity: 1;
-                        transform: translateY(0) scale(1);
-                      }
-                      100% {
-                        opacity: 1;
-                        transform: translateY(0) scale(1);
-                      }
-                    }
-                  `}</style>
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className={valClass("actualMonthRON")}>{c.ron}</span>
                     {c.eur && (
