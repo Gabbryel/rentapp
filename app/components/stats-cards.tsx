@@ -458,9 +458,21 @@ export default function StatsCards() {
         : null,
     },
     {
-      label: "Prognosis annual (gross)",
+      label: "Prognosis annual",
+      type: "annualPrognosis" as const,
       ron: stats ? fmtRON(stats.prognosisAnnualRON) : null,
       eur: stats ? fmtEUR(stats.prognosisAnnualEUR) : null,
+      // Provide net prognosis values (EUR derived proportionally if not explicitly available)
+      netRON: stats ? fmtRON(stats.prognosisAnnualNetRON) : null,
+      netEUR:
+        stats && stats.prognosisAnnualRON > 0
+          ? fmtEUR(
+              (stats.prognosisAnnualNetRON / stats.prognosisAnnualRON) *
+                stats.prognosisAnnualEUR
+            )
+          : stats
+          ? fmtEUR(0)
+          : null,
       progress: null,
     },
   ];
@@ -535,7 +547,32 @@ export default function StatsCards() {
               }
             >
               <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
-              {c.ron ? (
+              {/* Special rendering for annual prognosis card */}
+              {c.ron && (c as any).type === "annualPrognosis" ? (
+                <>
+                  <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span>{c.ron}</span>
+                    {c.eur && (
+                      <span className="text-sm font-normal text-foreground/60">
+                        {c.eur}
+                      </span>
+                    )}
+                  </div>
+                  {(c as any).netRON && (
+                    <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="text-foreground/50">Net:</span>
+                        <span>{(c as any).netRON}</span>
+                        {(c as any).netEUR && (
+                          <span className="text-xs text-foreground/50">
+                            {(c as any).netEUR}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : c.ron ? (
                 <>
                   {isMonth && deltaBubble ? (
                     <div
@@ -562,15 +599,21 @@ export default function StatsCards() {
                     <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="text-foreground/50">Net:</span>
-                        <span className={valClass("actualMonthNetRON")}>{c.netRON}</span>
+                        <span className={valClass("actualMonthNetRON")}>
+                          {c.netRON}
+                        </span>
                         {c.netEUR && (
-                          <span className={valClass("actualMonthEUR")}>{c.netEUR}</span>
+                          <span className={valClass("actualMonthEUR")}>
+                            {c.netEUR}
+                          </span>
                         )}
                       </div>
                       {(c as any).vatRON && (
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-foreground/50">VAT:</span>
-                          <span className={valClass("vatMonthRON")}>{(c as any).vatRON}</span>
+                          <span className={valClass("vatMonthRON")}>
+                            {(c as any).vatRON}
+                          </span>
                         </div>
                       )}
                     </div>
