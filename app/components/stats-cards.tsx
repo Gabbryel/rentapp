@@ -262,12 +262,19 @@ export default function StatsCards() {
           window.__statsOptimisticQueue = optimisticQueueRef.current;
         return;
       }
+      // Push into batch
       optimisticBatchRef.current.push(detail);
-      if (!optimisticBatchTimerRef.current) {
-        optimisticBatchTimerRef.current = window.setTimeout(() => {
-          applyOptimisticBatch();
-        }, 120);
+      // If this is the first event in a new batch, flush immediately so the card
+      // updates BEFORE the invoice list DOM refresh (immediate responsiveness).
+      if (optimisticBatchRef.current.length === 1) {
+        applyOptimisticBatch();
+        return;
       }
+      // For subsequent rapid events (user issuing/deleting multiple), keep a short debounce for batching.
+      if (optimisticBatchTimerRef.current) return;
+      optimisticBatchTimerRef.current = window.setTimeout(() => {
+        applyOptimisticBatch();
+      }, 100); // slight delay only for >1 rapid events
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
@@ -329,7 +336,9 @@ export default function StatsCards() {
       label: "Issued this month",
       ron: stats ? fmtRON(stats.actualMonthRON) : null, // primary shows gross
       eur: stats ? fmtEUR(stats.actualMonthEUR) : null,
-      progress: stats ? pct(stats.actualMonthRON, stats.prognosisMonthRON) : null,
+      progress: stats
+        ? pct(stats.actualMonthRON, stats.prognosisMonthRON)
+        : null,
       // extra fields for merged net display
       netRON: stats ? fmtRON(stats.actualMonthNetRON) : null,
       netEUR: stats ? fmtEUR(stats.actualMonthEUR) : null,
@@ -405,7 +414,9 @@ export default function StatsCards() {
                         <span className="text-foreground/50">Net:</span>
                         <span>{c.netRON}</span>
                         {c.netEUR && (
-                          <span className="text-xs text-foreground/50">{c.netEUR}</span>
+                          <span className="text-xs text-foreground/50">
+                            {c.netEUR}
+                          </span>
                         )}
                       </span>
                       <span className="flex items-baseline gap-1">
