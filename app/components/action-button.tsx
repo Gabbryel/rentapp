@@ -34,14 +34,15 @@ function ActionButtonBase({
   const [clicked, setClicked] = useState(false);
   useEffect(() => {
     if (!pending && clicked) {
-      // Form submission finished. Trigger a single stats refresh and re-render page to update invoice list.
+      // Form submission finished.
       if (triggerStatsRefresh) {
+        // Only update stats; avoid full page refresh to keep UX snappy.
         window.dispatchEvent(new Event("app:stats:refresh"));
+      } else {
+        // Fallback for other actions that still require a full server component refresh.
+        try { router.refresh(); } catch {}
       }
-      try {
-        router.refresh(); // ensure server components (invoice list) reflect new state
-      } catch {}
-      setClicked(false); // reset guard
+      setClicked(false);
     } else if (!pending) {
       setClicked(false);
     }
@@ -95,8 +96,8 @@ function ActionButtonBase({
                     monthEUR: num(ds.deltaMonthEur),
                     annualRON: num(ds.deltaAnnualRon),
                     annualEUR: num(ds.deltaAnnualEur),
-                        monthNetRON: num((ds as any).deltaMonthNetRon),
-                        annualNetRON: num((ds as any).deltaAnnualNetRon),
+                    monthNetRON: num((ds as any).deltaMonthNetRon),
+                    annualNetRON: num((ds as any).deltaAnnualNetRon),
                   },
                 })
               );

@@ -138,7 +138,7 @@ export default async function HomePage() {
         invalidateYearInvoicesCache();
       } catch {}
     } catch {}
-    revalidatePath("/");
+    // Removed revalidatePath to avoid forcing full page refresh; stats updated via client events.
   }
 
   async function deleteIssued(formData: FormData) {
@@ -155,7 +155,7 @@ export default async function HomePage() {
         } catch {}
       }
     } catch {}
-    revalidatePath("/");
+    // Removed revalidatePath to avoid forcing full page refresh; stats updated via client events.
   }
 
   return (
