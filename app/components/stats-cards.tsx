@@ -61,6 +61,12 @@ const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
+  // Track expected optimistic totals so we can detect stale server responses
+  const optimisticExpectedRef = useRef<{ monthGross: number; monthNet: number; retries: number }>({
+    monthGross: 0,
+    monthNet: 0,
+    retries: 0,
+  });
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   // Flash timestamps per key to animate recent updates
@@ -145,6 +151,9 @@ export default function StatsCards() {
         actualMonthNetRON: prev.actualMonthNetRON + dMonthNetRON,
         actualAnnualNetRON: prev.actualAnnualNetRON + dAnnualNetRON,
       };
+      // Update optimistic expectation trackers (gross & net month)
+      optimisticExpectedRef.current.monthGross = next.actualMonthRON;
+      optimisticExpectedRef.current.monthNet = next.actualMonthNetRON;
       statsRef.current = next;
       if (process.env.NODE_ENV !== "production") {
         try {
@@ -232,6 +241,31 @@ export default function StatsCards() {
             if (typeof window !== "undefined")
               window.__statsOptimisticQueue = [];
             statsRef.current = base;
+            // Initialize or reconcile optimistic expectation tracker
+            if (
+              optimisticExpectedRef.current.monthGross === 0 &&
+              optimisticExpectedRef.current.monthNet === 0
+            ) {
+              optimisticExpectedRef.current.monthGross = base.actualMonthRON;
+              optimisticExpectedRef.current.monthNet = base.actualMonthNetRON;
+              optimisticExpectedRef.current.retries = 0;
+            }
+            // Detect if server returned stale data (behind optimistic expectation)
+            const expectedGross = optimisticExpectedRef.current.monthGross;
+            if (
+              base.actualMonthRON < expectedGross &&
+              optimisticExpectedRef.current.retries < 3
+            ) {
+              optimisticExpectedRef.current.retries += 1;
+              // Schedule one more refresh quickly to catch up
+              setTimeout(() => {
+                if (!cancelled) {
+                  window.dispatchEvent(new Event("app:stats:refresh"));
+                }
+              }, 350);
+            } else if (base.actualMonthRON >= expectedGross) {
+              optimisticExpectedRef.current.retries = 0; // reset once caught up
+            }
             return base;
           });
         }
