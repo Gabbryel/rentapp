@@ -67,6 +67,29 @@ const FORCE_REFRESH_DELAY_DELETE = 300; // ms
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
+  // Debug tracking (raw server vs optimistic) – temporary overlay support
+  const debugRef = useRef<{
+    lastServerGross: number;
+    lastServerNet: number;
+    optimisticGross: number;
+    optimisticNet: number;
+    retries: number;
+    lastEventMode: string | null;
+    lastEventDeltaGross: number;
+    lastEventDeltaNet: number;
+    lastRefreshAt: number | null;
+  }>({
+    lastServerGross: 0,
+    lastServerNet: 0,
+    optimisticGross: 0,
+    optimisticNet: 0,
+    retries: 0,
+    lastEventMode: null,
+    lastEventDeltaGross: 0,
+    lastEventDeltaNet: 0,
+    lastRefreshAt: null,
+  });
+  const [showDebug, setShowDebug] = useState<boolean>(false);
   // Track expected optimistic totals so we can detect stale server responses
   const optimisticExpectedRef = useRef<{
     monthGross: number;
@@ -142,6 +165,9 @@ export default function StatsCards() {
       dAnnualEUR += sign * (ev.annualEUR || 0);
       dMonthNetRON += sign * (ev.monthNetRON || 0);
       dAnnualNetRON += sign * (ev.annualNetRON || 0);
+      debugRef.current.lastEventMode = ev.mode;
+      debugRef.current.lastEventDeltaGross += sign * (ev.monthRON || 0);
+      debugRef.current.lastEventDeltaNet += sign * (ev.monthNetRON || 0);
     }
     if (
       !dMonthRON &&
@@ -167,6 +193,8 @@ export default function StatsCards() {
       optimisticExpectedRef.current.monthGross = next.actualMonthRON;
       optimisticExpectedRef.current.monthNet = next.actualMonthNetRON;
       statsRef.current = next;
+      debugRef.current.optimisticGross = next.actualMonthRON;
+      debugRef.current.optimisticNet = next.actualMonthNetRON;
       if (process.env.NODE_ENV !== "production") {
         try {
           console.groupCollapsed(
@@ -229,6 +257,8 @@ export default function StatsCards() {
           setStats((prev) => {
             // Apply any queued optimistic deltas to freshly loaded baseline
             let base = data;
+            debugRef.current.lastServerGross = data.actualMonthRON;
+            debugRef.current.lastServerNet = data.actualMonthNetRON;
             if (optimisticQueueRef.current.length) {
               for (const d of optimisticQueueRef.current) {
                 const sign = d.mode === "delete" ? -1 : 1;
@@ -291,6 +321,10 @@ export default function StatsCards() {
               // In sync -> reset retry counter
               optimisticExpectedRef.current.retries = 0;
             }
+            debugRef.current.optimisticGross = optimisticExpectedRef.current.monthGross;
+            debugRef.current.optimisticNet = optimisticExpectedRef.current.monthNet;
+            debugRef.current.retries = optimisticExpectedRef.current.retries;
+            debugRef.current.lastRefreshAt = Date.now();
             return base;
           });
         }
@@ -339,6 +373,30 @@ export default function StatsCards() {
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
+    if (process.env.NODE_ENV !== "production") {
+      // Auto-show debug overlay the first time for troubleshooting deletes
+      setShowDebug(true);
+      const keyHandler = (e: KeyboardEvent) => {
+        if (e.key === "D" && (e.metaKey || e.ctrlKey)) {
+          setShowDebug((v) => !v);
+        }
+      };
+      window.addEventListener("keydown", keyHandler);
+      return () => {
+        cancelled = true;
+        window.removeEventListener("app:stats:refresh", handlerRefresh);
+        window.removeEventListener(
+          "app:stats:optimistic",
+          handlerOptimistic as any
+        );
+        if (debounceRef.current) window.clearTimeout(debounceRef.current);
+        if (optimisticBatchTimerRef.current)
+          window.clearTimeout(optimisticBatchTimerRef.current);
+        if (forceRefreshTimerRef.current)
+          window.clearTimeout(forceRefreshTimerRef.current);
+        window.removeEventListener("keydown", keyHandler);
+      };
+    }
     return () => {
       cancelled = true;
       window.removeEventListener("app:stats:refresh", handlerRefresh);
@@ -422,6 +480,47 @@ export default function StatsCards() {
 
   return (
     <div className="relative">
+      {showDebug && process.env.NODE_ENV !== "production" ? (
+        <div className="fixed bottom-2 right-2 z-50 max-w-sm text-[11px] font-mono bg-background/90 backdrop-blur border border-foreground/20 rounded shadow p-3 space-y-1">
+          <div className="flex justify-between items-center">
+            <strong className="text-foreground/70">Stats Debug</strong>
+            <button
+              onClick={() => setShowDebug(false)}
+              className="text-foreground/40 hover:text-foreground/80"
+              title="Hide overlay (Cmd/Ctrl + D to toggle)"
+            >
+              ×
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+            <span className="text-foreground/50">Server Gross</span>
+            <span>{debugRef.current.lastServerGross}</span>
+            <span className="text-foreground/50">Server Net</span>
+            <span>{debugRef.current.lastServerNet}</span>
+            <span className="text-foreground/50">Opt Gross</span>
+            <span>{debugRef.current.optimisticGross}</span>
+            <span className="text-foreground/50">Opt Net</span>
+            <span>{debugRef.current.optimisticNet}</span>
+            <span className="text-foreground/50">Δ Gross evt</span>
+            <span>{debugRef.current.lastEventDeltaGross}</span>
+            <span className="text-foreground/50">Δ Net evt</span>
+            <span>{debugRef.current.lastEventDeltaNet}</span>
+            <span className="text-foreground/50">Retries</span>
+            <span>{debugRef.current.retries}</span>
+            <span className="text-foreground/50">Mode</span>
+            <span>{debugRef.current.lastEventMode}</span>
+            <span className="text-foreground/50">Last refresh</span>
+            <span>
+              {debugRef.current.lastRefreshAt
+                ? new Date(debugRef.current.lastRefreshAt).toLocaleTimeString()
+                : "–"}
+            </span>
+          </div>
+          <div className="pt-1 text-foreground/40">
+            Cmd/Ctrl + D to toggle
+          </div>
+        </div>
+      ) : null}
       {error && !stats ? (
         <div
           className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 text-red-600 p-3 text-sm flex items-center justify-between"
