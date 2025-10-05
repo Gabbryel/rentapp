@@ -62,7 +62,11 @@ export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
   // Track expected optimistic totals so we can detect stale server responses
-  const optimisticExpectedRef = useRef<{ monthGross: number; monthNet: number; retries: number }>({
+  const optimisticExpectedRef = useRef<{
+    monthGross: number;
+    monthNet: number;
+    retries: number;
+  }>({
     monthGross: 0,
     monthNet: 0,
     retries: 0,
@@ -104,6 +108,7 @@ export default function StatsCards() {
     }[]
   >([]);
   const optimisticBatchTimerRef = useRef<number | null>(null);
+  const forceRefreshTimerRef = useRef<number | null>(null);
 
   const applyOptimisticBatch = () => {
     if (!stats) return; // safety; initial load will handle queued values
@@ -302,12 +307,26 @@ export default function StatsCards() {
       // updates BEFORE the invoice list DOM refresh (immediate responsiveness).
       if (optimisticBatchRef.current.length === 1) {
         applyOptimisticBatch();
+        // Schedule a force server refresh 4s later to reconcile authoritative totals
+        if (forceRefreshTimerRef.current) {
+          window.clearTimeout(forceRefreshTimerRef.current);
+        }
+        forceRefreshTimerRef.current = window.setTimeout(() => {
+          window.dispatchEvent(new Event("app:stats:refresh"));
+        }, 4000);
         return;
       }
       // For subsequent rapid events (user issuing/deleting multiple), keep a short debounce for batching.
       if (optimisticBatchTimerRef.current) return;
       optimisticBatchTimerRef.current = window.setTimeout(() => {
         applyOptimisticBatch();
+        // Reset & schedule force refresh window again (extend) after each flush
+        if (forceRefreshTimerRef.current) {
+          window.clearTimeout(forceRefreshTimerRef.current);
+        }
+        forceRefreshTimerRef.current = window.setTimeout(() => {
+          window.dispatchEvent(new Event("app:stats:refresh"));
+        }, 4000);
       }, 100); // slight delay only for >1 rapid events
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
@@ -322,6 +341,8 @@ export default function StatsCards() {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (optimisticBatchTimerRef.current)
         window.clearTimeout(optimisticBatchTimerRef.current);
+      if (forceRefreshTimerRef.current)
+        window.clearTimeout(forceRefreshTimerRef.current);
     };
   }, []);
 
