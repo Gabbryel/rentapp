@@ -102,6 +102,8 @@ export default function StatsCards() {
   const [syncing, setSyncing] = useState(false);
   // Flash timestamps per key to animate recent updates
   const [flashState, setFlashState] = useState<Record<string, number>>({});
+  // Ephemeral delta bubble (shows + / - change for month gross)
+  const [deltaBubble, setDeltaBubble] = useState<{ value: number; ts: number } | null>(null);
   // Refs must be declared at top level (not inside effects) per Rules of Hooks
   const debounceRef = useRef<number | null>(null);
   const pendingLoadRef = useRef(false);
@@ -236,6 +238,10 @@ export default function StatsCards() {
       if (dAnnualRON || dAnnualEUR || dAnnualNetRON) changed.actualAnnual = now;
       if (Object.keys(changed).length) {
         setFlashState((fs) => ({ ...fs, ...changed }));
+      }
+      // Show delta bubble for month gross changes (positive or negative)
+      if (dMonthRON) {
+        setDeltaBubble({ value: dMonthRON, ts: now });
       }
       return next;
     });
@@ -434,6 +440,15 @@ export default function StatsCards() {
     return () => window.clearInterval(id);
   }, [flashState]);
 
+  // Auto clear delta bubble after 900ms
+  useEffect(() => {
+    if (!deltaBubble) return;
+    const id = window.setTimeout(() => {
+      setDeltaBubble((cur) => (cur && Date.now() - cur.ts > 850 ? null : cur));
+    }, 900);
+    return () => window.clearTimeout(id);
+  }, [deltaBubble]);
+
   const cards = [
     {
       label: "Contracts number",
@@ -554,6 +569,23 @@ export default function StatsCards() {
               <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
               {c.ron ? (
                 <>
+                  {isMonth && deltaBubble ? (
+                    <div
+                      key={deltaBubble.ts}
+                      className={
+                        "pointer-events-none absolute -top-2 right-2 text-xs font-semibold px-2 py-1 rounded-full shadow transition-all duration-500 " +
+                        (deltaBubble.value > 0
+                          ? "bg-emerald-500/90 text-white animate-[fadeSlide_.9s_ease-out]"
+                          : "bg-red-500/90 text-white animate-[fadeSlide_.9s_ease-out]")
+                      }
+                      style={{
+                        filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))",
+                      }}
+                    >
+                      {deltaBubble.value > 0 ? "+" : ""}
+                      {fmtInt(Math.abs(deltaBubble.value))} RON
+                    </div>
+                  ) : null}
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span>{c.ron}</span>
                     {c.eur && (
