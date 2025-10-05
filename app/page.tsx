@@ -392,7 +392,7 @@ export default async function HomePage() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 text-[13px]">
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 text-[13px]">
                         <div className="space-y-0.5">
                           <div className="text-foreground/50 text-[11px] uppercase tracking-wide">EUR inițial</div>
                           <div className="font-medium text-indigo-700 dark:text-indigo-400">
@@ -421,12 +421,6 @@ export default async function HomePage() {
                           <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Total RON</div>
                           <div className="font-semibold text-emerald-700 dark:text-emerald-400">
                             {typeof totalRON === "number" ? fmtRON(totalRON) : "–"}
-                          </div>
-                        </div>
-                        <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Curs</div>
-                          <div className="font-medium text-cyan-700 dark:text-cyan-400">
-                            {typeof rate === "number" ? `${rate.toFixed(4)} RON/EUR` : "–"}
                           </div>
                         </div>
                       </div>
