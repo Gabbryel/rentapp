@@ -351,14 +351,6 @@ export default function StatsCards() {
       progress: null,
     },
     {
-      label: "Issued annual (gross)",
-      ron: stats ? fmtRON(stats.actualAnnualRON) : null,
-      eur: stats ? fmtEUR(stats.actualAnnualEUR) : null,
-      progress: stats
-        ? pct(stats.actualAnnualRON, stats.prognosisAnnualRON)
-        : null,
-    },
-    {
       label: "Issued annual (net, excl. VAT)",
       ron: stats ? fmtRON(stats.actualAnnualNetRON) : null,
       eur: stats ? fmtEUR(stats.prognosisAnnualEUR) : null, // reuse corrected EUR (net)
@@ -399,7 +391,7 @@ export default function StatsCards() {
         ) : null}
         {cards.map((c) => {
           const isMonth = c.label.startsWith("Issued this month (gross");
-          const isAnnual = c.label.startsWith("Issued annual (gross") || c.label.startsWith("Issued annual (net");
+          const isAnnual = c.label.startsWith("Issued annual (net");
           const flash =
             (isMonth && flashState.actualMonth) ||
             (isAnnual && flashState.actualAnnual);
