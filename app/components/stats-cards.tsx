@@ -66,29 +66,6 @@ export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const prevStatsRef = useRef<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
-  // Debug tracking (raw server vs optimistic) – temporary overlay support
-  const debugRef = useRef<{
-    lastServerGross: number;
-    lastServerNet: number;
-    optimisticGross: number;
-    optimisticNet: number;
-    retries: number;
-    lastEventMode: string | null;
-    lastEventDeltaGross: number;
-    lastEventDeltaNet: number;
-    lastRefreshAt: number | null;
-  }>({
-    lastServerGross: 0,
-    lastServerNet: 0,
-    optimisticGross: 0,
-    optimisticNet: 0,
-    retries: 0,
-    lastEventMode: null,
-    lastEventDeltaGross: 0,
-    lastEventDeltaNet: 0,
-    lastRefreshAt: null,
-  });
-  const [showDebug, setShowDebug] = useState<boolean>(false);
   // Track expected optimistic totals so we can detect stale server responses
   const optimisticExpectedRef = useRef<{
     monthGross: number;
@@ -104,7 +81,10 @@ export default function StatsCards() {
   // Flash timestamps per key to animate recent updates
   const [flashState, setFlashState] = useState<Record<string, number>>({});
   // Ephemeral delta bubble (shows + / - change for month gross)
-  const [deltaBubble, setDeltaBubble] = useState<{ value: number; ts: number } | null>(null);
+  const [deltaBubble, setDeltaBubble] = useState<{
+    value: number;
+    ts: number;
+  } | null>(null);
   // Refs must be declared at top level (not inside effects) per Rules of Hooks
   const debounceRef = useRef<number | null>(null);
   const pendingLoadRef = useRef(false);
@@ -174,9 +154,6 @@ export default function StatsCards() {
       dAnnualEUR += sign * (ev.annualEUR || 0);
       dMonthNetRON += sign * (ev.monthNetRON || 0);
       dAnnualNetRON += sign * (ev.annualNetRON || 0);
-      debugRef.current.lastEventMode = ev.mode;
-      debugRef.current.lastEventDeltaGross += sign * (ev.monthRON || 0);
-      debugRef.current.lastEventDeltaNet += sign * (ev.monthNetRON || 0);
     }
     if (
       !dMonthRON &&
@@ -202,8 +179,6 @@ export default function StatsCards() {
       optimisticExpectedRef.current.monthGross = next.actualMonthRON;
       optimisticExpectedRef.current.monthNet = next.actualMonthNetRON;
       statsRef.current = next;
-      debugRef.current.optimisticGross = next.actualMonthRON;
-      debugRef.current.optimisticNet = next.actualMonthNetRON;
       if (process.env.NODE_ENV !== "production") {
         try {
           console.groupCollapsed(
@@ -274,8 +249,6 @@ export default function StatsCards() {
           setStats((prev) => {
             // Apply any queued optimistic deltas to freshly loaded baseline
             let base = data;
-            debugRef.current.lastServerGross = data.actualMonthRON;
-            debugRef.current.lastServerNet = data.actualMonthNetRON;
             if (optimisticQueueRef.current.length) {
               for (const d of optimisticQueueRef.current) {
                 const sign = d.mode === "delete" ? -1 : 1;
@@ -337,10 +310,6 @@ export default function StatsCards() {
               // In sync -> reset retry counter
               optimisticExpectedRef.current.retries = 0;
             }
-            debugRef.current.optimisticGross = optimisticExpectedRef.current.monthGross;
-            debugRef.current.optimisticNet = optimisticExpectedRef.current.monthNet;
-            debugRef.current.retries = optimisticExpectedRef.current.retries;
-            debugRef.current.lastRefreshAt = Date.now();
             // Mark individual value changes for smooth transitions
             if (prev) {
               const keys: (keyof Stats)[] = [
@@ -397,30 +366,6 @@ export default function StatsCards() {
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
-    if (process.env.NODE_ENV !== "production") {
-      // Auto-show debug overlay the first time for troubleshooting deletes
-      setShowDebug(true);
-      const keyHandler = (e: KeyboardEvent) => {
-        if (e.key === "D" && (e.metaKey || e.ctrlKey)) {
-          setShowDebug((v) => !v);
-        }
-      };
-      window.addEventListener("keydown", keyHandler);
-      return () => {
-        cancelled = true;
-        window.removeEventListener("app:stats:refresh", handlerRefresh);
-        window.removeEventListener(
-          "app:stats:optimistic",
-          handlerOptimistic as any
-        );
-        if (debounceRef.current) window.clearTimeout(debounceRef.current);
-        if (optimisticBatchTimerRef.current)
-          window.clearTimeout(optimisticBatchTimerRef.current);
-        if (forceRefreshTimerRef.current)
-          window.clearTimeout(forceRefreshTimerRef.current);
-        window.removeEventListener("keydown", keyHandler);
-      };
-    }
     return () => {
       cancelled = true;
       window.removeEventListener("app:stats:refresh", handlerRefresh);
@@ -523,45 +468,6 @@ export default function StatsCards() {
 
   return (
     <div className="relative">
-      {showDebug && process.env.NODE_ENV !== "production" ? (
-        <div className="fixed bottom-2 right-2 z-50 max-w-sm text-[11px] font-mono bg-background/90 backdrop-blur border border-foreground/20 rounded shadow p-3 space-y-1">
-          <div className="flex justify-between items-center">
-            <strong className="text-foreground/70">Stats Debug</strong>
-            <button
-              onClick={() => setShowDebug(false)}
-              className="text-foreground/40 hover:text-foreground/80"
-              title="Hide overlay (Cmd/Ctrl + D to toggle)"
-            >
-              ×
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-            <span className="text-foreground/50">Server Gross</span>
-            <span>{debugRef.current.lastServerGross}</span>
-            <span className="text-foreground/50">Server Net</span>
-            <span>{debugRef.current.lastServerNet}</span>
-            <span className="text-foreground/50">Opt Gross</span>
-            <span>{debugRef.current.optimisticGross}</span>
-            <span className="text-foreground/50">Opt Net</span>
-            <span>{debugRef.current.optimisticNet}</span>
-            <span className="text-foreground/50">Δ Gross evt</span>
-            <span>{debugRef.current.lastEventDeltaGross}</span>
-            <span className="text-foreground/50">Δ Net evt</span>
-            <span>{debugRef.current.lastEventDeltaNet}</span>
-            <span className="text-foreground/50">Retries</span>
-            <span>{debugRef.current.retries}</span>
-            <span className="text-foreground/50">Mode</span>
-            <span>{debugRef.current.lastEventMode}</span>
-            <span className="text-foreground/50">Last refresh</span>
-            <span>
-              {debugRef.current.lastRefreshAt
-                ? new Date(debugRef.current.lastRefreshAt).toLocaleTimeString()
-                : "–"}
-            </span>
-          </div>
-          <div className="pt-1 text-foreground/40">Cmd/Ctrl + D to toggle</div>
-        </div>
-      ) : null}
       {error && !stats ? (
         <div
           className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 text-red-600 p-3 text-sm flex items-center justify-between"
@@ -580,7 +486,7 @@ export default function StatsCards() {
           </button>
         </div>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 relative">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 relative w-full">
         {syncing && stats ? (
           <div className="absolute -top-6 right-0 text-[11px] text-foreground/50 italic">
             (syncing…)
@@ -622,25 +528,43 @@ export default function StatsCards() {
                   ) : null}
                   <style jsx>{`
                     .value-transition {
-                      animation: fadeScale 480ms cubic-bezier(.4,.0,.2,1);
+                      animation: fadeScale 480ms cubic-bezier(0.4, 0, 0.2, 1);
                     }
                     @keyframes fadeScale {
-                      0% { opacity: 0; transform: translateY(4px) scale(.985); }
-                      60% { opacity: 1; transform: translateY(0) scale(1.0); }
-                      100% { opacity: 1; transform: translateY(0) scale(1.0); }
+                      0% {
+                        opacity: 0;
+                        transform: translateY(4px) scale(0.985);
+                      }
+                      60% {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                      }
+                      100% {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                      }
                     }
                   `}</style>
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className={valClass("actualMonthRON")}>{c.ron}</span>
                     {c.eur && (
-                      <span className={"text-sm font-medium text-foreground/60 " + valClass("actualMonthEUR")}>{c.eur}</span>
+                      <span
+                        className={
+                          "text-sm font-medium text-foreground/60 " +
+                          valClass("actualMonthEUR")
+                        }
+                      >
+                        {c.eur}
+                      </span>
                     )}
                   </div>
                   {c.netRON && (
                     <div className="mt-1 text-[13px] text-foreground/70 flex flex-wrap gap-x-3 gap-y-1">
                       <span className="flex items-baseline gap-1">
                         <span className="text-foreground/50">Net:</span>
-                        <span className={valClass("actualMonthNetRON")}>{c.netRON}</span>
+                        <span className={valClass("actualMonthNetRON")}>
+                          {c.netRON}
+                        </span>
                         {c.netEUR && (
                           <span className="text-xs text-foreground/50">
                             {c.netEUR}
@@ -649,7 +573,9 @@ export default function StatsCards() {
                       </span>
                       <span className="flex items-baseline gap-1">
                         <span className="text-foreground/50">Gross:</span>
-                        <span className={valClass("actualMonthRON")}>{c.ron}</span>
+                        <span className={valClass("actualMonthRON")}>
+                          {c.ron}
+                        </span>
                       </span>
                     </div>
                   )}
