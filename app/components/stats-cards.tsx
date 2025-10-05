@@ -326,18 +326,14 @@ export default function StatsCards() {
       progress: null,
     },
     {
-      label: "Issued this month (gross, incl. VAT)",
-      ron: stats ? fmtRON(stats.actualMonthRON) : null,
+      label: "Issued this month",
+      ron: stats ? fmtRON(stats.actualMonthRON) : null, // primary shows gross
       eur: stats ? fmtEUR(stats.actualMonthEUR) : null,
-      progress: stats
-        ? pct(stats.actualMonthRON, stats.prognosisMonthRON)
-        : null,
-    },
-    {
-      label: "Issued this month (net, excl. VAT)",
-      ron: stats ? fmtRON(stats.actualMonthNetRON) : null,
-      eur: stats ? fmtEUR(stats.actualMonthEUR) : null, // EUR already net (corrected)
-      progress: stats
+      progress: stats ? pct(stats.actualMonthRON, stats.prognosisMonthRON) : null,
+      // extra fields for merged net display
+      netRON: stats ? fmtRON(stats.actualMonthNetRON) : null,
+      netEUR: stats ? fmtEUR(stats.actualMonthEUR) : null,
+      progressNet: stats
         ? pct(
             stats.actualMonthNetRON,
             stats.prognosisMonthNetRON || stats.prognosisMonthRON
@@ -379,7 +375,7 @@ export default function StatsCards() {
           </div>
         ) : null}
         {cards.map((c) => {
-          const isMonth = c.label.startsWith("Issued this month (gross");
+          const isMonth = c.label === "Issued this month";
           const flash = isMonth ? flashState.actualMonth : undefined;
           const activeFlash = flash ? Date.now() - flash < 800 : false;
           return (
@@ -403,17 +399,47 @@ export default function StatsCards() {
                       </span>
                     )}
                   </div>
+                  {c.netRON && (
+                    <div className="mt-1 text-[13px] text-foreground/70 flex flex-wrap gap-x-3 gap-y-1">
+                      <span className="flex items-baseline gap-1">
+                        <span className="text-foreground/50">Net:</span>
+                        <span>{c.netRON}</span>
+                        {c.netEUR && (
+                          <span className="text-xs text-foreground/50">{c.netEUR}</span>
+                        )}
+                      </span>
+                      <span className="flex items-baseline gap-1">
+                        <span className="text-foreground/50">Gross:</span>
+                        <span>{c.ron}</span>
+                      </span>
+                    </div>
+                  )}
                   {typeof c.progress === "number" && (
-                    <div className="mt-3">
-                      <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 transition-[width] duration-500 ease-out will-change-[width]"
-                          style={{ width: `${c.progress}%` }}
-                        />
+                    <div className="mt-3 space-y-2 w-full">
+                      <div>
+                        <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 transition-[width] duration-500 ease-out will-change-[width]"
+                            style={{ width: `${c.progress}%` }}
+                          />
+                        </div>
+                        <div className="text-[11px] text-foreground/50 mt-1">
+                          {c.progress}% gross realizat
+                        </div>
                       </div>
-                      <div className="text-[11px] text-foreground/50 mt-1">
-                        {c.progress}% realizat
-                      </div>
+                      {typeof (c as any).progressNet === "number" && (
+                        <div>
+                          <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
+                            <div
+                              className="h-full bg-cyan-500 transition-[width] duration-500 ease-out will-change-[width]"
+                              style={{ width: `${(c as any).progressNet}%` }}
+                            />
+                          </div>
+                          <div className="text-[11px] text-foreground/50 mt-1">
+                            {(c as any).progressNet}% net realizat
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
