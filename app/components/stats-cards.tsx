@@ -262,21 +262,34 @@ export default function StatsCards() {
               optimisticExpectedRef.current.monthNet = base.actualMonthNetRON;
               optimisticExpectedRef.current.retries = 0;
             }
-            // Detect if server returned stale data (behind optimistic expectation)
+            // Detect if server returned stale data (diverges from optimistic expectation in either direction)
             const expectedGross = optimisticExpectedRef.current.monthGross;
-            if (
-              base.actualMonthRON < expectedGross &&
-              optimisticExpectedRef.current.retries < 3
-            ) {
-              optimisticExpectedRef.current.retries += 1;
-              // Schedule one more refresh quickly to catch up
-              setTimeout(() => {
-                if (!cancelled) {
-                  window.dispatchEvent(new Event("app:stats:refresh"));
-                }
-              }, 350);
-            } else if (base.actualMonthRON >= expectedGross) {
-              optimisticExpectedRef.current.retries = 0; // reset once caught up
+            const expectedNet = optimisticExpectedRef.current.monthNet;
+            const grossDiverges = base.actualMonthRON !== expectedGross;
+            const netDiverges = base.actualMonthNetRON !== expectedNet;
+            if (grossDiverges || netDiverges) {
+              if (optimisticExpectedRef.current.retries < 5) {
+                optimisticExpectedRef.current.retries += 1;
+                // Keep optimistic values (do not allow stale server overwrite) until we either catch up or exhaust retries
+                base = {
+                  ...base,
+                  actualMonthRON: expectedGross,
+                  actualMonthNetRON: expectedNet,
+                };
+                setTimeout(() => {
+                  if (!cancelled) {
+                    window.dispatchEvent(new Event("app:stats:refresh"));
+                  }
+                }, 250);
+              } else {
+                // Give up after retries and accept server-provided numbers as authoritative
+                optimisticExpectedRef.current.retries = 0;
+                optimisticExpectedRef.current.monthGross = base.actualMonthRON;
+                optimisticExpectedRef.current.monthNet = base.actualMonthNetRON;
+              }
+            } else {
+              // In sync -> reset retry counter
+              optimisticExpectedRef.current.retries = 0;
             }
             return base;
           });
@@ -315,9 +328,14 @@ export default function StatsCards() {
       if (forceRefreshTimerRef.current) {
         window.clearTimeout(forceRefreshTimerRef.current);
       }
-      forceRefreshTimerRef.current = window.setTimeout(() => {
-        window.dispatchEvent(new Event("app:stats:refresh"));
-      }, detail.mode === "delete" ? FORCE_REFRESH_DELAY_DELETE : FORCE_REFRESH_DELAY_ISSUE);
+      forceRefreshTimerRef.current = window.setTimeout(
+        () => {
+          window.dispatchEvent(new Event("app:stats:refresh"));
+        },
+        detail.mode === "delete"
+          ? FORCE_REFRESH_DELAY_DELETE
+          : FORCE_REFRESH_DELAY_ISSUE
+      );
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
