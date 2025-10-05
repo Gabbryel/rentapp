@@ -392,33 +392,33 @@ export default async function HomePage() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 text-[13px]">
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 text-[15px]">
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">EUR inițial</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">EUR inițial</div>
                           <div className="font-medium text-indigo-700 dark:text-indigo-400">
                             {typeof amtEUR === "number" ? fmtEUR(amtEUR) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}</div>
                           <div className="font-medium text-indigo-700 dark:text-indigo-400">
                             {typeof correctedEUR === "number" ? fmtEUR(correctedEUR) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Net RON</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">Net RON</div>
                           <div className="font-medium text-sky-700 dark:text-sky-400">
                             {typeof netRON === "number" ? fmtRON(netRON) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">TVA {tvaPct ? `(${tvaPct}%)` : ""}</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">TVA {tvaPct ? `(${tvaPct}%)` : ""}</div>
                           <div className="font-medium text-rose-700 dark:text-rose-400">
                             {typeof vatRON === "number" ? fmtRON(vatRON) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Total RON</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">Total RON</div>
                           <div className="font-semibold text-emerald-700 dark:text-emerald-400">
                             {typeof totalRON === "number" ? fmtRON(totalRON) : "–"}
                           </div>
