@@ -58,9 +58,11 @@ function pct(actual: number, prognosis: number) {
 
 const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 
-// Delay after an optimistic update before forcing an authoritative server refresh
-// Requirement: "Issued this month should be force updated 500ms after an invoice was issued or deleted"
-const FORCE_REFRESH_DELAY = 500; // ms
+// Forced authoritative refresh delays after optimistic updates.
+// Issues: keep at 500ms (previous requirement).
+// Deletions: must update within 300ms per new requirement.
+const FORCE_REFRESH_DELAY_ISSUE = 500; // ms
+const FORCE_REFRESH_DELAY_DELETE = 300; // ms
 
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -315,7 +317,7 @@ export default function StatsCards() {
       }
       forceRefreshTimerRef.current = window.setTimeout(() => {
         window.dispatchEvent(new Event("app:stats:refresh"));
-      }, FORCE_REFRESH_DELAY);
+      }, detail.mode === "delete" ? FORCE_REFRESH_DELAY_DELETE : FORCE_REFRESH_DELAY_ISSUE);
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
