@@ -297,21 +297,25 @@ export default function StatsCards() {
             const grossDiverges = base.actualMonthRON !== expectedGross;
             const netDiverges = base.actualMonthNetRON !== expectedNet;
             if (grossDiverges || netDiverges) {
-              if (optimisticExpectedRef.current.retries < 5) {
+              const isDeleteContext = debugRef.current.lastEventMode === "delete";
+              const maxRetries = isDeleteContext ? 1 : 5; // aggressively cap delete retries to 1 to avoid 4-loop churn
+              if (optimisticExpectedRef.current.retries < maxRetries) {
                 optimisticExpectedRef.current.retries += 1;
-                // Keep optimistic values (do not allow stale server overwrite) until we either catch up or exhaust retries
+                // Preserve optimistic numbers while awaiting authoritative update
                 base = {
                   ...base,
                   actualMonthRON: expectedGross,
                   actualMonthNetRON: expectedNet,
                 };
+                // For delete, give a slightly longer grace if first attempt still shows old server number
+                const retryDelay = isDeleteContext ? 220 : 250;
                 setTimeout(() => {
                   if (!cancelled) {
                     window.dispatchEvent(new Event("app:stats:refresh"));
                   }
-                }, 250);
+                }, retryDelay);
               } else {
-                // Give up after retries and accept server-provided numbers as authoritative
+                // Accept server values; reset expectations to prevent further retry storms
                 optimisticExpectedRef.current.retries = 0;
                 optimisticExpectedRef.current.monthGross = base.actualMonthRON;
                 optimisticExpectedRef.current.monthNet = base.actualMonthNetRON;
