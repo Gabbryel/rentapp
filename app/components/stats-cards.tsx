@@ -486,33 +486,16 @@ export default function StatsCards() {
           </button>
         </div>
       ) : null}
-      {/* Masonry layout container */}
-      <div className="stats-masonry columns-1 sm:columns-2 lg:columns-4 relative w-full">
+      {/* Grid layout container (reverted from masonry) */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 relative w-full">
         <style jsx global>{`
-          .stats-masonry {
-            column-gap: 1rem;
-          }
-          .stats-masonry-item {
-            break-inside: avoid;
-            -webkit-column-break-inside: avoid;
-            margin: 0 0 1rem;
-          }
           .value-transition {
             animation: fadeScale 480ms cubic-bezier(0.4, 0, 0.2, 1);
           }
           @keyframes fadeScale {
-            0% {
-              opacity: 0;
-              transform: translateY(4px) scale(0.985);
-            }
-            60% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
+            0% { opacity: 0; transform: translateY(4px) scale(0.985); }
+            60% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
           }
         `}</style>
         {syncing && stats ? (
@@ -528,7 +511,7 @@ export default function StatsCards() {
             <div
               key={c.label}
               className={
-                "stats-masonry-item rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
+                "rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
                 (activeFlash
                   ? "bg-emerald-500/10 ring-1 ring-emerald-400/50 shadow-sm"
                   : "bg-background/60")
