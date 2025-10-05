@@ -486,7 +486,18 @@ export default function StatsCards() {
           </button>
         </div>
       ) : null}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 relative w-full">
+      {/* Masonry layout container */}
+      <div className="stats-masonry columns-1 sm:columns-2 lg:columns-4 relative w-full">
+        <style jsx global>{`
+          .stats-masonry {
+            column-gap: 1rem;
+          }
+          .stats-masonry-item {
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            margin: 0 0 1rem;
+          }
+        `}</style>
         {syncing && stats ? (
           <div className="absolute -top-6 right-0 text-[11px] text-foreground/50 italic">
             (syncing…)
@@ -500,7 +511,7 @@ export default function StatsCards() {
             <div
               key={c.label}
               className={
-                "rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
+                "stats-masonry-item rounded-lg border border-foreground/15 p-4 flex flex-col transition-colors duration-300 " +
                 (activeFlash
                   ? "bg-emerald-500/10 ring-1 ring-emerald-400/50 shadow-sm"
                   : "bg-background/60")
