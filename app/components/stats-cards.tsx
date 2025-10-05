@@ -564,7 +564,7 @@ export default function StatsCards() {
                         <span className="text-foreground/50">Net:</span>
                         <span className={valClass("actualMonthNetRON")}>{c.netRON}</span>
                         {c.netEUR && (
-                          <span className={"text-[11px] text-foreground/50 " + valClass("actualMonthEUR")}>{c.netEUR}</span>
+                          <span className={valClass("actualMonthEUR")}>{c.netEUR}</span>
                         )}
                       </div>
                       {(c as any).vatRON && (
