@@ -58,10 +58,9 @@ function pct(actual: number, prognosis: number) {
 
 const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 
-// Forced authoritative refresh delays after optimistic updates.
-// Issue events: 500ms, Delete events: 300ms (target user requirements).
-const FORCE_REFRESH_DELAY_ISSUE = 500; // ms
-const FORCE_REFRESH_DELAY_DELETE = 300; // ms
+// Forced authoritative refresh delay after any optimistic update (issue or delete)
+// Using a unified delay for consistent UX & animation parity.
+const FORCE_REFRESH_DELAY = 500; // ms
 
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -297,25 +296,20 @@ export default function StatsCards() {
             const grossDiverges = base.actualMonthRON !== expectedGross;
             const netDiverges = base.actualMonthNetRON !== expectedNet;
             if (grossDiverges || netDiverges) {
-              const isDeleteContext = debugRef.current.lastEventMode === "delete";
-              const maxRetries = isDeleteContext ? 1 : 5; // aggressively cap delete retries to 1 to avoid 4-loop churn
+              const maxRetries = 5; // same for issue & delete to keep identical reconciliation behavior
               if (optimisticExpectedRef.current.retries < maxRetries) {
                 optimisticExpectedRef.current.retries += 1;
-                // Preserve optimistic numbers while awaiting authoritative update
                 base = {
                   ...base,
                   actualMonthRON: expectedGross,
                   actualMonthNetRON: expectedNet,
                 };
-                // For delete, give a slightly longer grace if first attempt still shows old server number
-                const retryDelay = isDeleteContext ? 220 : 250;
                 setTimeout(() => {
                   if (!cancelled) {
                     window.dispatchEvent(new Event("app:stats:refresh"));
                   }
-                }, retryDelay);
+                }, 250);
               } else {
-                // Accept server values; reset expectations to prevent further retry storms
                 optimisticExpectedRef.current.retries = 0;
                 optimisticExpectedRef.current.monthGross = base.actualMonthRON;
                 optimisticExpectedRef.current.monthNet = base.actualMonthNetRON;
@@ -367,14 +361,9 @@ export default function StatsCards() {
       if (forceRefreshTimerRef.current) {
         window.clearTimeout(forceRefreshTimerRef.current);
       }
-      forceRefreshTimerRef.current = window.setTimeout(
-        () => {
-          window.dispatchEvent(new Event("app:stats:refresh"));
-        },
-        detail.mode === "delete"
-          ? FORCE_REFRESH_DELAY_DELETE
-          : FORCE_REFRESH_DELAY_ISSUE
-      );
+      forceRefreshTimerRef.current = window.setTimeout(() => {
+        window.dispatchEvent(new Event("app:stats:refresh"));
+      }, FORCE_REFRESH_DELAY);
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
