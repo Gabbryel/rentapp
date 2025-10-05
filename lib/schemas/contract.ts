@@ -66,6 +66,8 @@ export const ContractSchema = z
     indexingEveryMonths: z.number().int().min(1).max(120).optional(),
     // Optional additional dates
     extensionDate: ISODate.optional(),
+    // When the extension (addendum) took place
+    extendedAt: ISODate.optional(),
   // Payment term in days from invoice date
   paymentDueDays: z.number().int().min(0).max(120).optional(),
     // Rent structure
@@ -91,6 +93,19 @@ export const ContractSchema = z
   tvaPercent: z.number().int().min(0).max(100).optional(),
   // Correction percent (0-100), can be decimal; applied to base amount before TVA
   correctionPercent: z.number().min(0).max(100).optional(),
+  // Historical rent changes (previous amounts). A new entry is appended automatically when amountEUR/exchangeRateRON change.
+  rentHistory: z
+    .array(
+      z.object({
+        changedAt: ISODate, // when the previous amount stopped being current
+        amountEUR: z.number().positive(),
+        exchangeRateRON: z.number().positive().optional(),
+        correctionPercent: z.number().min(0).max(100).optional(),
+        tvaPercent: z.number().int().min(0).max(100).optional(),
+        note: z.string().max(300).optional(),
+      })
+    )
+    .default([]),
   // Optional persisted inflation verification
   inflationVerified: z.boolean().optional(),
   inflationVerifiedAt: ISODate.optional(),
@@ -127,6 +142,28 @@ export const ContractSchema = z
           path: ["extensionDate"],
           message: "extensionDate trebuie să fie după sau egal cu endDate",
         });
+      }
+    }
+
+    // Basic sanity for extendedAt: must be a valid date (already enforced) and not before signedAt
+    if (val.extendedAt) {
+      const exAt = new Date(val.extendedAt);
+      if (exAt < s) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["extendedAt"],
+          message: "extendedAt trebuie să fie după sau egal cu signedAt",
+        });
+      }
+      if (val.extensionDate) {
+        const ext = new Date(val.extensionDate);
+        if (exAt > ext) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["extendedAt"],
+            message: "extendedAt nu poate fi după extensionDate",
+          });
+        }
       }
     }
 

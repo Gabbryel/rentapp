@@ -17,6 +17,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 20,
+    rentHistory: [],
   },
   {
     id: "c2",
@@ -33,6 +34,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 15,
+    rentHistory: [],
   },
   {
     id: "c3",
@@ -49,6 +51,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 30,
+    rentHistory: [],
   },
   {
     id: "c4",
@@ -65,6 +68,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 10,
+    rentHistory: [],
   },
   {
     id: "c5",
@@ -81,6 +85,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 15,
+    rentHistory: [],
   },
   {
     id: "c6",
@@ -97,6 +102,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 25,
+    rentHistory: [],
   },
   {
     id: "c7",
@@ -113,6 +119,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     extensionDate: "2026-06-30",
     scans: [],
     paymentDueDays: 20,
+    rentHistory: [],
   },
   {
     id: "c8",
@@ -128,6 +135,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 3,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c9",
@@ -143,6 +151,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 9,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c10",
@@ -158,6 +167,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 1,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c11",
@@ -173,6 +183,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 11,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c12",
@@ -188,6 +199,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 14,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c13",
@@ -203,6 +215,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 6,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c14",
@@ -218,6 +231,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 4,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c15",
@@ -233,6 +247,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 16,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c16",
@@ -248,6 +263,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 18,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c17",
@@ -263,6 +279,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 13,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c18",
@@ -278,6 +295,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 2,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c19",
@@ -293,6 +311,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 22,
     scans: [],
+    rentHistory: [],
   },
   {
     id: "c20",
@@ -308,6 +327,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     rentType: "monthly",
     monthlyInvoiceDay: 19,
     scans: [],
+    rentHistory: [],
   },
 ];
 
@@ -370,6 +390,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     startDate: toYmd(r.startDate)!,
     endDate: toYmd(r.endDate)!,
     extensionDate: toYmd(r.extensionDate),
+  extendedAt: toYmd((r as any).extendedAt),
     paymentDueDays: ((): number | undefined => {
       const n = Number(r.paymentDueDays);
       return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -449,6 +470,31 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     inflationToMonth: typeof r.inflationToMonth === "string" ? r.inflationToMonth : undefined,
     inflationLocalPercent: numOrUndef(r.inflationLocalPercent),
     inflationAiPercent: numOrUndef(r.inflationAiPercent),
+    rentHistory: ((): any[] => {
+      const arr = Array.isArray((r as any).rentHistory) ? (r as any).rentHistory : [];
+      return arr
+        .map((it: any) => {
+          const o = (it ?? {}) as Record<string, unknown>;
+            const changedAt = toYmd(o.changedAt);
+            const amountEUR = typeof o.amountEUR === "number" ? o.amountEUR : Number(o.amountEUR);
+            const exchangeRateRON = typeof o.exchangeRateRON === "number" ? o.exchangeRateRON : Number(o.exchangeRateRON);
+            const correctionPercent = typeof o.correctionPercent === "number" ? o.correctionPercent : Number(o.correctionPercent);
+            const tvaPercent = typeof o.tvaPercent === "number" ? o.tvaPercent : Number(o.tvaPercent);
+            const note = typeof o.note === "string" && o.note.trim() ? o.note.trim() : undefined;
+            if (changedAt && Number.isFinite(amountEUR) && amountEUR > 0) {
+              return {
+                changedAt,
+                amountEUR,
+                exchangeRateRON: Number.isFinite(exchangeRateRON) && exchangeRateRON > 0 ? exchangeRateRON : undefined,
+                correctionPercent: Number.isFinite(correctionPercent) && correctionPercent >= 0 ? correctionPercent : undefined,
+                tvaPercent: Number.isFinite(tvaPercent) && tvaPercent >= 0 ? Math.round(tvaPercent) : undefined,
+                note,
+              };
+            }
+            return null;
+        })
+        .filter(Boolean);
+    })(),
     indexingScheduleDay: ((): number | undefined => {
       const n = Number((r as Record<string, unknown>).indexingScheduleDay);
       return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
@@ -521,6 +567,11 @@ export async function fetchContractById(id: string): Promise<ContractType | null
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
 }
 
+// Effective end date: if an extension date exists, that becomes the new end date
+export function effectiveEndDate(c: ContractType): string {
+  return c.extensionDate ?? c.endDate;
+}
+
 // Compute indexing instances from schedule fields within contract bounds
 export function generateIndexingDatesFromSchedule(opts: {
   startDate: string;
@@ -584,9 +635,45 @@ export async function upsertContract(contract: ContractType) {
     throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
   }
   const db = await getDb();
+  // Fetch existing to detect rent changes
+  const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
+  let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+  if (existing) {
+    const prevAmount = (existing as any).amountEUR;
+    const prevRate = (existing as any).exchangeRateRON;
+    const prevCorrection = (existing as any).correctionPercent;
+    const prevTva = (existing as any).tvaPercent;
+    const changed =
+      (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
+      (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
+    if (changed && typeof prevAmount === "number" && prevAmount > 0) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, "0");
+      const d = String(today.getDate()).padStart(2, "0");
+      const iso = `${y}-${m}-${d}`;
+      rentHistory.push({
+        changedAt: iso,
+        amountEUR: prevAmount,
+        exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
+        correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
+        tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
+      });
+    }
+  }
+  // Deduplicate rentHistory by (changedAt, amountEUR) keep last
+  rentHistory = rentHistory.reduce((acc: any[], cur) => {
+    const key = `${cur.changedAt}|${cur.amountEUR}`;
+    const idx = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
+    if (idx >= 0) acc[idx] = cur; else acc.push(cur);
+    return acc;
+  }, []);
+  // Keep chronological ascending by changedAt
+  rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+  const toSave: ContractType = { ...contract, rentHistory };
   await db
     .collection<ContractType>("contracts")
-    .updateOne({ id: contract.id }, { $set: contract }, { upsert: true });
+    .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
 }
 
 export async function deleteContractById(id: string): Promise<boolean> {
@@ -601,4 +688,34 @@ export async function deleteContractById(id: string): Promise<boolean> {
 // Helper used by seeding scripts to load the static mock dataset regardless of DB config
 export function getMockContracts(): ContractType[] {
   return MOCK_CONTRACTS;
+}
+
+// Bulk update all active contracts (endDate or extensionDate >= today) with a new EUR->RON exchange rate.
+// If onlyActive is true, filters to contracts whose effective end date is today or in future.
+// Returns the number of contracts updated. Requires MongoDB.
+export async function updateContractsExchangeRate(newRate: number, onlyActive = true): Promise<number> {
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MongoDB nu este configurat. Nu pot actualiza cursul contractelor.");
+  }
+  if (!Number.isFinite(newRate) || newRate <= 0) return 0;
+  const db = await getDb();
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  const iso = `${y}-${m}-${d}`;
+  const filter = onlyActive
+    ? {
+        $expr: {
+          $gte: [
+            { $ifNull: ["$extensionDate", "$endDate"] },
+            iso,
+          ],
+        },
+      }
+    : {};
+  const res = await db
+    .collection<ContractType>("contracts")
+    .updateMany(filter as any, { $set: { exchangeRateRON: newRate } });
+  return res.modifiedCount ?? 0;
 }
