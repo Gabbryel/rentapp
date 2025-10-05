@@ -415,9 +415,7 @@ export default function StatsCards() {
               }
             >
               <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
-              {error ? (
-                <div className="text-sm text-red-600">{error}</div>
-              ) : c.ron ? (
+              {c.ron ? (
                 <>
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span>{c.ron}</span>
