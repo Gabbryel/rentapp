@@ -58,6 +58,10 @@ function pct(actual: number, prognosis: number) {
 
 const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 
+// Delay after an optimistic update before forcing an authoritative server refresh
+// Requirement: "Issued this month should be force updated 500ms after an invoice was issued or deleted"
+const FORCE_REFRESH_DELAY = 500; // ms
+
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
@@ -307,13 +311,13 @@ export default function StatsCards() {
       // updates BEFORE the invoice list DOM refresh (immediate responsiveness).
       if (optimisticBatchRef.current.length === 1) {
         applyOptimisticBatch();
-        // Schedule a force server refresh 4s later to reconcile authoritative totals
+        // Schedule a force server refresh shortly after (500ms) to reconcile authoritative totals
         if (forceRefreshTimerRef.current) {
           window.clearTimeout(forceRefreshTimerRef.current);
         }
         forceRefreshTimerRef.current = window.setTimeout(() => {
           window.dispatchEvent(new Event("app:stats:refresh"));
-        }, 2000);
+        }, FORCE_REFRESH_DELAY);
         return;
       }
       // For subsequent rapid events (user issuing/deleting multiple), keep a short debounce for batching.
@@ -326,7 +330,7 @@ export default function StatsCards() {
         }
         forceRefreshTimerRef.current = window.setTimeout(() => {
           window.dispatchEvent(new Event("app:stats:refresh"));
-        }, 2000);
+        }, FORCE_REFRESH_DELAY);
       }, 100); // slight delay only for >1 rapid events
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
