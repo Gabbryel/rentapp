@@ -315,28 +315,28 @@ export default function StatsCards() {
   const cards = [
     {
       label: "Contracts number",
-      value: stats ? fmtInt(stats.contractsCount) : null,
-      sub: null,
+      ron: stats ? fmtInt(stats.contractsCount) : null,
+      eur: null,
       progress: null,
     },
     {
       label: "Prognosis this month (gross)",
-      value: stats ? fmtRON(stats.prognosisMonthRON) : null,
-      sub: stats ? fmtEUR(stats.prognosisMonthEUR) : null,
+      ron: stats ? fmtRON(stats.prognosisMonthRON) : null,
+      eur: stats ? fmtEUR(stats.prognosisMonthEUR) : null,
       progress: null,
     },
     {
       label: "Issued this month (gross, incl. VAT)",
-      value: stats ? fmtRON(stats.actualMonthRON) : null,
-      sub: stats ? fmtEUR(stats.actualMonthEUR) : null,
+      ron: stats ? fmtRON(stats.actualMonthRON) : null,
+      eur: stats ? fmtEUR(stats.actualMonthEUR) : null,
       progress: stats
         ? pct(stats.actualMonthRON, stats.prognosisMonthRON)
         : null,
     },
     {
       label: "Issued this month (net, excl. VAT)",
-      value: stats ? fmtRON(stats.actualMonthNetRON) : null,
-      sub: null,
+      ron: stats ? fmtRON(stats.actualMonthNetRON) : null,
+      eur: stats ? fmtEUR(stats.actualMonthEUR) : null, // EUR already net (corrected)
       progress: stats
         ? pct(
             stats.actualMonthNetRON,
@@ -346,22 +346,22 @@ export default function StatsCards() {
     },
     {
       label: "Prognosis annual (gross)",
-      value: stats ? fmtRON(stats.prognosisAnnualRON) : null,
-      sub: stats ? fmtEUR(stats.prognosisAnnualEUR) : null,
+      ron: stats ? fmtRON(stats.prognosisAnnualRON) : null,
+      eur: stats ? fmtEUR(stats.prognosisAnnualEUR) : null,
       progress: null,
     },
     {
       label: "Issued annual (gross)",
-      value: stats ? fmtRON(stats.actualAnnualRON) : null,
-      sub: stats ? fmtEUR(stats.actualAnnualEUR) : null,
+      ron: stats ? fmtRON(stats.actualAnnualRON) : null,
+      eur: stats ? fmtEUR(stats.actualAnnualEUR) : null,
       progress: stats
         ? pct(stats.actualAnnualRON, stats.prognosisAnnualRON)
         : null,
     },
     {
       label: "Issued annual (net, excl. VAT)",
-      value: stats ? fmtRON(stats.actualAnnualNetRON) : null,
-      sub: null,
+      ron: stats ? fmtRON(stats.actualAnnualNetRON) : null,
+      eur: stats ? fmtEUR(stats.prognosisAnnualEUR) : null, // reuse corrected EUR (net)
       progress: stats
         ? pct(
             stats.actualAnnualNetRON,
@@ -417,16 +417,16 @@ export default function StatsCards() {
               <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
               {error ? (
                 <div className="text-sm text-red-600">{error}</div>
-              ) : c.value ? (
+              ) : c.ron ? (
                 <>
-                  <div className="text-xl font-semibold leading-tight">
-                    {c.value}
+                  <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span>{c.ron}</span>
+                    {c.eur && (
+                      <span className="text-sm font-medium text-foreground/60">
+                        {c.eur}
+                      </span>
+                    )}
                   </div>
-                  {c.sub && (
-                    <div className="text-[11px] text-foreground/50 mt-1">
-                      {c.sub}
-                    </div>
-                  )}
                   {typeof c.progress === "number" && (
                     <div className="mt-3">
                       <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
