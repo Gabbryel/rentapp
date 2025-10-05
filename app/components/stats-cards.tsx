@@ -313,7 +313,7 @@ export default function StatsCards() {
         }
         forceRefreshTimerRef.current = window.setTimeout(() => {
           window.dispatchEvent(new Event("app:stats:refresh"));
-        }, 4000);
+        }, 2000);
         return;
       }
       // For subsequent rapid events (user issuing/deleting multiple), keep a short debounce for batching.
@@ -326,7 +326,7 @@ export default function StatsCards() {
         }
         forceRefreshTimerRef.current = window.setTimeout(() => {
           window.dispatchEvent(new Event("app:stats:refresh"));
-        }, 4000);
+        }, 2000);
       }, 100); // slight delay only for >1 rapid events
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
