@@ -111,7 +111,8 @@ export default function StatsCards() {
       annualNetRON?: number;
     }[]
   >([]);
-  const optimisticBatchTimerRef = useRef<number | null>(null);
+  // Removed debounce timer: we now flush every optimistic event immediately for reliability
+  const optimisticBatchTimerRef = useRef<number | null>(null); // kept for cleanup compatibility
   const forceRefreshTimerRef = useRef<number | null>(null);
 
   const applyOptimisticBatch = () => {
@@ -305,33 +306,16 @@ export default function StatsCards() {
           window.__statsOptimisticQueue = optimisticQueueRef.current;
         return;
       }
-      // Push into batch
+      // Push into batch and flush immediately (no debounce) to avoid missing any visible update
       optimisticBatchRef.current.push(detail);
-      // If this is the first event in a new batch, flush immediately so the card
-      // updates BEFORE the invoice list DOM refresh (immediate responsiveness).
-      if (optimisticBatchRef.current.length === 1) {
-        applyOptimisticBatch();
-        // Schedule a force server refresh shortly after (500ms) to reconcile authoritative totals
-        if (forceRefreshTimerRef.current) {
-          window.clearTimeout(forceRefreshTimerRef.current);
-        }
-        forceRefreshTimerRef.current = window.setTimeout(() => {
-          window.dispatchEvent(new Event("app:stats:refresh"));
-        }, FORCE_REFRESH_DELAY);
-        return;
+      applyOptimisticBatch();
+      // Reset & schedule force refresh window after each optimistic flush
+      if (forceRefreshTimerRef.current) {
+        window.clearTimeout(forceRefreshTimerRef.current);
       }
-      // For subsequent rapid events (user issuing/deleting multiple), keep a short debounce for batching.
-      if (optimisticBatchTimerRef.current) return;
-      optimisticBatchTimerRef.current = window.setTimeout(() => {
-        applyOptimisticBatch();
-        // Reset & schedule force refresh window again (extend) after each flush
-        if (forceRefreshTimerRef.current) {
-          window.clearTimeout(forceRefreshTimerRef.current);
-        }
-        forceRefreshTimerRef.current = window.setTimeout(() => {
-          window.dispatchEvent(new Event("app:stats:refresh"));
-        }, FORCE_REFRESH_DELAY);
-      }, 100); // slight delay only for >1 rapid events
+      forceRefreshTimerRef.current = window.setTimeout(() => {
+        window.dispatchEvent(new Event("app:stats:refresh"));
+      }, FORCE_REFRESH_DELAY);
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
     window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
