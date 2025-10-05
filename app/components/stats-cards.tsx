@@ -64,6 +64,7 @@ const FORCE_REFRESH_DELAY = 500; // ms
 
 export default function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const prevStatsRef = useRef<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
   // Debug tracking (raw server vs optimistic) – temporary overlay support
   const debugRef = useRef<{
@@ -139,6 +140,14 @@ export default function StatsCards() {
   // Removed debounce timer: we now flush every optimistic event immediately for reliability
   const optimisticBatchTimerRef = useRef<number | null>(null); // kept for cleanup compatibility
   const forceRefreshTimerRef = useRef<number | null>(null);
+
+  // Simple hook-less helper for animated value marking
+  const markValueChange = (key: string) => {
+    const now = Date.now();
+    setValueFx((cur) => ({ ...cur, [key]: now }));
+  };
+
+  const [valueFx, setValueFx] = useState<Record<string, number>>({});
 
   const applyOptimisticBatch = () => {
     if (!stats) return; // safety; initial load will handle queued values
@@ -234,7 +243,11 @@ export default function StatsCards() {
       }
       const now = Date.now();
       const changed: Record<string, number> = {};
-      if (dMonthRON || dMonthEUR || dMonthNetRON) changed.actualMonth = now;
+      if (dMonthRON || dMonthEUR || dMonthNetRON) {
+        changed.actualMonth = now;
+        markValueChange("actualMonthRON");
+        markValueChange("actualMonthNetRON");
+      }
       if (dAnnualRON || dAnnualEUR || dAnnualNetRON) changed.actualAnnual = now;
       if (Object.keys(changed).length) {
         setFlashState((fs) => ({ ...fs, ...changed }));
@@ -324,12 +337,24 @@ export default function StatsCards() {
               // In sync -> reset retry counter
               optimisticExpectedRef.current.retries = 0;
             }
-            debugRef.current.optimisticGross =
-              optimisticExpectedRef.current.monthGross;
-            debugRef.current.optimisticNet =
-              optimisticExpectedRef.current.monthNet;
+            debugRef.current.optimisticGross = optimisticExpectedRef.current.monthGross;
+            debugRef.current.optimisticNet = optimisticExpectedRef.current.monthNet;
             debugRef.current.retries = optimisticExpectedRef.current.retries;
             debugRef.current.lastRefreshAt = Date.now();
+            // Mark individual value changes for smooth transitions
+            if (prev) {
+              const keys: (keyof Stats)[] = [
+                "actualMonthRON",
+                "actualMonthNetRON",
+                "actualMonthEUR",
+                "actualAnnualRON",
+                "actualAnnualNetRON",
+                "actualAnnualEUR",
+              ];
+              for (const k of keys) {
+                if (prev[k] !== (base as any)[k]) markValueChange(k);
+              }
+            }
             return base;
           });
         }
@@ -343,8 +368,7 @@ export default function StatsCards() {
     const schedule = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (!pendingLoadRef.current) {
-        if (stats) setSyncing(true);
-        else setStats(null);
+        if (stats) setSyncing(true); // keep current stats (no flicker) while syncing
       }
       debounceRef.current = window.setTimeout(() => {
         load();
@@ -415,6 +439,7 @@ export default function StatsCards() {
   // Clear syncing & rollback timers when new stats arrive
   useEffect(() => {
     if (!stats) return;
+    prevStatsRef.current = statsRef.current;
     statsRef.current = stats;
     setSyncing(false);
     rollbackTimeoutsRef.current.forEach((t) => window.clearTimeout(t));
@@ -486,6 +511,15 @@ export default function StatsCards() {
       progress: null,
     },
   ];
+
+  // Utility to add transition classes
+  const valClass = (key: string) => {
+    const ts = valueFx[key];
+    if (!ts) return "";
+    const age = Date.now() - ts;
+    if (age < 600) return "value-transition"; // active animated state
+    return "";
+  };
 
   return (
     <div className="relative">
@@ -586,19 +620,27 @@ export default function StatsCards() {
                       {fmtInt(Math.abs(deltaBubble.value))} RON
                     </div>
                   ) : null}
+                  <style jsx>{`
+                    .value-transition {
+                      animation: fadeScale 480ms cubic-bezier(.4,.0,.2,1);
+                    }
+                    @keyframes fadeScale {
+                      0% { opacity: 0; transform: translateY(4px) scale(.985); }
+                      60% { opacity: 1; transform: translateY(0) scale(1.0); }
+                      100% { opacity: 1; transform: translateY(0) scale(1.0); }
+                    }
+                  `}</style>
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <span>{c.ron}</span>
+                    <span className={valClass("actualMonthRON")}>{c.ron}</span>
                     {c.eur && (
-                      <span className="text-sm font-medium text-foreground/60">
-                        {c.eur}
-                      </span>
+                      <span className={"text-sm font-medium text-foreground/60 " + valClass("actualMonthEUR")}>{c.eur}</span>
                     )}
                   </div>
                   {c.netRON && (
                     <div className="mt-1 text-[13px] text-foreground/70 flex flex-wrap gap-x-3 gap-y-1">
                       <span className="flex items-baseline gap-1">
                         <span className="text-foreground/50">Net:</span>
-                        <span>{c.netRON}</span>
+                        <span className={valClass("actualMonthNetRON")}>{c.netRON}</span>
                         {c.netEUR && (
                           <span className="text-xs text-foreground/50">
                             {c.netEUR}
@@ -607,7 +649,7 @@ export default function StatsCards() {
                       </span>
                       <span className="flex items-baseline gap-1">
                         <span className="text-foreground/50">Gross:</span>
-                        <span>{c.ron}</span>
+                        <span className={valClass("actualMonthRON")}>{c.ron}</span>
                       </span>
                     </div>
                   )}
