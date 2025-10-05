@@ -222,6 +222,7 @@ export default function StatsCards() {
         changed.actualMonth = now;
         markValueChange("actualMonthRON");
         markValueChange("actualMonthNetRON");
+        markValueChange("vatMonthRON");
       }
       if (dAnnualRON || dAnnualEUR || dAnnualNetRON) changed.actualAnnual = now;
       if (Object.keys(changed).length) {
@@ -323,6 +324,9 @@ export default function StatsCards() {
               for (const k of keys) {
                 if (prev[k] !== (base as any)[k]) markValueChange(k);
               }
+              const prevVat = prev.actualMonthRON - prev.actualMonthNetRON;
+              const nextVat = base.actualMonthRON - base.actualMonthNetRON;
+              if (prevVat !== nextVat) markValueChange("vatMonthRON");
             }
             return base;
           });
@@ -442,6 +446,10 @@ export default function StatsCards() {
       // extra fields for merged net display
       netRON: stats ? fmtRON(stats.actualMonthNetRON) : null,
       netEUR: stats ? fmtEUR(stats.actualMonthEUR) : null,
+      vatRON:
+        stats && stats.actualMonthRON != null && stats.actualMonthNetRON != null
+          ? fmtRON(stats.actualMonthRON - stats.actualMonthNetRON)
+          : null,
       progressNet: stats
         ? pct(
             stats.actualMonthNetRON,
@@ -493,9 +501,18 @@ export default function StatsCards() {
             animation: fadeScale 480ms cubic-bezier(0.4, 0, 0.2, 1);
           }
           @keyframes fadeScale {
-            0% { opacity: 0; transform: translateY(4px) scale(0.985); }
-            60% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+            0% {
+              opacity: 0;
+              transform: translateY(4px) scale(0.985);
+            }
+            60% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
           }
         `}</style>
         {syncing && stats ? (
@@ -538,37 +555,24 @@ export default function StatsCards() {
                     </div>
                   ) : null}
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    {/* Gross (RON) primary */}
                     <span className={valClass("actualMonthRON")}>{c.ron}</span>
-                    {c.eur && (
-                      <span
-                        className={
-                          "text-sm font-medium text-foreground/60 " +
-                          valClass("actualMonthEUR")
-                        }
-                      >
-                        {c.eur}
-                      </span>
-                    )}
                   </div>
                   {c.netRON && (
-                    <div className="mt-1 text-[13px] text-foreground/70 flex flex-wrap gap-x-3 gap-y-1">
-                      <span className="flex items-baseline gap-1">
+                    <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
+                      <div className="flex flex-wrap items-baseline gap-2">
                         <span className="text-foreground/50">Net:</span>
-                        <span className={valClass("actualMonthNetRON")}>
-                          {c.netRON}
-                        </span>
+                        <span className={valClass("actualMonthNetRON")}>{c.netRON}</span>
                         {c.netEUR && (
-                          <span className="text-xs text-foreground/50">
-                            {c.netEUR}
-                          </span>
+                          <span className={"text-[11px] text-foreground/50 " + valClass("actualMonthEUR")}>{c.netEUR}</span>
                         )}
-                      </span>
-                      <span className="flex items-baseline gap-1">
-                        <span className="text-foreground/50">Gross:</span>
-                        <span className={valClass("actualMonthRON")}>
-                          {c.ron}
-                        </span>
-                      </span>
+                      </div>
+                      {(c as any).vatRON && (
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-foreground/50">VAT:</span>
+                          <span className={valClass("vatMonthRON")}>{(c as any).vatRON}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {typeof c.progress === "number" && (
