@@ -157,7 +157,10 @@ export default async function HomePage() {
         try {
           const start = Date.now();
           for (let i = 0; i < 5; i++) {
-            const check = await findInvoiceByContractAndDate(contractId, issuedAt);
+            const check = await findInvoiceByContractAndDate(
+              contractId,
+              issuedAt
+            );
             if (!check) break;
             await new Promise((r) => setTimeout(r, 40));
           }
@@ -184,7 +187,7 @@ export default async function HomePage() {
         {due.length === 0 ? null : (
           <section className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5">
             <h2 className="text-lg font-semibold mb-3">Lista</h2>
-            <ul className="divide-y divide-foreground/10">
+            <ul className="space-y-4">
               {due
                 .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
                 .map((d) => {
@@ -228,256 +231,205 @@ export default async function HomePage() {
                   return (
                     <li
                       key={key}
-                      className="py-3 flex items-center gap-3 flex-wrap"
+                      className="group rounded-lg border border-foreground/10 bg-background/60 hover:bg-background/70 transition-colors shadow-sm p-4"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium">
-                          {d.contract.name}
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[#E9E294] text-lg">
-                            {d.contract.partner}
-                          </span>
-                          <span className="text-foreground/60">
-                            · Data: {fmt(d.issuedAt)}
-                          </span>
-                        </div>
-                        <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[1rem]">
-                          <div>
-                            <span className="text-foreground/60">EUR:</span>{" "}
-                            <span className="font-medium text-indigo-700 dark:text-indigo-400">
-                              {typeof amtEUR === "number"
-                                ? fmtEUR(amtEUR)
-                                : "Indisponibil"}
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-semibold tracking-tight leading-tight">
+                              {d.contract.name}
+                            </h3>
+                            <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
+                              {d.contract.partner}
                             </span>
-                          </div>
-                          <div>
-                            <span className="text-foreground/60">Curs:</span>{" "}
-                            <span className="font-medium text-cyan-700 dark:text-cyan-400">
-                              {typeof rate === "number"
-                                ? `${rate.toFixed(4)} RON/EUR`
-                                : "Indisponibil"}
+                            <span className="text-[11px] text-foreground/50">
+                              {fmt(d.issuedAt)}
                             </span>
-                          </div>
-                          <div>
-                            <span className="text-foreground/60">
-                              EUR după corecție
-                            </span>{" "}
                             {corrPct ? (
-                              <span className="text-foreground/60">
-                                ({corrPct}%)
+                              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                +{corrPct}%
                               </span>
                             ) : null}
-                            :{" "}
-                            <span className="font-medium text-indigo-700 dark:text-indigo-400">
-                              {typeof correctedEUR === "number"
-                                ? fmtEUR(correctedEUR)
-                                : "Indisponibil"}
-                            </span>
                           </div>
-                          <div>
-                            <span className="text-foreground/60">
-                              RON după corecție:
-                            </span>{" "}
-                            <span className="font-medium text-sky-700 dark:text-sky-400">
-                              {typeof netRON === "number"
-                                ? fmtRON(netRON)
-                                : "Indisponibil"}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground/50">
+                            <span>
+                              Curs: {typeof rate === "number" ? `${rate.toFixed(4)} RON/EUR` : "–"}
                             </span>
-                          </div>
-                          <div>
-                            <span className="text-foreground/60">
-                              TVA{tvaPct ? ` (${tvaPct}%)` : ""}:
-                            </span>{" "}
-                            <span className="font-medium text-rose-700 dark:text-rose-400">
-                              {typeof vatRON === "number"
-                                ? fmtRON(vatRON)
-                                : "Indisponibil"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-foreground/60">
-                              Total RON:
-                            </span>{" "}
-                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                              {typeof totalRON === "number"
-                                ? fmtRON(totalRON)
-                                : "Indisponibil"}
+                            <span>
+                              TVA: {tvaPct ? `${tvaPct}%` : "0%"}
                             </span>
                           </div>
                         </div>
-                      </div>
-                      {already ? (
                         <div className="flex items-center gap-2">
-                          <span
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            title={`Factura emisă (#${
-                              issuedInvoiceMap.get(key)?.number ||
-                              issuedInvoiceMap.get(key)?.id ||
-                              "–"
-                            })`}
-                          >
-                            <svg
-                              className="h-5 w-5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-label="Factura emisă"
-                            >
-                              <path d="M9 12l2 2 4-4" />
-                              <circle cx="12" cy="12" r="9" />
-                            </svg>
-                          </span>
-                          <form
-                            action={deleteIssued}
-                            className="flex items-center gap-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="contractId"
-                              value={d.contract.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="issuedAt"
-                              value={d.issuedAt}
-                            />
-                            <ConfirmSubmit
-                              className="rounded-md border px-2.5 py-1.5 text-base font-semibold flex items-center justify-center border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
-                              title="Șterge factura emisă"
-                              successMessage="Factura a fost ștearsă"
-                              confirmMessage="Sigur dorești să ștergi această factură emisă?"
-                              triggerStatsRefresh
-                              data-delta-mode="delete"
-                              data-delta-month-ron={
-                                typeof totalRON === "number"
-                                  ? String(totalRON)
-                                  : undefined
-                              }
-                              data-delta-month-net-ron={
-                                typeof netRON === "number"
-                                  ? String(netRON)
-                                  : undefined
-                              }
-                              data-delta-month-eur={
-                                typeof correctedEUR === "number"
-                                  ? String(correctedEUR)
-                                  : undefined
-                              }
-                              data-delta-annual-ron={
-                                typeof totalRON === "number"
-                                  ? String(totalRON)
-                                  : undefined
-                              }
-                              data-delta-annual-net-ron={
-                                typeof netRON === "number"
-                                  ? String(netRON)
-                                  : undefined
-                              }
-                              data-delta-annual-eur={
-                                typeof correctedEUR === "number"
-                                  ? String(correctedEUR)
-                                  : undefined
-                              }
+                          {already ? (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[12px] font-medium text-emerald-600 dark:text-emerald-400"
+                              title={`Factura emisă (#${
+                                issuedInvoiceMap.get(key)?.number ||
+                                issuedInvoiceMap.get(key)?.id ||
+                                "–"
+                              })`}
                             >
                               <svg
-                                className="h-5 w-5"
+                                className="h-4 w-4"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                aria-label="Șterge factura emisă"
+                                aria-hidden="true"
                               >
-                                <path d="M3 6h18" />
-                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                <path d="M10 11v6" />
-                                <path d="M14 11v6" />
-                                <path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14" />
+                                <path d="M9 12l2 2 4-4" />
+                                <circle cx="12" cy="12" r="9" />
                               </svg>
-                            </ConfirmSubmit>
-                          </form>
-                        </div>
-                      ) : (
-                        <form
-                          action={issueDue}
-                          className="flex items-center gap-2"
-                        >
-                          <input
-                            type="hidden"
-                            name="contractId"
-                            value={d.contract.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="issuedAt"
-                            value={d.issuedAt}
-                          />
-                          {typeof d.amountEUR === "number" ? (
-                            <input
-                              type="hidden"
-                              name="amountEUR"
-                              value={String(d.amountEUR)}
-                            />
-                          ) : null}
-                          <ActionButton
-                            className="rounded-md border px-2.5 py-1.5 text-base font-semibold flex items-center justify-center border-foreground/20 hover:bg-foreground/5"
-                            title="Emite factura"
-                            successMessage="Factura a fost emisă"
-                            triggerStatsRefresh
-                            data-delta-mode="issue"
-                            data-delta-month-ron={
-                              typeof totalRON === "number"
-                                ? String(totalRON)
-                                : undefined
-                            }
-                            data-delta-month-net-ron={
-                              typeof netRON === "number"
-                                ? String(netRON)
-                                : undefined
-                            }
-                            data-delta-month-eur={
-                              typeof correctedEUR === "number"
-                                ? String(correctedEUR)
-                                : undefined
-                            }
-                            data-delta-annual-ron={
-                              typeof totalRON === "number"
-                                ? String(totalRON)
-                                : undefined
-                            }
-                            data-delta-annual-net-ron={
-                              typeof netRON === "number"
-                                ? String(netRON)
-                                : undefined
-                            }
-                            data-delta-annual-eur={
-                              typeof correctedEUR === "number"
-                                ? String(correctedEUR)
-                                : undefined
-                            }
-                          >
-                            <svg
-                              className="h-5 w-5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-label="Emite factura"
+                              Emisă
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[12px] font-medium text-amber-600 dark:text-amber-400">
+                              În așteptare
+                            </span>
+                          )}
+                          {already ? (
+                            <form
+                              action={deleteIssued}
+                              className="flex items-center"
                             >
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                              <circle cx="12" cy="12" r="9" />
-                            </svg>
-                          </ActionButton>
-                        </form>
-                      )}
+                              <input type="hidden" name="contractId" value={d.contract.id} />
+                              <input type="hidden" name="issuedAt" value={d.issuedAt} />
+                              <ConfirmSubmit
+                                className="rounded-md border px-2.5 py-1.5 text-sm font-medium flex items-center justify-center border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+                                title="Șterge factura emisă"
+                                successMessage="Factura a fost ștearsă"
+                                confirmMessage="Sigur dorești să ștergi această factură emisă?"
+                                triggerStatsRefresh
+                                data-delta-mode="delete"
+                                data-delta-month-ron={
+                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                }
+                                data-delta-month-net-ron={
+                                  typeof netRON === "number" ? String(netRON) : undefined
+                                }
+                                data-delta-month-eur={
+                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                }
+                                data-delta-annual-ron={
+                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                }
+                                data-delta-annual-net-ron={
+                                  typeof netRON === "number" ? String(netRON) : undefined
+                                }
+                                data-delta-annual-eur={
+                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                }
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M3 6h18" />
+                                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  <path d="M10 11v6" />
+                                  <path d="M14 11v6" />
+                                  <path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14" />
+                                </svg>
+                              </ConfirmSubmit>
+                            </form>
+                          ) : (
+                            <form action={issueDue} className="flex items-center">
+                              <input type="hidden" name="contractId" value={d.contract.id} />
+                              <input type="hidden" name="issuedAt" value={d.issuedAt} />
+                              {typeof d.amountEUR === "number" ? (
+                                <input type="hidden" name="amountEUR" value={String(d.amountEUR)} />
+                              ) : null}
+                              <ActionButton
+                                className="rounded-md border px-2.5 py-1.5 text-sm font-medium flex items-center justify-center border-foreground/20 hover:bg-foreground/5"
+                                title="Emite factura"
+                                successMessage="Factura a fost emisă"
+                                triggerStatsRefresh
+                                data-delta-mode="issue"
+                                data-delta-month-ron={
+                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                }
+                                data-delta-month-net-ron={
+                                  typeof netRON === "number" ? String(netRON) : undefined
+                                }
+                                data-delta-month-eur={
+                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                }
+                                data-delta-annual-ron={
+                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                }
+                                data-delta-annual-net-ron={
+                                  typeof netRON === "number" ? String(netRON) : undefined
+                                }
+                                data-delta-annual-eur={
+                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                }
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M12 5v14" />
+                                  <path d="M5 12h14" />
+                                  <circle cx="12" cy="12" r="9" />
+                                </svg>
+                              </ActionButton>
+                            </form>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 text-[13px]">
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">EUR inițial</div>
+                          <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                            {typeof amtEUR === "number" ? fmtEUR(amtEUR) : "–"}
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}</div>
+                          <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                            {typeof correctedEUR === "number" ? fmtEUR(correctedEUR) : "–"}
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Net RON</div>
+                          <div className="font-medium text-sky-700 dark:text-sky-400">
+                            {typeof netRON === "number" ? fmtRON(netRON) : "–"}
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">TVA {tvaPct ? `(${tvaPct}%)` : ""}</div>
+                          <div className="font-medium text-rose-700 dark:text-rose-400">
+                            {typeof vatRON === "number" ? fmtRON(vatRON) : "–"}
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Total RON</div>
+                          <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            {typeof totalRON === "number" ? fmtRON(totalRON) : "–"}
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-foreground/50 text-[11px] uppercase tracking-wide">Curs</div>
+                          <div className="font-medium text-cyan-700 dark:text-cyan-400">
+                            {typeof rate === "number" ? `${rate.toFixed(4)} RON/EUR` : "–"}
+                          </div>
+                        </div>
+                      </div>
                     </li>
                   );
                 })}
