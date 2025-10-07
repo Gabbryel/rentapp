@@ -253,11 +253,12 @@ export default async function HomePage() {
                           </div>
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground/50">
                             <span>
-                              Curs: {typeof rate === "number" ? `${rate.toFixed(4)} RON/EUR` : "–"}
+                              Curs:{" "}
+                              {typeof rate === "number"
+                                ? `${rate.toFixed(4)} RON/EUR`
+                                : "–"}
                             </span>
-                            <span>
-                              TVA: {tvaPct ? `${tvaPct}%` : "0%"}
-                            </span>
+                            <span>TVA: {tvaPct ? `${tvaPct}%` : "0%"}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -295,8 +296,16 @@ export default async function HomePage() {
                               action={deleteIssued}
                               className="flex items-center"
                             >
-                              <input type="hidden" name="contractId" value={d.contract.id} />
-                              <input type="hidden" name="issuedAt" value={d.issuedAt} />
+                              <input
+                                type="hidden"
+                                name="contractId"
+                                value={d.contract.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="issuedAt"
+                                value={d.issuedAt}
+                              />
                               <ConfirmSubmit
                                 className="rounded-md border px-2.5 py-1.5 text-sm font-medium flex items-center justify-center border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
                                 title="Șterge factura emisă"
@@ -305,22 +314,34 @@ export default async function HomePage() {
                                 triggerStatsRefresh
                                 data-delta-mode="delete"
                                 data-delta-month-ron={
-                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                  typeof totalRON === "number"
+                                    ? String(totalRON)
+                                    : undefined
                                 }
                                 data-delta-month-net-ron={
-                                  typeof netRON === "number" ? String(netRON) : undefined
+                                  typeof netRON === "number"
+                                    ? String(netRON)
+                                    : undefined
                                 }
                                 data-delta-month-eur={
-                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                  typeof correctedEUR === "number"
+                                    ? String(correctedEUR)
+                                    : undefined
                                 }
                                 data-delta-annual-ron={
-                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                  typeof totalRON === "number"
+                                    ? String(totalRON)
+                                    : undefined
                                 }
                                 data-delta-annual-net-ron={
-                                  typeof netRON === "number" ? String(netRON) : undefined
+                                  typeof netRON === "number"
+                                    ? String(netRON)
+                                    : undefined
                                 }
                                 data-delta-annual-eur={
-                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                  typeof correctedEUR === "number"
+                                    ? String(correctedEUR)
+                                    : undefined
                                 }
                               >
                                 <svg
@@ -342,11 +363,26 @@ export default async function HomePage() {
                               </ConfirmSubmit>
                             </form>
                           ) : (
-                            <form action={issueDue} className="flex items-center">
-                              <input type="hidden" name="contractId" value={d.contract.id} />
-                              <input type="hidden" name="issuedAt" value={d.issuedAt} />
+                            <form
+                              action={issueDue}
+                              className="flex items-center"
+                            >
+                              <input
+                                type="hidden"
+                                name="contractId"
+                                value={d.contract.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="issuedAt"
+                                value={d.issuedAt}
+                              />
                               {typeof d.amountEUR === "number" ? (
-                                <input type="hidden" name="amountEUR" value={String(d.amountEUR)} />
+                                <input
+                                  type="hidden"
+                                  name="amountEUR"
+                                  value={String(d.amountEUR)}
+                                />
                               ) : null}
                               <ActionButton
                                 className="rounded-md border px-2.5 py-1.5 text-sm font-medium flex items-center justify-center border-foreground/20 hover:bg-foreground/5"
@@ -355,22 +391,34 @@ export default async function HomePage() {
                                 triggerStatsRefresh
                                 data-delta-mode="issue"
                                 data-delta-month-ron={
-                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                  typeof totalRON === "number"
+                                    ? String(totalRON)
+                                    : undefined
                                 }
                                 data-delta-month-net-ron={
-                                  typeof netRON === "number" ? String(netRON) : undefined
+                                  typeof netRON === "number"
+                                    ? String(netRON)
+                                    : undefined
                                 }
                                 data-delta-month-eur={
-                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                  typeof correctedEUR === "number"
+                                    ? String(correctedEUR)
+                                    : undefined
                                 }
                                 data-delta-annual-ron={
-                                  typeof totalRON === "number" ? String(totalRON) : undefined
+                                  typeof totalRON === "number"
+                                    ? String(totalRON)
+                                    : undefined
                                 }
                                 data-delta-annual-net-ron={
-                                  typeof netRON === "number" ? String(netRON) : undefined
+                                  typeof netRON === "number"
+                                    ? String(netRON)
+                                    : undefined
                                 }
                                 data-delta-annual-eur={
-                                  typeof correctedEUR === "number" ? String(correctedEUR) : undefined
+                                  typeof correctedEUR === "number"
+                                    ? String(correctedEUR)
+                                    : undefined
                                 }
                               >
                                 <svg
@@ -394,33 +442,47 @@ export default async function HomePage() {
                       </div>
                       <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 text-[15px]">
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">EUR inițial</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            EUR inițial
+                          </div>
                           <div className="font-medium text-indigo-700 dark:text-indigo-400">
                             {typeof amtEUR === "number" ? fmtEUR(amtEUR) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}
+                          </div>
                           <div className="font-medium text-indigo-700 dark:text-indigo-400">
-                            {typeof correctedEUR === "number" ? fmtEUR(correctedEUR) : "–"}
+                            {typeof correctedEUR === "number"
+                              ? fmtEUR(correctedEUR)
+                              : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">Net RON</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            Net RON
+                          </div>
                           <div className="font-medium text-sky-700 dark:text-sky-400">
                             {typeof netRON === "number" ? fmtRON(netRON) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">TVA {tvaPct ? `(${tvaPct}%)` : ""}</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            TVA {tvaPct ? `(${tvaPct}%)` : ""}
+                          </div>
                           <div className="font-medium text-rose-700 dark:text-rose-400">
                             {typeof vatRON === "number" ? fmtRON(vatRON) : "–"}
                           </div>
                         </div>
                         <div className="space-y-0.5">
-                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">Total RON</div>
+                          <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            Total RON
+                          </div>
                           <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                            {typeof totalRON === "number" ? fmtRON(totalRON) : "–"}
+                            {typeof totalRON === "number"
+                              ? fmtRON(totalRON)
+                              : "–"}
                           </div>
                         </div>
                       </div>

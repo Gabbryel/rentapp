@@ -245,6 +245,9 @@ export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice>
     text: `Factură emisă pentru contractul ${inv.contractName}: ${inv.totalRON.toFixed(2)} RON (TVA ${inv.tvaPercent}%).`,
   });
 
+  // Invalidate cached yearly invoices so realized income is fresh
+  try { invalidateYearInvoicesCache(); } catch {}
+
   return updated;
 }
 
@@ -319,5 +322,73 @@ export async function listInvoicesForMonth(year: number, month: number): Promise
     return all
       .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
       .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
+  }
+}
+
+// In-memory cache for yearly invoice aggregation (simple TTL approach)
+let __yearInvoicesCache: { year: number; at: number; invoices: Invoice[] } | null = null;
+const YEAR_CACHE_TTL_MS = 60_000; // 60s TTL
+
+/** Fetch all invoices for a given calendar year with light in-memory caching. */
+export async function fetchInvoicesForYear(year: number): Promise<Invoice[]> {
+  const now = Date.now();
+  if (
+    __yearInvoicesCache &&
+    __yearInvoicesCache.year === year &&
+    now - __yearInvoicesCache.at < YEAR_CACHE_TTL_MS
+  ) {
+    return __yearInvoicesCache.invoices;
+  }
+  const start = `${String(year).padStart(4, "0")}-01-01`;
+  const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
+  let data: Invoice[] = [];
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+  } else {
+    try {
+      const db = await getDb();
+      const docs = await db
+        .collection<Invoice>("invoices")
+        .find(
+          { issuedAt: { $gte: start, $lt: endExclusive } },
+          { projection: { _id: 0 } }
+        )
+        .toArray();
+      data = docs.map((d) => InvoiceSchema.parse(d));
+    } catch {
+      const all = await readJson<Invoice[]>("invoices.json", []);
+      data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+    }
+  }
+  __yearInvoicesCache = { year, invoices: data, at: now };
+  return data;
+}
+
+export function invalidateYearInvoicesCache() {
+  __yearInvoicesCache = null;
+}
+
+/** Always fetch invoices for a year ignoring the in-memory cache (fresh read). */
+export async function fetchInvoicesForYearFresh(year: number): Promise<Invoice[]> {
+  const start = `${String(year).padStart(4, "0")}-01-01`;
+  const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+  }
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Invoice>("invoices")
+      .find(
+        { issuedAt: { $gte: start, $lt: endExclusive } },
+        { projection: { _id: 0 } }
+      )
+      .toArray();
+    return docs.map((d) => InvoiceSchema.parse(d));
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
   }
 }

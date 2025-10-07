@@ -1,4 +1,4 @@
-import { fetchContracts } from "@/lib/contracts";
+import { effectiveEndDate, fetchContracts } from "@/lib/contracts";
 import { listUsers } from "@/lib/users";
 import { getNotificationSettings } from "@/lib/notifications";
 import { deliverAllChannels } from "@/lib/notify-delivery";
@@ -45,7 +45,7 @@ export async function notifyContractCreated(c: Contract) {
   const to = await recipientsByPref((s) => s.onNewContracts);
   if (to.length === 0) return;
   const subject = `Contract nou: ${c.name}`;
-  const text = `Partener: ${c.partner}\nÎnceput: ${c.startDate}\nExpiră: ${c.endDate}`;
+  const text = `Partener: ${c.partner}\nÎnceput: ${c.startDate}\nExpiră: ${effectiveEndDate(c)}`;
   await deliverAllChannels(subject, text, to);
 }
 
@@ -53,7 +53,7 @@ export async function notifyContractUpdated(c: Contract) {
   const to = await recipientsByPref((s) => s.onChanges);
   if (to.length === 0) return;
   const subject = `Contract actualizat: ${c.name}`;
-  const text = `Partener: ${c.partner}\nÎnceput: ${c.startDate}\nExpiră: ${c.endDate}`;
+  const text = `Partener: ${c.partner}\nÎnceput: ${c.startDate}\nExpiră: ${effectiveEndDate(c)}`;
   await deliverAllChannels(subject, text, to);
 }
 

@@ -1,4 +1,4 @@
-import { fetchContracts } from "@/lib/contracts";
+import { effectiveEndDate, fetchContracts } from "@/lib/contracts";
 import type { Contract } from "@/lib/schemas/contract";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import InflationVerify from "@/app/components/inflation-verify";
@@ -146,7 +146,7 @@ export default async function ContractsPage({
   const renderCard = (c: Contract) => (
     <article
       key={c.id}
-      className="rounded-xl border border-foreground/15 p-6 sm:p-7 hover:border-foreground/30 transition-colors text-base font-mono bg-background/60 shadow-sm space-y-4 sm:space-y-5 overflow-hidden"
+      className="rounded-xl border border-foreground/15 p-4 sm:p-5 hover:border-foreground/30 transition-colors text-base bg-background/60 shadow-sm space-y-3 sm:space-y-4 overflow-hidden"
     >
       <div className="flex items-start justify-between gap-3 sm:gap-4">
         <h2
@@ -158,7 +158,7 @@ export default async function ContractsPage({
           </Link>
         </h2>
         <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
-          {new Date(c.endDate) < now ? (
+          {new Date(effectiveEndDate(c)) < now ? (
             <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
               Expirat
             </span>
@@ -170,13 +170,13 @@ export default async function ContractsPage({
         </div>
       </div>
       <p
-        className="text-base text-foreground/80 truncate break-words"
+        className="text-base text-foreground/80 truncate break-words leading-tight"
         title={c.partner}
       >
         Partener: {c.partner}
       </p>
       <p
-        className="text-base text-foreground/70 truncate break-words"
+        className="text-base text-foreground/70 truncate break-words leading-tight"
         title={c.owner}
       >
         Proprietar: {c.owner ?? "Markov Services s.r.l."}
@@ -191,7 +191,7 @@ export default async function ContractsPage({
           const count = (c.yearlyInvoices ?? []).length;
           if (count === 0) return null;
           return (
-            <p className="text-sm text-foreground/70">
+            <p className="text-sm text-foreground/70 leading-tight">
               Chirie anuală · {count} factur{count === 1 ? "ă" : "i"} · total{" "}
               {fmtEUR(total)}
             </p>
@@ -199,7 +199,7 @@ export default async function ContractsPage({
         }
         if (typeof c.monthlyInvoiceDay === "number") {
           return (
-            <p className="text-sm text-foreground/70">
+            <p className="text-sm text-foreground/70 leading-tight">
               Chirie lunară · facturare ziua {c.monthlyInvoiceDay}
             </p>
           );
@@ -237,28 +237,28 @@ export default async function ContractsPage({
             : undefined;
         return (
           <>
-            <div className="rounded-md bg-foreground/5 p-3 space-y-1">
-              <div className="font-semibold text-base text-indigo-700 dark:text-indigo-400">
+            <div className="rounded-md bg-foreground/5 p-2 space-y-0.5">
+              <div className="font-semibold text-base leading-tight text-indigo-700 dark:text-indigo-400">
                 {eurLabel}: {fmtEUR(eur)}
               </div>
               {hasRate ? (
-                <div className="font-semibold text-base text-cyan-700 dark:text-cyan-400">
+                <div className="font-semibold text-base leading-tight text-cyan-700 dark:text-cyan-400">
                   Curs: {(c.exchangeRateRON as number).toFixed(4)} RON/EUR
                 </div>
               ) : null}
               {typeof baseRon === "number" ? (
-                <div className="font-semibold text-base">
+                <div className="font-semibold text-base leading-tight">
                   RON: {fmtRON(baseRon)}
                 </div>
               ) : null}
               {typeof ronAfterCorrection === "number" ? (
-                <div className="font-semibold text-base text-sky-700 dark:text-sky-400">
+                <div className="font-semibold text-base leading-tight text-sky-700 dark:text-sky-400">
                   RON după corecție{corrPct ? ` (${corrPct}%)` : ""}:{" "}
                   {fmtRON(ronAfterCorrection)}
                 </div>
               ) : null}
               {typeof ronAfterCorrectionTva === "number" ? (
-                <div className="font-semibold text-base text-emerald-700 dark:text-emerald-400">
+                <div className="font-semibold text-base leading-tight text-emerald-700 dark:text-emerald-400">
                   RON după corecție + TVA{tvaPct ? ` (${tvaPct}%)` : ""}:{" "}
                   {fmtRON(ronAfterCorrectionTva)}
                 </div>
@@ -278,7 +278,7 @@ export default async function ContractsPage({
                 else if (diffDays <= 60) cls = "text-yellow-600";
               }
               return (
-                <p className={`mt-2 text-xs truncate ${cls}`}>
+                <p className={`mt-1 text-xs truncate ${cls}`}>
                   Indexare: {fmt(next)}
                 </p>
               );
@@ -365,19 +365,121 @@ export default async function ContractsPage({
         );
       })()}
 
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-md bg-foreground/5 p-3">
-          <dt className="text-xs text-foreground/60">Semnat</dt>
-          <dd className="font-medium text-base">{fmt(c.signedAt)}</dd>
+      <dl className="grid grid-cols-1 gap-2">
+        <div className="rounded-md bg-foreground/5 p-2">
+          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+            <dt className="text-xs text-foreground/60 shrink-0">Semnat</dt>
+            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+              {fmt(c.signedAt)}
+            </dd>
+          </div>
         </div>
-        <div className="rounded-md bg-foreground/5 p-3">
-          <dt className="text-xs text-foreground/60">Început</dt>
-          <dd className="font-medium text-base">{fmt(c.startDate)}</dd>
+        <div className="rounded-md bg-foreground/5 p-2">
+          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+            <dt className="text-xs text-foreground/60 shrink-0">Început</dt>
+            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+              {fmt(c.startDate)}
+            </dd>
+          </div>
         </div>
-        <div className="rounded-md bg-foreground/5 p-3">
-          <dt className="text-xs text-foreground/60">Expiră</dt>
-          <dd className="font-medium text-base">{fmt(c.endDate)}</dd>
+        <div className="rounded-md bg-foreground/5 p-2">
+          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+            <dt className="text-xs text-foreground/60 shrink-0">Expiră</dt>
+            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+              {fmt(effectiveEndDate(c))}
+            </dd>
+          </div>
         </div>
+        {c.extensionDate ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+              <dt className="text-xs text-foreground/60 shrink-0">
+                Prelungire până la
+              </dt>
+              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+                {fmt(String(c.extensionDate))}
+              </dd>
+            </div>
+          </div>
+        ) : null}
+        {(c as any).extendedAt ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+              <dt className="text-xs text-foreground/60 shrink-0">
+                Extins la data
+              </dt>
+              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+                {fmt(String((c as any).extendedAt))}
+              </dd>
+            </div>
+          </div>
+        ) : null}
+        {typeof c.paymentDueDays === "number" ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+              <dt className="text-xs text-foreground/60 shrink-0">
+                Termen plată
+              </dt>
+              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+                {c.paymentDueDays} zile
+              </dd>
+            </div>
+          </div>
+        ) : null}
+        {c.rentType === "monthly" && typeof c.monthlyInvoiceDay === "number" ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+              <dt className="text-xs text-foreground/60 shrink-0">Facturare</dt>
+              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+                Lunar, ziua {c.monthlyInvoiceDay}
+              </dd>
+            </div>
+          </div>
+        ) : null}
+        {c.rentType === "yearly" && (c.yearlyInvoices?.length ?? 0) > 0 ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <dt className="text-xs text-foreground/60">Facturi anuale</dt>
+            <dd className="font-medium text-sm mt-0.5">
+              <ul className="space-y-0.5">
+                {(c.yearlyInvoices || []).map((r, i) => (
+                  <li key={i}>
+                    {`${String(r.day).padStart(2, "0")}/${String(
+                      r.month
+                    ).padStart(2, "0")} – ${fmtEUR(r.amountEUR)}`}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        ) : null}
+        {typeof c.amountEUR === "number" ||
+        typeof c.exchangeRateRON === "number" ? (
+          <div className="rounded-md bg-foreground/5 p-2">
+            <dt className="text-xs text-foreground/60">Financiar</dt>
+            <dd className="font-medium text-sm mt-0.5 space-y-0.5">
+              {typeof c.amountEUR === "number" ? (
+                <div className="text-indigo-700 dark:text-indigo-400 leading-tight">
+                  EUR: {fmtEUR(c.amountEUR)}
+                </div>
+              ) : null}
+              {typeof c.exchangeRateRON === "number" ? (
+                <div className="text-cyan-700 dark:text-cyan-400 leading-tight">
+                  Curs: {c.exchangeRateRON.toFixed(4)} RON/EUR
+                </div>
+              ) : null}
+              {typeof c.correctionPercent === "number" ? (
+                <div className="text-amber-700 dark:text-amber-400 leading-tight">
+                  Corecție: {c.correctionPercent}%
+                </div>
+              ) : null}
+              {typeof c.tvaPercent === "number" ? (
+                <div className="text-emerald-700 dark:text-emerald-400 leading-tight">
+                  TVA: {c.tvaPercent}%
+                </div>
+              ) : null}
+            </dd>
+          </div>
+        ) : null}
       </dl>
     </article>
   );
@@ -386,18 +488,18 @@ export default async function ContractsPage({
   if (sort === "exp") {
     // Order by closest expiring date (actives first by endDate asc, then expired by endDate asc)
     contracts.sort((a, b) => {
-      const expiredA = new Date(a.endDate) < now;
-      const expiredB = new Date(b.endDate) < now;
+      const expiredA = new Date(effectiveEndDate(a)) < now;
+      const expiredB = new Date(effectiveEndDate(b)) < now;
       if (expiredA !== expiredB) return expiredA ? 1 : -1;
-      const ad = new Date(a.endDate).getTime();
-      const bd = new Date(b.endDate).getTime();
+      const ad = new Date(effectiveEndDate(a)).getTime();
+      const bd = new Date(effectiveEndDate(b)).getTime();
       return ad - bd;
     });
   } else {
     // Default: order by closest upcoming indexing date (like home)
     contracts.sort((a, b) => {
-      const expiredA = new Date(a.endDate) < now;
-      const expiredB = new Date(b.endDate) < now;
+      const expiredA = new Date(effectiveEndDate(a)) < now;
+      const expiredB = new Date(effectiveEndDate(b)) < now;
       if (expiredA !== expiredB) return expiredA ? 1 : -1; // push expired to end
       const ai = (() => {
         const n = nextIndexing(a.indexingDates);
@@ -410,14 +512,14 @@ export default async function ContractsPage({
       if (ai && bi) return ai.getTime() - bi.getTime();
       if (ai && !bi) return -1;
       if (!ai && bi) return 1;
-      const ad = new Date(a.endDate).getTime();
-      const bd = new Date(b.endDate).getTime();
+      const ad = new Date(effectiveEndDate(a)).getTime();
+      const bd = new Date(effectiveEndDate(b)).getTime();
       return ad - bd;
     });
   }
 
-  const active = contracts.filter((c) => new Date(c.endDate) >= now);
-  const expired = contracts.filter((c) => new Date(c.endDate) < now);
+  const active = contracts.filter((c) => new Date(effectiveEndDate(c)) >= now);
+  const expired = contracts.filter((c) => new Date(effectiveEndDate(c)) < now);
 
   return (
     <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-12">

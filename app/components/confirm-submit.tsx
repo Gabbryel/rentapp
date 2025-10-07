@@ -40,7 +40,7 @@ export default function ConfirmSubmit({
         const ds: any = btn.dataset;
         if (ds.deltaMode) {
           const num = (v?: string) => (v ? Number(v) : 0);
-            // Build optimistic detail (positive deltas; consumer logic applies sign=-1 for delete)
+          // Build optimistic detail (positive deltas; consumer logic applies sign=-1 for delete)
           const detail = {
             mode: ds.deltaMode as string,
             monthRON: num(ds.deltaMonthRon),

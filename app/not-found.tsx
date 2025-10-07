@@ -29,7 +29,7 @@ export default function NotFound() {
       </div>
 
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-xs sm:text-sm font-mono tracking-widest uppercase text-foreground/60">
+        <p className="text-xs sm:text-sm tracking-widest uppercase text-foreground/60">
           Error 404
         </p>
         <h1 className="mt-4 text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight">

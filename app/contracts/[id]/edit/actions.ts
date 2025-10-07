@@ -34,6 +34,7 @@ export async function updateContractAction(
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
     extensionDate: (formData.get("extensionDate") as string) || "",
+  extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
     amountEUR: (formData.get("amountEUR") as string) || "",
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
@@ -175,6 +176,7 @@ export async function updateContractAction(
       startDate: rawValues.startDate,
       endDate: rawValues.endDate,
       extensionDate: rawValues.extensionDate || undefined,
+  extendedAt: (rawValues as any).extendedAt || undefined,
       paymentDueDays: (() => {
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -228,7 +230,7 @@ export async function updateContractAction(
     if (hasSchedule) {
       const gen = generateIndexingDatesFromSchedule({
         startDate: String(base.startDate),
-        endDate: String(base.endDate),
+        endDate: String((base as any).extensionDate || base.endDate),
         day: schedDay,
         month: schedMonth,
         everyMonths: Number.isInteger(schedEvery) ? schedEvery : 12,

@@ -1,32 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  --background: #051932;
-  --foreground: #e6edf3;
-}
+/* Default theme (dark) */
+:root,
+[data-theme="dark"] {
+  --background: #051932; /* deep navy */
+  --foreground: #e6edf3; /* soft off-white */
 
-/* Theme variables for reference; Tailwind classes use system colors */
-:root {
+  /* Tailwind v4 variable colors: bg-background, text-foreground, etc. */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Keep the same brand background in dark mode for consistency */
-    --background: #051932;
-    --foreground: #e6edf3;
+/* Light theme palette */
+[data-theme="light"] {
+  --background: #f5f7fb; /* subtle blue-tinted light background */
+  --foreground: #0f172a; /* slate-900 */
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/* Fallback to system preference if no explicit data-theme is set */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --background: #f5f7fb;
+    --foreground: #0f172a;
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-roboto-condensed), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Force all Tailwind font utilities to use Roboto Condensed to satisfy the global typography requirement */
+.font-mono,
+.font-serif,
+.font-sans {
+  font-family: var(--font-roboto-condensed), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important;
 }
 
 /* Fluid typography utilities for large headings */
@@ -101,7 +119,7 @@ a:hover,
 input[type="button"]:hover,
 input[type="submit"]:hover,
 input[type="reset"]:hover {
-  border-color: #ffffff !important;
+  border-color: color-mix(in oklab, var(--foreground) 70%, transparent) !important;
 }
 
 /* Layering and blur for modals */

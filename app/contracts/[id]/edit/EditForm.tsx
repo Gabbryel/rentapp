@@ -343,6 +343,21 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
         </div>
         <div>
           <label className="block text-sm font-medium">
+            Data actului de prelungire (opțional)
+          </label>
+          <input
+            type="date"
+            name="extendedAt"
+            defaultValue={String(
+              (state.values as any).extendedAt ??
+                (contract as any).extendedAt ??
+                ""
+            )}
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">
             Zile până la scadență
           </label>
           <input

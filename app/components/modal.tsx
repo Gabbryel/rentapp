@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type ModalProps = {
@@ -20,8 +20,11 @@ export default function Modal({
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const firstFocusableRef = useRef<HTMLButtonElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [supportsBackdrop, setSupportsBackdrop] = useState<boolean>(true);
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -30,6 +33,9 @@ export default function Modal({
     };
     document.addEventListener("keydown", onKey);
     // focus the first button (close) for accessibility
+    // Save previously focused element to restore later
+    previouslyFocusedRef.current =
+      (document.activeElement as HTMLElement) ?? null;
     firstFocusableRef.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
@@ -69,13 +75,43 @@ export default function Modal({
       if (!supportsBackdrop) {
         document.body.classList.add("modal-fallback-blur");
       }
+      // Hide background content from assistive tech and block interactions
+      const appRoot = document.getElementById("app-root");
+      if (appRoot) {
+        appRoot.setAttribute("aria-hidden", "true");
+        try {
+          // inert is supported by modern browsers; attribute is fine as a hint
+          (appRoot as any).inert = true;
+          appRoot.setAttribute("inert", "");
+        } catch {}
+      }
     } else {
       document.body.classList.remove("has-modal-open");
       document.body.classList.remove("modal-fallback-blur");
+      const appRoot = document.getElementById("app-root");
+      if (appRoot) {
+        appRoot.removeAttribute("aria-hidden");
+        try {
+          (appRoot as any).inert = false;
+          appRoot.removeAttribute("inert");
+        } catch {}
+      }
+      // Restore focus to previously focused element
+      try {
+        previouslyFocusedRef.current?.focus();
+      } catch {}
     }
     return () => {
       document.body.classList.remove("has-modal-open");
       document.body.classList.remove("modal-fallback-blur");
+      const appRoot = document.getElementById("app-root");
+      if (appRoot) {
+        appRoot.removeAttribute("aria-hidden");
+        try {
+          (appRoot as any).inert = false;
+          appRoot.removeAttribute("inert");
+        } catch {}
+      }
     };
   }, [open, supportsBackdrop]);
 
@@ -90,13 +126,52 @@ export default function Modal({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={title || "Dialog"}
+      aria-label={title ? undefined : "Dialog"}
+      aria-labelledby={title ? titleId : undefined}
+      onKeyDown={(e) => {
+        if (e.key !== "Tab") return;
+        // Focus trap within modal content
+        const scope = contentRef.current;
+        if (!scope) return;
+        const focusables = scope.querySelectorAll<HTMLElement>(
+          [
+            "a[href]",
+            "area[href]",
+            "button:not([disabled])",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "textarea:not([disabled])",
+            "iframe",
+            '[tabindex]:not([tabindex="-1"])',
+            '[contenteditable="true"]',
+          ].join(",")
+        );
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (active === first || !scope.contains(active)) {
+            last.focus();
+            e.preventDefault();
+          }
+        } else {
+          if (active === last) {
+            first.focus();
+            e.preventDefault();
+          }
+        }
+      }}
     >
       <div
+        ref={contentRef}
         className={`w-full ${maxWidthClassName} max-h-[85vh] rounded-xl bg-background shadow-xl ring-1 ring-foreground/10 overflow-hidden flex flex-col text-base`}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-foreground/10 bg-background">
-          <div className="text-base font-semibold truncate min-w-0">
+          <div
+            id={title ? titleId : undefined}
+            className="text-base font-semibold truncate min-w-0"
+          >
             {title}
           </div>
           <button

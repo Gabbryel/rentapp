@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { fetchContracts, deleteContractById } from "@/lib/contracts";
+import {
+  fetchContracts,
+  deleteContractById,
+  effectiveEndDate,
+} from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import type { Contract } from "@/lib/schemas/contract";
 import DeleteButton from "@/app/components/delete-button";
@@ -81,7 +85,9 @@ export default async function AdminContracts() {
                     </div>
                     <div>
                       <dt className="text-foreground/60">Expiră</dt>
-                      <dd className="font-medium">{fmt(c.endDate)}</dd>
+                      <dd className="font-medium">
+                        {fmt(effectiveEndDate(c))}
+                      </dd>
                     </div>
                   </div>
                 </dl>
@@ -100,6 +106,7 @@ export default async function AdminContracts() {
                   <th className="px-4 py-3 font-medium">Semnat</th>
                   <th className="px-4 py-3 font-medium">Început</th>
                   <th className="px-4 py-3 font-medium">Expiră</th>
+                  <th className="px-4 py-3 font-medium">Extins la</th>
                   <th className="px-4 py-3 font-medium text-right">Acțiuni</th>
                 </tr>
               </thead>
@@ -125,7 +132,12 @@ export default async function AdminContracts() {
                       {fmt(c.startDate)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {fmt(c.endDate)}
+                      {fmt(effectiveEndDate(c))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {(c as any).extendedAt
+                        ? fmt(String((c as any).extendedAt))
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <div className="inline-flex items-center gap-2">

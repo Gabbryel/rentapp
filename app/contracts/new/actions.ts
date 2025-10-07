@@ -36,6 +36,7 @@ export async function createContractAction(
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
   extensionDate: (formData.get("extensionDate") as string) || "",
+  extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
     indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
   indexingScheduleDay: (formData.get("indexingScheduleDay") as string) || "",
@@ -81,6 +82,7 @@ export async function createContractAction(
       endDate: (rawValues.endDate as string) ?? "",
   indexingDates: (rawValues.indexingDates as string[]) ?? [],
       extensionDate: (rawValues.extensionDate as string) || undefined,
+  extendedAt: (rawValues.extendedAt as string) || undefined,
       paymentDueDays: (() => {
         const n = Number(rawValues.paymentDueDays as string);
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -176,7 +178,7 @@ export async function createContractAction(
     if (hasSchedule) {
       const gen = generateIndexingDatesFromSchedule({
         startDate: data.startDate,
-        endDate: data.endDate,
+        endDate: (data as any).extensionDate || data.endDate,
         day: schedDay,
         month: schedMonth,
         everyMonths: Number.isInteger(schedEvery) ? schedEvery : 12,

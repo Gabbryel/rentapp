@@ -15,7 +15,7 @@ export default function Card({
     <article
       className={cn(
         "rounded-xl border border-foreground/15 p-6 sm:p-7 hover:border-foreground/30 transition-colors",
-        "text-base font-mono bg-background/60 shadow-sm space-y-4 sm:space-y-5 overflow-hidden",
+        "text-base bg-background/60 shadow-sm space-y-4 sm:space-y-5 overflow-hidden",
         className
       )}
     >

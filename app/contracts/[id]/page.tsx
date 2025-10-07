@@ -2,7 +2,7 @@ import * as React from "react";
 import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
 import Link from "next/link";
-import { fetchContractById } from "@/lib/contracts";
+import { effectiveEndDate, fetchContractById } from "@/lib/contracts";
 import { getEuroInflationPercent } from "@/lib/inflation";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -45,7 +45,7 @@ export default async function ContractPage({
   if (!contract) return notFound();
   const invoices = await listInvoicesForContract(id);
 
-  const isExpired = new Date(contract.endDate) < new Date();
+  const isExpired = new Date(effectiveEndDate(contract)) < new Date();
 
   // Compute current month due date (within contract bounds)
   const now = new Date();
@@ -55,7 +55,7 @@ export default async function ContractPage({
   const m = String(month).padStart(2, "0");
   const lastDay = new Date(year, month, 0).getDate();
   const start = new Date(contract.startDate);
-  const end = new Date(contract.endDate);
+  const end = new Date(effectiveEndDate(contract));
   let dueAt: string | null = null;
   if (contract.rentType === "monthly") {
     const day = Math.min(Math.max(1, contract.monthlyInvoiceDay ?? 1), lastDay);
@@ -161,26 +161,27 @@ export default async function ContractPage({
       </div>
 
       <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-fluid-4xl font-bold">{contract.name}</h1>
-          <p className="text-base text-foreground/70">
-            Partener:{" "}
+        <div className="space-y-1">
+          <p className="text-base text-[#E9E294] font-semibold tracking-wide">
             {contract.partnerId ? (
               <Link
                 href={`/partners/${contract.partnerId}`}
-                className="underline underline-offset-2 hover:text-foreground"
+                className="hover:underline decoration-dotted underline-offset-4"
               >
                 {contract.partner}
               </Link>
             ) : (
               <Link
                 href={`/partners/${encodeURIComponent(contract.partner)}`}
-                className="underline underline-offset-2 hover:text-foreground"
+                className="hover:underline decoration-dotted underline-offset-4"
               >
                 {contract.partner}
               </Link>
             )}
           </p>
+          <h1 className="text-fluid-4xl font-bold leading-tight">
+            {contract.name}
+          </h1>
         </div>
         <div className="flex items-center gap-3">
           {process.env.MONGODB_URI ? (
@@ -226,12 +227,22 @@ export default async function ContractPage({
               </div>
               <div>
                 <dt className="text-foreground/60">Expiră</dt>
-                <dd className="font-medium">{fmt(contract.endDate)}</dd>
+                <dd className="font-medium">
+                  {fmt(effectiveEndDate(contract))}
+                </dd>
               </div>
               {contract.extensionDate ? (
                 <div>
                   <dt className="text-foreground/60">Prelungire</dt>
                   <dd className="font-medium">{fmt(contract.extensionDate)}</dd>
+                </div>
+              ) : null}
+              {(contract as any).extendedAt ? (
+                <div>
+                  <dt className="text-foreground/60">Extins la data</dt>
+                  <dd className="font-medium">
+                    {fmt(String((contract as any).extendedAt))}
+                  </dd>
                 </div>
               ) : null}
               {typeof contract.paymentDueDays === "number" ? (
@@ -244,9 +255,7 @@ export default async function ContractPage({
               ) : null}
               <div>
                 <dt className="text-foreground/60">ID</dt>
-                <dd className="font-mono text-xs text-foreground/80">
-                  {contract.id}
-                </dd>
+                <dd className="text-xs text-foreground/80">{contract.id}</dd>
               </div>
               {typeof contract.amountEUR === "number" &&
               typeof contract.exchangeRateRON === "number" ? (

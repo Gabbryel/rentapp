@@ -572,7 +572,9 @@ export default function StatsCards() {
                       {stats && (
                         <>
                           <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-foreground/50">Issued gross:</span>
+                            <span className="text-foreground/50">
+                              Issued gross:
+                            </span>
                             <span className={valClass("actualAnnualRON")}>
                               {fmtRON(stats.actualAnnualRON)}
                             </span>
@@ -581,14 +583,17 @@ export default function StatsCards() {
                             </span>
                           </div>
                           <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-foreground/50">Issued net:</span>
+                            <span className="text-foreground/50">
+                              Issued net:
+                            </span>
                             <span className={valClass("actualAnnualNetRON")}>
                               {fmtRON(stats.actualAnnualNetRON)}
                             </span>
                             <span className="text-xs text-foreground/50">
                               {stats.actualAnnualRON > 0
                                 ? fmtEUR(
-                                    (stats.actualAnnualNetRON / stats.actualAnnualRON) *
+                                    (stats.actualAnnualNetRON /
+                                      stats.actualAnnualRON) *
                                       stats.actualAnnualEUR
                                   )
                                 : fmtEUR(0)}

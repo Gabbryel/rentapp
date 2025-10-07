@@ -115,7 +115,7 @@ export default async function PartnerPage({
       <header>
         <h1 className="text-fluid-4xl font-bold">{partner.name}</h1>
         <p className="mt-1 text-foreground/70">
-          ID: <span className="font-mono text-xs">{partner.id}</span>
+          ID: <span className="text-xs">{partner.id}</span>
         </p>
       </header>
 
