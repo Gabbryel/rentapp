@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Props = {
   name: string;
@@ -14,6 +14,15 @@ export default function MultiDateInput({
   label = "Indexări chirie",
 }: Props) {
   const [dates, setDates] = useState<string[]>(initial.length ? initial : [""]);
+  // Sync with external changes (e.g., form state revalidation updates initial)
+  useEffect(() => {
+    const keyNew = initial.join("|");
+    const keyOld = dates.join("|");
+    if (keyNew !== keyOld) {
+      setDates(initial.length ? initial : [""]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
 
   const add = () => setDates((prev) => [...prev, ""]);
   const remove = (i: number) =>

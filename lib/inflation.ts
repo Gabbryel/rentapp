@@ -37,7 +37,10 @@ async function fetchEcbHicpSeries(endMonth?: string): Promise<Record<string, num
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
     },
   });
-  if (!res.ok) throw new Error(`ECB SDW request failed: ${res.status}`);
+  if (!res.ok) {
+    // Surface a distinct error so caller can degrade gracefully
+    throw new Error(`ECB SDW request failed: ${res.status}`);
+  }
   const json = (await res.json()) as unknown as SdmxJson;
   const series = json.dataSets?.[0]?.series;
   if (!series || typeof series !== "object") throw new Error("ECB SDW: series missing");
@@ -99,10 +102,16 @@ export async function getEuroInflationPercent(params: {
   from: string | Date;
   to?: string | Date;
   forceRefresh?: boolean;
-}): Promise<{ percent: number; fromMonth: string; toMonth: string; source: "db" | "ecb" }> {
+}): Promise<{ percent: number; fromMonth: string; toMonth: string; source: "db" | "ecb" } | null> {
   const desiredFrom = monthStr(params.from);
   const desiredTo = monthStr(params.to ?? new Date());
-  const series = await ensureHicpCache(desiredTo, params.forceRefresh === true);
+  let series: Record<string, number> | null = null;
+  try {
+    series = await ensureHicpCache(desiredTo, params.forceRefresh === true);
+  } catch (err) {
+    // Likely network / 503; degrade gracefully (caller shows 'Indisponibil')
+    return null;
+  }
 
   const keys = Object.keys(series).sort();
   const pickLE = (target: string) => {

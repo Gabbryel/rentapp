@@ -35,6 +35,8 @@ export default function Navbar() {
   const [btRate, setBtRate] = useState<number | null>(null);
   const [btDate, setBtDate] = useState<string | null>(null);
   const [btSource, setBtSource] = useState<string | null>(null);
+  const [refreshingFx, setRefreshingFx] = useState(false);
+  const [fxError, setFxError] = useState<null | "bnr" | "bt" | "both">(null);
 
   // Helper: how many hours passed since a given ISO date string
   const hoursSince = (dateStr: string | null) => {
@@ -98,6 +100,91 @@ export default function Navbar() {
   const toggleTheme = useCallback(() => {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }, []);
+
+  const refreshFx = useCallback(async () => {
+    if (refreshingFx) return;
+    setRefreshingFx(true);
+    setFxError(null); // reset previous error while refreshing
+    try {
+      const [bnrRes, btRes] = await Promise.allSettled([
+        fetch("/api/exchange/refresh", { cache: "no-store" }),
+        fetch("/api/exchange/bt/refresh", { cache: "no-store" }),
+      ]);
+
+      let bnrFailed = false;
+      let btFailed = false;
+      if (bnrRes.status === "rejected") bnrFailed = true;
+      else if (!bnrRes.value.ok) bnrFailed = true;
+      if (btRes.status === "rejected") btFailed = true;
+      else if (!btRes.value.ok) btFailed = true;
+
+      // Re-fetch normal endpoints (always attempt, even if refresh failed)
+      const load = async () => {
+        try {
+          const res = await fetch("/api/exchange/eurron?force=1", {
+            cache: "no-store",
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setBnrRate(typeof data.rate === "number" ? data.rate : null);
+            setBnrDate(data.date || null);
+            setBnrSource(data.source || null);
+          } else {
+            bnrFailed = true; // treat non-200 as failure
+          }
+        } catch {
+          bnrFailed = true;
+        }
+        try {
+          const res = await fetch("/api/exchange/bt", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setBtRate(typeof data.rate === "number" ? data.rate : null);
+            setBtDate(data.date || null);
+            setBtSource(data.source || null);
+          } else {
+            btFailed = true;
+          }
+        } catch {
+          btFailed = true;
+        }
+      };
+      await load();
+
+      if (bnrFailed || btFailed) {
+        const type = bnrFailed && btFailed ? "both" : bnrFailed ? "bnr" : "bt";
+        setFxError(type);
+        try {
+          window.dispatchEvent(
+            new CustomEvent("app:toast", {
+              detail: {
+                type: "error",
+                message:
+                  type === "both"
+                    ? "Eroare: cursurile BNR și BT nu au putut fi reîmprospătate."
+                    : type === "bnr"
+                    ? "Eroare la reîmprospătarea cursului BNR."
+                    : "Eroare la reîmprospătarea cursului BT.",
+              },
+            })
+          );
+        } catch {}
+      } else {
+        try {
+          window.dispatchEvent(
+            new CustomEvent("app:toast", {
+              detail: {
+                type: "success",
+                message: "Cursurile EUR/RON au fost reîmprospătate.",
+              },
+            })
+          );
+        } catch {}
+      }
+    } finally {
+      setRefreshingFx(false);
+    }
+  }, [refreshingFx]);
   useEffect(() => {
     let aborted = false;
     const controller = new AbortController();
@@ -290,6 +377,51 @@ export default function Navbar() {
                     : "Tema"}
                 </span>
               </button>
+              {/* FX Refresh */}
+              <button
+                onClick={refreshFx}
+                disabled={refreshingFx}
+                className={`relative rounded-md border px-2 py-1 text-xs inline-flex items-center gap-1 transition-colors ${
+                  refreshingFx
+                    ? "border-foreground/30 text-foreground/40 cursor-wait"
+                    : fxError
+                    ? "border-red-500 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                    : "border-foreground/20 hover:bg-foreground/5"
+                }`}
+                title={
+                  fxError === null
+                    ? "Reîmprospătează cursurile EUR/RON (BNR + BT)"
+                    : fxError === "both"
+                    ? "Eroare la reîmprospătarea cursurilor BNR și BT"
+                    : fxError === "bnr"
+                    ? "Eroare la reîmprospătarea cursului BNR"
+                    : "Eroare la reîmprospătarea cursului BT"
+                }
+                aria-label="Reîmprospătează cursurile EUR/RON"
+              >
+                {fxError && !refreshingFx && (
+                  <span
+                    className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow ring-2 ring-background"
+                    aria-label="Eroare la reîmprospătare"
+                  />
+                )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`h-4 w-4 ${refreshingFx ? "animate-spin" : ""}`}
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M4 10h8" />
+                  <path d="M4 14h8" />
+                  <path d="M12 6a4 4 0 110 12" />
+                </svg>
+                <span>EUR</span>
+              </button>
               {/* DB status indicator */}
               <span
                 className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
@@ -480,6 +612,57 @@ export default function Navbar() {
                               : "Întunecat"
                             : "Tema"}
                         </span>
+                      </button>
+                    </div>
+                    {/* FX refresh (mobile) */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-foreground/70">
+                        Cursuri EUR
+                      </span>
+                      <button
+                        onClick={refreshFx}
+                        disabled={refreshingFx}
+                        className={`relative rounded-md border px-2 py-1 text-[11px] inline-flex items-center gap-1 ${
+                          refreshingFx
+                            ? "border-foreground/30 text-foreground/40 cursor-wait"
+                            : fxError
+                            ? "border-red-500 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                            : "border-foreground/20 hover:bg-foreground/5"
+                        }`}
+                        title={
+                          fxError === null
+                            ? "Reîmprospătează cursurile EUR/RON"
+                            : fxError === "both"
+                            ? "Eroare la reîmprospătarea cursurilor BNR și BT"
+                            : fxError === "bnr"
+                            ? "Eroare la reîmprospătarea cursului BNR"
+                            : "Eroare la reîmprospătarea cursului BT"
+                        }
+                      >
+                        {fxError && !refreshingFx && (
+                          <span
+                            className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow ring-2 ring-background"
+                            aria-label="Eroare la reîmprospătare"
+                          />
+                        )}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`h-4 w-4 ${
+                            refreshingFx ? "animate-spin" : ""
+                          }`}
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M4 10h8" />
+                          <path d="M4 14h8" />
+                          <path d="M12 6a4 4 0 110 12" />
+                        </svg>
+                        <span>EUR</span>
                       </button>
                     </div>
                     {/* BNR indicator (mobile) */}

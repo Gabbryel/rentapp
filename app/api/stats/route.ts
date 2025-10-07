@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchContracts, effectiveEndDate } from "@/lib/contracts";
 import { fetchInvoicesForYearFresh } from "@/lib/invoices";
+import { computeNextMonthProration } from "@/lib/advance-billing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -96,17 +97,25 @@ export async function GET() {
           // For annual prognosis: in "next" mode, check if invoicing this month for next month makes sense
           let includeInAnnual = true;
           if (mode === "next") {
-            // In "next" mode: invoice issued in month mIdx is for month mIdx+1
-            const nextMonth = mIdx + 1;
-            const nextYear = nextMonth === 13 ? year + 1 : year;
-            const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
-            const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
-            const nextEnd = new Date(nextYear, nextMonthIdx - 1, daysInMonth(nextYear, nextMonthIdx));
-            // Only count if contract will be active in the next month
-            includeInAnnual = !(end < nextStart || start > nextEnd);
+            const { include, fraction } = computeNextMonthProration(c as any, year, mIdx);
+            includeInAnnual = include;
+            if (include && fraction > 0 && fraction < 1) {
+              // Scale the amounts for partial coverage
+              const fCorrectedEUR = correctedEUR * fraction;
+              const fNetRON = netRON * fraction;
+              const fVatRON = fNetRON * (tvaPct / 100);
+              const fTotalRON = fNetRON + fVatRON;
+              prognosisAnnualRON += fTotalRON;
+              prognosisAnnualEUR += fCorrectedEUR;
+              prognosisAnnualNetRON += fNetRON;
+              // Skip default add below
+              if (mIdx !== month) continue; // monthly prognosis handled separately
+            } else if (!include) {
+              continue; // skip entirely for annual
+            }
           }
           
-          if (includeInAnnual) {
+          if (includeInAnnual && mode !== "next") {
             prognosisAnnualRON += totalRON;
             prognosisAnnualEUR += correctedEUR;
             prognosisAnnualNetRON += netRON;
@@ -119,21 +128,21 @@ export async function GET() {
                 prognosisMonthEUR += correctedEUR;
                 prognosisMonthNetRON += netRON;
               } else {
-                // Mode next: invoice issued this month for NEXT month usage
-                const nextMonth = month + 1;
-                const nextYear = nextMonth === 13 ? year + 1 : year;
-                const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
-                const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
-                const nextEnd = new Date(
-                  nextYear,
-                  nextMonthIdx - 1,
-                  daysInMonth(nextYear, nextMonthIdx)
-                );
-                // Only include if contract is active for the next month window
-                if (!(end < nextStart || start > nextEnd)) {
-                  prognosisMonthRON += totalRON;
-                  prognosisMonthEUR += correctedEUR;
-                  prognosisMonthNetRON += netRON;
+                const { include, fraction } = computeNextMonthProration(c as any, year, month);
+                if (include) {
+                  if (fraction > 0 && fraction < 1) {
+                    const fCorrectedEUR = correctedEUR * fraction;
+                    const fNetRON = netRON * fraction;
+                    const fVatRON = fNetRON * (tvaPct / 100);
+                    const fTotalRON = fNetRON + fVatRON;
+                    prognosisMonthRON += fTotalRON;
+                    prognosisMonthEUR += fCorrectedEUR;
+                    prognosisMonthNetRON += fNetRON;
+                  } else {
+                    prognosisMonthRON += totalRON;
+                    prognosisMonthEUR += correctedEUR;
+                    prognosisMonthNetRON += netRON;
+                  }
                 }
               }
             }

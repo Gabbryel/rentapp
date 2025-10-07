@@ -1,5 +1,6 @@
 import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
 import { getDb } from "@/lib/mongodb";
+import { readJson, writeJson } from "@/lib/local-store";
 
 const MOCK_CONTRACTS: ContractType[] = [
   {
@@ -416,6 +417,13 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
     })(),
     rentType: ((): "monthly" | "yearly" => (r.rentType === "yearly" ? "yearly" : "monthly"))(),
+    // Preserve explicit invoiceMonthMode from persistence; fallback to undefined so schema default applies only if absent
+    invoiceMonthMode: ((): "current" | "next" | undefined => {
+      const v = (r as any).invoiceMonthMode;
+      if (v === "next") return "next";
+      if (v === "current") return "current";
+      return undefined; // let zod default kick in for legacy rows
+    })(),
     monthlyInvoiceDay: ((): number | undefined => {
       const rt: "monthly" | "yearly" = r.rentType === "yearly" ? "yearly" : "monthly";
       if (rt !== "monthly") return undefined;
@@ -531,7 +539,6 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
 }
 
 export async function fetchContracts(): Promise<ContractType[]> {
-  // If MongoDB is configured, read from DB; else fallback to mocks
   if (process.env.MONGODB_URI) {
     try {
       const db = await getDb();
@@ -539,28 +546,27 @@ export async function fetchContracts(): Promise<ContractType[]> {
         .collection<ContractType>("contracts")
         .find({}, { projection: { _id: 0 } })
         .toArray();
-      // Validate each document safely and return only valid ones; never fall back to mocks due to validation issues
       const valid: ContractType[] = [];
       for (const raw of docs) {
-        const partial = normalizeRaw(raw);
-        const parsed = ContractSchema.safeParse(partial);
+        const parsed = ContractSchema.safeParse(normalizeRaw(raw));
         if (parsed.success) valid.push(parsed.data);
         else {
-          const badId = typeof (partial as Record<string, unknown>)?.id === "string"
-            ? (partial as Record<string, unknown>).id
-            : undefined;
           console.warn("Contract invalid, omis din listă:", {
-            id: badId,
+            id: (raw as any)?.id,
             issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
           });
         }
       }
       return valid;
     } catch (err) {
-      console.warn("Mongo indisponibil în prezent; folosesc datele mock.", err);
+      console.warn("Mongo indisponibil (fetchContracts), fallback local.", err);
     }
   }
-  await new Promise((r) => setTimeout(r, 200));
+  // Local JSON fallback (persistent across restarts) else static mocks
+  try {
+    const local = await readJson<ContractType[]>("contracts.json", []);
+    if (local.length > 0) return local;
+  } catch {}
   return MOCK_CONTRACTS;
 }
 
@@ -580,10 +586,14 @@ export async function fetchContractById(id: string): Promise<ContractType | null
       });
       return null;
     } catch (err) {
-      console.warn("Mongo indisponibil; căutare în dataset-ul mock.", err);
+      console.warn("Mongo indisponibil (fetchContractById), fallback local.", err);
     }
   }
-  await new Promise((r) => setTimeout(r, 100));
+  try {
+    const local = await readJson<ContractType[]>("contracts.json", []);
+    const hit = local.find((c) => c.id === id);
+    if (hit) return ContractSchema.parse(hit);
+  } catch {}
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
 }
 
@@ -651,49 +661,89 @@ export function generateIndexingDatesFromSchedule(opts: {
 
 export async function upsertContract(contract: ContractType) {
   ContractSchema.parse(contract);
-  if (!process.env.MONGODB_URI) {
-    throw new Error("MongoDB nu este configurat. Setați MONGODB_URI și MONGODB_DB.");
-  }
-  const db = await getDb();
-  // Fetch existing to detect rent changes
-  const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
-  let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
-  if (existing) {
-    const prevAmount = (existing as any).amountEUR;
-    const prevRate = (existing as any).exchangeRateRON;
-    const prevCorrection = (existing as any).correctionPercent;
-    const prevTva = (existing as any).tvaPercent;
-    const changed =
-      (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
-      (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
-    if (changed && typeof prevAmount === "number" && prevAmount > 0) {
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, "0");
-      const d = String(today.getDate()).padStart(2, "0");
-      const iso = `${y}-${m}-${d}`;
-      rentHistory.push({
-        changedAt: iso,
-        amountEUR: prevAmount,
-        exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
-        correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
-        tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
-      });
+  // Mongo path
+  if (process.env.MONGODB_URI) {
+    const db = await getDb();
+    const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
+    let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+    if (existing) {
+      const prevAmount = (existing as any).amountEUR;
+      const prevRate = (existing as any).exchangeRateRON;
+      const prevCorrection = (existing as any).correctionPercent;
+      const prevTva = (existing as any).tvaPercent;
+      const changed =
+        (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
+        (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
+      if (changed && typeof prevAmount === "number" && prevAmount > 0) {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const iso = `${y}-${m}-${d}`;
+        rentHistory.push({
+          changedAt: iso,
+          amountEUR: prevAmount,
+          exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
+          correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
+          tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
+        });
+      }
     }
+    rentHistory = rentHistory.reduce((acc: any[], cur) => {
+      const key = `${cur.changedAt}|${cur.amountEUR}`;
+      const idx = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
+      if (idx >= 0) acc[idx] = cur; else acc.push(cur);
+      return acc;
+    }, []);
+    rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    const toSave: ContractType = { ...contract, rentHistory };
+    await db
+      .collection<ContractType>("contracts")
+      .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
+    return;
   }
-  // Deduplicate rentHistory by (changedAt, amountEUR) keep last
-  rentHistory = rentHistory.reduce((acc: any[], cur) => {
-    const key = `${cur.changedAt}|${cur.amountEUR}`;
-    const idx = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
-    if (idx >= 0) acc[idx] = cur; else acc.push(cur);
-    return acc;
-  }, []);
-  // Keep chronological ascending by changedAt
-  rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
-  const toSave: ContractType = { ...contract, rentHistory };
-  await db
-    .collection<ContractType>("contracts")
-    .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
+  // Local JSON fallback persistence
+  try {
+    const all = await readJson<ContractType[]>("contracts.json", []);
+    const idx = all.findIndex((c) => c.id === contract.id);
+    let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+    if (idx >= 0) {
+      const prev = all[idx];
+      const prevAmount = (prev as any).amountEUR;
+      const prevRate = (prev as any).exchangeRateRON;
+      const prevCorrection = (prev as any).correctionPercent;
+      const prevTva = (prev as any).tvaPercent;
+      const changed =
+        (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
+        (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
+      if (changed && typeof prevAmount === "number" && prevAmount > 0) {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const iso = `${y}-${m}-${d}`;
+        rentHistory.push({
+          changedAt: iso,
+          amountEUR: prevAmount,
+          exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
+          correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
+          tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
+        });
+      }
+    }
+    rentHistory = rentHistory.reduce((acc: any[], cur) => {
+      const key = `${cur.changedAt}|${cur.amountEUR}`;
+      const i = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
+      if (i >= 0) acc[i] = cur; else acc.push(cur);
+      return acc;
+    }, []);
+    rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    const toSave: ContractType = { ...contract, rentHistory };
+    if (idx >= 0) all[idx] = toSave; else all.push(toSave);
+    await writeJson("contracts.json", all);
+  } catch (err) {
+    console.warn("Persistență locală contract eșuată:", err);
+  }
 }
 
 export async function deleteContractById(id: string): Promise<boolean> {

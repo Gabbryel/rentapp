@@ -114,43 +114,47 @@ function calculateStatsForContract(
       const mStart = new Date(year, mIdx - 1, 1);
       const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
       if (end < mStart || start > mEnd) continue; // contract inactive this month
-      
-      // For annual prognosis: in "next" mode, check if invoicing this month for next month makes sense
-      let includeInAnnual = true;
+
       if (mode === 'next') {
-        // In "next" mode: invoice issued in month mIdx is for month mIdx+1
+        // Apply proration rules similar to production logic
         const nextMonth = mIdx + 1;
         const nextYear = nextMonth === 13 ? year + 1 : year;
         const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
+        const daysNext = daysInMonth(nextYear, nextMonthIdx);
         const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
-        const nextEnd = new Date(nextYear, nextMonthIdx - 1, daysInMonth(nextYear, nextMonthIdx));
-        // Only count if contract will be active in the next month
-        includeInAnnual = !(end < nextStart || start > nextEnd);
-      }
-      
-      if (includeInAnnual) {
-        annualPrognosis += totalRON;
-      }
-      
-      // Monthly prognosis logic
-      if (mIdx === month) {
-        if (!(end < currentMonthStart || start > currentMonthEnd)) {
-          // Mode current: invoice reflects current active month
-          if (mode === 'current') {
-            monthlyPrognosis += totalRON;
-          } else {
-            // Mode next: invoice issued this month for NEXT month usage
-            const nextMonth = month + 1;
-            const nextYear = nextMonth === 13 ? year + 1 : year;
-            const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
-            const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
-            const nextEnd = new Date(nextYear, nextMonthIdx - 1, daysInMonth(nextYear, nextMonthIdx));
-            // Only include if contract is active for the next month window
-            if (!(end < nextStart || start > nextEnd)) {
-              monthlyPrognosis += totalRON;
+        const nextEnd = new Date(nextYear, nextMonthIdx - 1, daysNext);
+        const overlapsNext = !(end < nextStart || start > nextEnd);
+        if (!overlapsNext) {
+          // Skip: no annual or monthly addition
+        } else {
+          // Determine coverage end day within next month
+            let coverageEndDay: number;
+            if (end > nextEnd) {
+              coverageEndDay = daysNext; // full
+            } else if (
+              end.getFullYear() === nextYear && end.getMonth() === nextStart.getMonth()
+            ) {
+              coverageEndDay = end.getDate();
+            } else {
+              coverageEndDay = daysNext; // assume full if irregular
             }
-          }
+            if (coverageEndDay <= 2) {
+              // Excluded (no addition)
+            } else {
+              const fraction = coverageEndDay >= daysNext ? 1 : coverageEndDay / daysNext;
+              const fNetRON = netRON * fraction;
+              const fVatRON = fNetRON * (tvaPct / 100);
+              const fTotalRON = fNetRON + fVatRON;
+              annualPrognosis += fTotalRON;
+              if (mIdx === month) {
+                monthlyPrognosis += fTotalRON;
+              }
+            }
         }
+      } else {
+        // Current mode: full value
+        annualPrognosis += totalRON;
+        if (mIdx === month) monthlyPrognosis += totalRON;
       }
     }
   }
@@ -242,6 +246,45 @@ runner.test('Next mode excludes current month if next month not covered', () => 
   
   const stats = calculateStatsForContract(contract, 2024, 6); // June
   runner.expect(stats.monthlyPrognosis).toBe(0); // Invoice would cover July, but contract ends June 30
+});
+
+// New stricter rules & proration tests
+runner.test('Next mode excludes invoice when contract ends on day 1 of next month', () => {
+  // June issue, contract ends July 1 => should exclude advance invoice for July
+  const contract = createMockContract({
+    invoiceMonthMode: 'next',
+    startDate: '2024-01-01',
+    endDate: '2024-07-01',
+  });
+  const stats = calculateStatsForContract(contract, 2024, 6); // June
+  runner.expect(stats.monthlyPrognosis).toBe(0);
+});
+
+runner.test('Next mode excludes invoice when contract ends on day 2 of next month', () => {
+  const contract = createMockContract({
+    invoiceMonthMode: 'next',
+    startDate: '2024-01-01',
+    endDate: '2024-07-02',
+  });
+  const stats = calculateStatsForContract(contract, 2024, 6); // June
+  runner.expect(stats.monthlyPrognosis).toBe(0);
+});
+
+runner.test('Next mode prorates when contract ends mid-next month (after day 2)', () => {
+  const contract = createMockContract({
+    invoiceMonthMode: 'next',
+    startDate: '2024-01-01',
+    endDate: '2024-07-10', // July 10 => partial (approx 10/31 days)
+  });
+  const stats = calculateStatsForContract(contract, 2024, 6); // June
+  // Previous logic would have counted full; new proration should scale ~ fraction
+  // Base full total RON per month = 5950. Fraction = 10/31 ≈ 0.3226
+  const expected = Math.round(5950 * (10 / 31));
+  // Allow small rounding variance; we stored integer rounding here vs actual implementation may use precise float.
+  const withinTolerance = (val: number, target: number, tol: number) => Math.abs(val - target) <= tol;
+  if (!withinTolerance(stats.monthlyPrognosis, expected, 5)) {
+    throw new Error(`Expected prorated ~${expected} (+/-5), got ${stats.monthlyPrognosis}`);
+  }
 });
 
 runner.test('Migration identifies contracts needing invoiceMonthMode field', () => {

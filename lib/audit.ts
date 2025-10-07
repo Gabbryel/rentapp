@@ -56,6 +56,8 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
     "tvaPercent",
     "correctionPercent",
     "rentType",
+  // Newly tracked so changes are visible in audit + messages
+  "invoiceMonthMode",
     "monthlyInvoiceDay",
     "yearlyInvoices",
     "inflationVerified",

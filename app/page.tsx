@@ -12,6 +12,7 @@ import {
   deleteInvoiceById,
   invalidateYearInvoicesCache,
 } from "@/lib/invoices";
+import { computeNextMonthProration } from "@/lib/advance-billing";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 
 // The client component itself contains its own loading skeletons.
@@ -88,26 +89,24 @@ export default async function HomePage() {
       const issuedDate = new Date(issuedAt);
       // Ensure the invoice day itself lies within contract active range (for first/last months) *for current-mode billing*
       // For next-mode we only require contract active at some point this current month (already ensured above) and active in the next month window.
-      if (mode === "current" && (issuedDate < start || issuedDate > end)) continue;
+      if (mode === "current" && (issuedDate < start || issuedDate > end))
+        continue;
 
+      let amountEUROverride: number | undefined = undefined;
       if (mode === "next") {
-        // For advance billing, the invoice issued now represents the NEXT calendar month.
-        const nextMonth = month + 1;
-        const nextYear = nextMonth === 13 ? year + 1 : year;
-        const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
-        const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
-        const nextEnd = new Date(
-          nextYear,
-          nextMonthIdx - 1,
-          daysInMonth(nextYear, nextMonthIdx)
-        );
-        // If contract does NOT overlap the next month period at all, we should NOT expect / show an invoice this month.
-        if (end < nextStart || start > nextEnd) {
-          continue; // skip – prevents showing an invoice due for a period not covered by the contract
+        // Apply stricter advance billing rules with potential proration.
+        const { include, fraction } = computeNextMonthProration(c, year, month);
+        if (!include) {
+          continue; // suppressed by rules (no overlap, ends day 1/2, etc.)
+        }
+        if (fraction > 0 && fraction < 1) {
+          if (typeof c.amountEUR === "number") {
+            amountEUROverride = c.amountEUR * fraction;
+          }
         }
       }
 
-      due.push({ contract: c, issuedAt });
+      due.push({ contract: c, issuedAt, amountEUR: amountEUROverride });
     } else if (c.rentType === "yearly") {
       const entries = (c as any).yearlyInvoices as
         | { month: number; day: number; amountEUR: number }[]
