@@ -88,6 +88,25 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium">
+                Zile până la scadență
+              </label>
+              <input
+                type="number"
+                name="paymentDueDays"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                placeholder="ex: 15"
+                defaultValue={String(
+                  (state.values.paymentDueDays as string) ??
+                    contract.paymentDueDays ??
+                    ""
+                )}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
           </div>
         ) : (
           <fieldset className="rounded-md border border-foreground/10 p-3">
@@ -327,11 +346,9 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-medium">
-            Prelungire (opțional)
-          </label>
+          <label className="block text-sm font-medium">Prelungire (opțional)</label>
           <input
             type="date"
             name="extensionDate"
@@ -342,35 +359,12 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">
-            Data actului de prelungire (opțional)
-          </label>
+          <label className="block text-sm font-medium">Data actului de prelungire (opțional)</label>
           <input
             type="date"
             name="extendedAt"
             defaultValue={String(
-              (state.values as any).extendedAt ??
-                (contract as any).extendedAt ??
-                ""
-            )}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">
-            Zile până la scadență
-          </label>
-          <input
-            type="number"
-            name="paymentDueDays"
-            inputMode="numeric"
-            min={0}
-            max={120}
-            placeholder="ex: 15"
-            defaultValue={String(
-              (state.values.paymentDueDays as string) ??
-                contract.paymentDueDays ??
-                ""
+              (state.values as any).extendedAt ?? (contract as any).extendedAt ?? ""
             )}
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
