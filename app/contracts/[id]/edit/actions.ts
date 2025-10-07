@@ -51,6 +51,7 @@ export async function updateContractAction(
     scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
     scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
     rentType: (formData.get("rentType") as string) || "",
+  invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
     // yearly invoices rows
     ...(() => {
@@ -190,6 +191,10 @@ export async function updateContractAction(
       tvaPercent,
       correctionPercent,
       rentType: String(rawValues.rentType) === "yearly" ? "yearly" : "monthly",
+      invoiceMonthMode:
+        String((rawValues as any).invoiceMonthMode) === "next"
+          ? "next"
+          : "current",
       monthlyInvoiceDay: (() => {
         const n = Number(String(rawValues.monthlyInvoiceDay));
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;

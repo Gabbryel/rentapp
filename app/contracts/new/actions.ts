@@ -49,6 +49,7 @@ export async function createContractAction(
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
     rentType: (formData.get("rentType") as string) || "monthly",
+    invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
     // collect yearlyInvoices flat fields
     ...(() => {
@@ -116,6 +117,9 @@ export async function createContractAction(
       })(),
       rentType: ((): "monthly" | "yearly" =>
         String(rawValues.rentType) === "yearly" ? "yearly" : "monthly")(),
+        invoiceMonthMode: (() =>
+          String((rawValues as any).invoiceMonthMode) === "next" ? "next" : "current"
+        )(),
       monthlyInvoiceDay: (() => {
         const n = Number(rawValues.monthlyInvoiceDay as string);
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;

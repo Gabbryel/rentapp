@@ -72,6 +72,8 @@ export const ContractSchema = z
   paymentDueDays: z.number().int().min(0).max(120).optional(),
     // Rent structure
     rentType: z.enum(["monthly", "yearly"]).default("monthly"),
+  // Whether monthly invoice corresponds to the current month (default) or is issued in advance for the next month
+  invoiceMonthMode: z.enum(["current", "next"]).default("current"),
     monthlyInvoiceDay: z.number().int().min(1).max(31).optional(),
     yearlyInvoices: z
       .array(

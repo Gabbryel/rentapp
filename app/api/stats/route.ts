@@ -87,17 +87,41 @@ export async function GET() {
   const totalRON = netRON + vatRON; // RON cu TVA
 
       if (c.rentType === "monthly") {
+        const mode = (c as any).invoiceMonthMode === "next" ? "next" : "current";
         for (let mIdx = 1; mIdx <= 12; mIdx++) {
           const mStart = new Date(year, mIdx - 1, 1);
-            const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
-          if (end < mStart || start > mEnd) continue;
+          const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
+          if (end < mStart || start > mEnd) continue; // contract inactive this month
+          // Always contributes to annual prognosis
           prognosisAnnualRON += totalRON;
           prognosisAnnualEUR += correctedEUR;
           prognosisAnnualNetRON += netRON;
-          if (mIdx === month && !(end < currentMonthStart || start > currentMonthEnd)) {
-            prognosisMonthRON += totalRON;
-            prognosisMonthEUR += correctedEUR;
-            prognosisMonthNetRON += netRON;
+          if (mIdx === month) {
+            if (!(end < currentMonthStart || start > currentMonthEnd)) {
+              // Mode current: invoice reflects current active month
+              if (mode === "current") {
+                prognosisMonthRON += totalRON;
+                prognosisMonthEUR += correctedEUR;
+                prognosisMonthNetRON += netRON;
+              } else {
+                // Mode next: invoice issued this month for NEXT month usage
+                const nextMonth = month + 1;
+                const nextYear = nextMonth === 13 ? year + 1 : year;
+                const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
+                const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
+                const nextEnd = new Date(
+                  nextYear,
+                  nextMonthIdx - 1,
+                  daysInMonth(nextYear, nextMonthIdx)
+                );
+                // Only include if contract is active for the next month window
+                if (!(end < nextStart || start > nextEnd)) {
+                  prognosisMonthRON += totalRON;
+                  prognosisMonthEUR += correctedEUR;
+                  prognosisMonthNetRON += netRON;
+                }
+              }
+            }
           }
         }
       } else if (c.rentType === "yearly") {

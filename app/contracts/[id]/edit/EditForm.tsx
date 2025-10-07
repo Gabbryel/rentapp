@@ -69,7 +69,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           </select>
         </div>
         {rentType === "monthly" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium">
                 Zi facturare (1-31)
@@ -87,6 +87,19 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
                 )}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Luna facturată</label>
+              <select
+                name="invoiceMonthMode"
+                defaultValue={String(
+                  (state.values as any).invoiceMonthMode ?? (contract as any).invoiceMonthMode ?? "current"
+                )}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              >
+                <option value="current">Luna curentă</option>
+                <option value="next">Luna următoare (în avans)</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium">
