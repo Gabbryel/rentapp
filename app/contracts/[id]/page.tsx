@@ -58,10 +58,33 @@ export default async function ContractPage({
   const end = new Date(effectiveEndDate(contract));
   let dueAt: string | null = null;
   if (contract.rentType === "monthly") {
+    const mode = (contract as any).invoiceMonthMode === "next" ? "next" : "current";
     const day = Math.min(Math.max(1, contract.monthlyInvoiceDay ?? 1), lastDay);
     const candidate = `${y}-${m}-${String(day).padStart(2, "0")}`;
-    const cd = new Date(candidate);
-    if (cd >= start && cd <= end) dueAt = candidate;
+    const candidateDate = new Date(candidate);
+    if (mode === "current") {
+      if (candidateDate >= start && candidateDate <= end) dueAt = candidate;
+    } else {
+      // Advance billing: invoice issued this month for next month usage.
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month - 1, lastDay);
+      // Must be active at SOME point during current month
+      const overlapsCurrent = !(end < monthStart || start > monthEnd);
+      if (overlapsCurrent) {
+        const nextMonth = month + 1;
+        const nextYear = nextMonth === 13 ? year + 1 : year;
+        const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
+        const nextLastDay = new Date(nextYear, nextMonthIdx, 0).getDate();
+        const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
+        const nextEnd = new Date(nextYear, nextMonthIdx - 1, nextLastDay);
+        const overlapsNext = !(end < nextStart || start > nextEnd);
+        if (overlapsNext) {
+          // Only set dueAt if contract actually extends into next month (since that's what we're billing)
+          // We do NOT require the candidate invoice date to fall within contract active range in advance mode.
+          dueAt = candidate;
+        }
+      }
+    }
   } else if ((contract.yearlyInvoices?.length ?? 0) > 0) {
     const hit = contract.yearlyInvoices!.find((yi) => yi.month === month);
     if (hit) {
