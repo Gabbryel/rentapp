@@ -242,6 +242,12 @@ export default async function HomePage() {
                             <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
                               {d.contract.partner}
                             </span>
+                            {(d.contract as any).invoiceMonthMode === "next" &&
+                            d.contract.rentType === "monthly" ? (
+                              <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                În avans
+                              </span>
+                            ) : null}
                             <span className="text-[11px] text-foreground/50">
                               {fmt(d.issuedAt)}
                             </span>

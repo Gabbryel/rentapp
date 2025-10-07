@@ -158,6 +158,12 @@ export default async function ContractsPage({
           </Link>
         </h2>
         <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+          {(c as any).invoiceMonthMode === "next" &&
+          c.rentType === "monthly" ? (
+            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-blue-500/20 text-blue-600 dark:text-blue-400">
+              În avans
+            </span>
+          ) : null}
           {new Date(effectiveEndDate(c)) < now ? (
             <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
               Expirat

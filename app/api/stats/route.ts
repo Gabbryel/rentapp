@@ -92,10 +92,25 @@ export async function GET() {
           const mStart = new Date(year, mIdx - 1, 1);
           const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
           if (end < mStart || start > mEnd) continue; // contract inactive this month
-          // Always contributes to annual prognosis
-          prognosisAnnualRON += totalRON;
-          prognosisAnnualEUR += correctedEUR;
-          prognosisAnnualNetRON += netRON;
+          
+          // For annual prognosis: in "next" mode, check if invoicing this month for next month makes sense
+          let includeInAnnual = true;
+          if (mode === "next") {
+            // In "next" mode: invoice issued in month mIdx is for month mIdx+1
+            const nextMonth = mIdx + 1;
+            const nextYear = nextMonth === 13 ? year + 1 : year;
+            const nextMonthIdx = nextMonth === 13 ? 1 : nextMonth;
+            const nextStart = new Date(nextYear, nextMonthIdx - 1, 1);
+            const nextEnd = new Date(nextYear, nextMonthIdx - 1, daysInMonth(nextYear, nextMonthIdx));
+            // Only count if contract will be active in the next month
+            includeInAnnual = !(end < nextStart || start > nextEnd);
+          }
+          
+          if (includeInAnnual) {
+            prognosisAnnualRON += totalRON;
+            prognosisAnnualEUR += correctedEUR;
+            prognosisAnnualNetRON += netRON;
+          }
           if (mIdx === month) {
             if (!(end < currentMonthStart || start > currentMonthEnd)) {
               // Mode current: invoice reflects current active month

@@ -89,11 +89,15 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium">Luna facturată</label>
+              <label className="block text-sm font-medium">
+                Luna facturată
+              </label>
               <select
                 name="invoiceMonthMode"
                 defaultValue={String(
-                  (state.values as any).invoiceMonthMode ?? (contract as any).invoiceMonthMode ?? "current"
+                  (state.values as any).invoiceMonthMode ??
+                    (contract as any).invoiceMonthMode ??
+                    "current"
                 )}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               >
@@ -361,7 +365,9 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-medium">Prelungire (opțional)</label>
+          <label className="block text-sm font-medium">
+            Prelungire (opțional)
+          </label>
           <input
             type="date"
             name="extensionDate"
@@ -372,12 +378,16 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Data actului de prelungire (opțional)</label>
+          <label className="block text-sm font-medium">
+            Data actului de prelungire (opțional)
+          </label>
           <input
             type="date"
             name="extendedAt"
             defaultValue={String(
-              (state.values as any).extendedAt ?? (contract as any).extendedAt ?? ""
+              (state.values as any).extendedAt ??
+                (contract as any).extendedAt ??
+                ""
             )}
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />

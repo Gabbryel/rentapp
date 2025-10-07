@@ -147,10 +147,14 @@ export default function NewContractPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium">Luna facturată</label>
+                <label className="block text-sm font-medium">
+                  Luna facturată
+                </label>
                 <select
                   name="invoiceMonthMode"
-                  defaultValue={String(state.values["invoiceMonthMode"] ?? "current")}
+                  defaultValue={String(
+                    state.values["invoiceMonthMode"] ?? "current"
+                  )}
                   className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                 >
                   <option value="current">Luna curentă</option>
