@@ -546,55 +546,67 @@ export default async function ContractPage({
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                     Indexare
                   </h3>
-                  <div className="flex flex-col gap-1 text-[11px]">
-                    {indexations.map((ix) => {
-                      const diffPct =
-                        ix.from !== 0 ? ((ix.to - ix.from) / ix.from) * 100 : 0;
-                      return (
-                        <div
-                          key={ix.date + ix.appliedAt + ix.from + ix.to}
-                          className="inline-flex flex-wrap items-center gap-2 rounded bg-foreground/5 px-2 py-1"
-                          title={`Indexare aplicată (înregistrat ${fmt(
-                            ix.appliedAt
-                          )})`}
-                        >
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                            ✓
-                          </span>
-                          <span>{fmt(ix.date)}</span>
-                          <span className="text-foreground/50">•</span>
-                          <span className="text-indigo-700 dark:text-indigo-400 font-medium">
-                            {ix.from.toFixed(2)} → {ix.to.toFixed(2)} EUR
-                          </span>
-                          {ix.from !== ix.to && (
-                            <span
-                              className={
-                                diffPct > 0
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : diffPct < 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : "text-foreground/50"
-                              }
+                  <div className="flex flex-col gap-3 text-[11px]">
+                    <div>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+                        Efectuate
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {indexations.length === 0 && (
+                          <div className="italic text-foreground/40">
+                            Nicio indexare efectuată încă
+                          </div>
+                        )}
+                        {indexations.map((ix) => {
+                          const diffPct = ix.from !== 0 ? ((ix.to - ix.from) / ix.from) * 100 : 0;
+                          return (
+                            <div
+                              key={ix.date + ix.appliedAt + ix.from + ix.to}
+                              className="inline-flex flex-wrap items-center gap-2 rounded bg-foreground/5 px-2 py-1"
+                              title={`Indexare aplicată (înregistrat ${fmt(ix.appliedAt)})`}
                             >
-                              ({diffPct > 0 ? "+" : ""}
-                              {diffPct.toFixed(2)}%)
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓</span>
+                              <span>{fmt(ix.date)}</span>
+                              <span className="text-foreground/50">•</span>
+                              <span className="text-indigo-700 dark:text-indigo-400 font-medium">
+                                {ix.from.toFixed(2)} → {ix.to.toFixed(2)} EUR
+                              </span>
+                              {ix.from !== ix.to && (
+                                <span
+                                  className={
+                                    diffPct > 0
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : diffPct < 0
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-foreground/50"
+                                  }
+                                >
+                                  ({diffPct > 0 ? "+" : ""}
+                                  {diffPct.toFixed(2)}%)
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                     {hasFuture && (
-                      <div className="flex flex-wrap gap-2 mt-1 items-center">
-                        {futureIndexingDates.map((d) => (
-                          <span
-                            key={d}
-                            className="inline-flex items-center gap-1 rounded border border-dashed border-foreground/30 px-2 py-1 text-foreground/70"
-                            title="Indexare viitoare"
-                          >
-                            <span className="text-foreground/40">→</span>
-                            {fmt(d)}
-                          </span>
-                        ))}
+                      <div>
+                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+                          Viitoare
+                        </div>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {futureIndexingDates.map((d) => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center gap-1 rounded border border-dashed border-foreground/30 px-2 py-1 text-foreground/70"
+                              title="Indexare viitoare"
+                            >
+                              <span className="text-foreground/40">→</span>
+                              {fmt(d)}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
