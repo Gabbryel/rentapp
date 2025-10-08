@@ -692,7 +692,8 @@ export default async function ContractPage({
               id={contract.id}
               scans={
                 (contract as { scans?: { url: string; title?: string }[] })
-                  .scans || (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
+                  .scans ||
+                (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
               }
               mongoConfigured={Boolean(process.env.MONGODB_URI)}
             />

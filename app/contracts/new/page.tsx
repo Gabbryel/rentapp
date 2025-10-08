@@ -356,54 +356,6 @@ export default function NewContractPage() {
             combinate cu cele introduse manual.
           </p>
         </fieldset>
-        {/* Scans */}
-        <fieldset className="rounded-md border border-foreground/10 p-4">
-          <legend className="px-1 text-xs text-foreground/60">
-            Documente (scan-uri)
-          </legend>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium">
-                Încarcă fișiere
-              </label>
-              <input
-                name="scanFiles"
-                type="file"
-                multiple
-                accept="application/pdf,image/*"
-                className="mt-1 block w-full text-sm"
-              />
-              <p className="mt-1 text-xs text-foreground/60">
-                Poți selecta mai multe fișiere. Max 10MB per fișier.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium">
-                sau URL-uri (câte unul pe rând)
-              </label>
-              <input
-                name="scanUrls"
-                placeholder="/uploads/doc1.pdf"
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-              <input
-                name="scanTitles"
-                placeholder="Titlu doc1 (opțional)"
-                className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-              <input
-                name="scanUrls"
-                placeholder="https://exemplu.com/doc2.png"
-                className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-              <input
-                name="scanTitles"
-                placeholder="Titlu doc2 (opțional)"
-                className="mt-2 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-        </fieldset>
         <div className="pt-2 flex justify-center">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează
