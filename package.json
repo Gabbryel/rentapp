@@ -13,7 +13,8 @@
     "partners:backfill": "tsx scripts/backfill-partner-ids.ts",
     "contracts:update:rate": "tsx scripts/update-exchange-rate.ts",
   "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts",
-  "migrate:remove-indexing": "tsx scripts/migrate-remove-indexing-inflation-fields.ts"
+  "migrate:remove-indexing": "tsx scripts/migrate-remove-indexing-inflation-fields.ts",
+  "migrate:remove-notification-indexing": "tsx scripts/migrate-remove-notification-indexing-fields.ts"
   },
   "dependencies": {
     "busboy": "^1.6.0",
