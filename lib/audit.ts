@@ -47,10 +47,7 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
   "extendedAt",
     "paymentDueDays",
     "scanUrl",
-    "indexingDates",
-  "indexingScheduleDay",
-  "indexingScheduleMonth",
-  "indexingEveryMonths",
+    // indexing & schedule fields removed
     "amountEUR",
     "exchangeRateRON",
     "tvaPercent",
@@ -60,12 +57,7 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
   "invoiceMonthMode",
     "monthlyInvoiceDay",
     "yearlyInvoices",
-    "inflationVerified",
-    "inflationVerifiedAt",
-    "inflationFromMonth",
-    "inflationToMonth",
-    "inflationLocalPercent",
-    "inflationAiPercent",
+  // inflation tracking fields removed
   ];
   const changes: Array<{ field: string; from: unknown; to: unknown }> = [];
   for (const f of fields) {

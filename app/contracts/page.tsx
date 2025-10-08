@@ -1,9 +1,7 @@
 import { effectiveEndDate, fetchContracts } from "@/lib/contracts";
 import type { Contract } from "@/lib/schemas/contract";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import InflationVerify from "@/app/components/inflation-verify";
 import ActionButton from "@/app/components/action-button";
-import { getEuroInflationPercent } from "@/lib/inflation";
 import SearchContracts from "@/app/components/search-contracts";
 import Link from "next/link";
 
@@ -59,60 +57,11 @@ export default async function ContractsPage({
       maximumFractionDigits: 2,
     }).format(n);
 
-  const nextIndexing = (dates?: Array<string | null | undefined>) => {
-    const ds = (dates ?? [])
-      .filter((d): d is string => !!d)
-      .map((s) => new Date(s))
-      .filter((d) => !isNaN(d.getTime()))
-      .sort((a, b) => a.getTime() - b.getTime());
-    for (const d of ds) {
-      if (d >= startOfToday) return d.toISOString().slice(0, 10);
-    }
-    return null;
-  };
+  // indexing removed
 
-  const monthKey = (iso: string) => {
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  };
+  // inflation & indexing removed
 
-  // Precompute Euro inflation by baseline month (same as on home)
-  const uniqueFromMonths = new Set<string>();
-  for (const c of contracts) {
-    const idxPast = (c.indexingDates ?? [])
-      .filter((d) => !!d && new Date(d) <= startOfToday)
-      .sort();
-    const from = idxPast.length > 0 ? idxPast[idxPast.length - 1] : c.startDate;
-    uniqueFromMonths.add(monthKey(from));
-  }
-  const inflationByFromMonth: Record<
-    string,
-    { percent: number; fromMonth: string; toMonth: string } | undefined
-  > = {};
-  for (const fm of uniqueFromMonths) {
-    try {
-      const res = await getEuroInflationPercent({ from: `${fm}-01` });
-      inflationByFromMonth[fm] = {
-        percent: res.percent,
-        fromMonth: res.fromMonth,
-        toMonth: res.toMonth,
-      };
-    } catch {
-      // ignore
-    }
-  }
-
-  async function refreshInflationFor(formData: FormData) {
-    "use server";
-    try {
-      const fromMonth = String(formData.get("fromMonth") || "").trim();
-      const from = fromMonth ? `${fromMonth}-01` : "2000-01-01";
-      await getEuroInflationPercent({ from, forceRefresh: true });
-    } catch {}
-    revalidatePath("/contracts");
-  }
+  // refreshInflationFor removed
 
   // Bulk: update exchange rate for all contracts (same behavior as on home)
   async function updateAllExchangeRates() {
@@ -271,105 +220,13 @@ export default async function ContractsPage({
               ) : null}
             </div>
             {(() => {
-              const next = nextIndexing(c.indexingDates);
-              if (!next) return null;
-              const nd = new Date(next);
-              let cls = "text-foreground/70";
-              if (nd >= startOfToday) {
-                const diffDays = Math.ceil(
-                  (nd.getTime() - startOfToday.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                );
-                if (diffDays < 15) cls = "text-red-600";
-                else if (diffDays <= 60) cls = "text-yellow-600";
-              }
-              return (
-                <p className={`mt-1 text-xs truncate ${cls}`}>
-                  Indexare: {fmt(next)}
-                </p>
-              );
+              return null; // indexing removed
             })()}
           </>
         );
       })()}
 
-      {(() => {
-        const idxPast = (c.indexingDates ?? [])
-          .filter((d) => !!d && new Date(d) <= startOfToday)
-          .sort();
-        const from =
-          idxPast.length > 0 ? idxPast[idxPast.length - 1] : c.startDate;
-        const inf = inflationByFromMonth[monthKey(from)];
-        if (!inf) {
-          return (
-            <p className="mt-1 text-xs truncate text-foreground/60">
-              Inflație EUR (HICP): <span className="italic">Indisponibil</span>
-            </p>
-          );
-        }
-        const signColor =
-          inf.percent >= 0
-            ? "text-amber-700 dark:text-amber-400"
-            : "text-emerald-700 dark:text-emerald-400";
-        return (
-          <div className="mt-1 text-xs text-foreground/70 flex items-center gap-2 flex-wrap">
-            <span>
-              Inflație EUR (HICP):{" "}
-              <span className={`font-medium ${signColor}`}>
-                {inf.percent.toFixed(2)}%
-              </span>{" "}
-              <span className="text-foreground/50">
-                ({inf.fromMonth} → {inf.toMonth})
-              </span>
-            </span>
-            {(() => {
-              const badge = (() => {
-                if (
-                  c.inflationVerified === true &&
-                  c.inflationFromMonth === inf.fromMonth &&
-                  c.inflationToMonth === inf.toMonth
-                ) {
-                  return (
-                    <span className="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                      Confirmat
-                    </span>
-                  );
-                }
-                if (
-                  c.inflationVerified === false &&
-                  c.inflationFromMonth === inf.fromMonth &&
-                  c.inflationToMonth === inf.toMonth
-                ) {
-                  return (
-                    <span className="px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-700 dark:text-amber-400">
-                      Nealiniat
-                    </span>
-                  );
-                }
-                return null;
-              })();
-              return badge;
-            })()}
-            <span className="ml-1">
-              <InflationVerify
-                contractId={c.id}
-                fromMonth={inf.fromMonth}
-                toMonth={inf.toMonth}
-              />
-            </span>
-            <form action={refreshInflationFor} className="ml-1 inline-block">
-              <input type="hidden" name="fromMonth" value={inf.fromMonth} />
-              <ActionButton
-                className="rounded-md border border-foreground/20 px-2 py-1 text-[11px] font-semibold hover:bg-foreground/5"
-                title="Actualizează seria de inflație EUR (HICP)"
-                successMessage="Seria de inflație a fost actualizată"
-              >
-                Actualizează inflația
-              </ActionButton>
-            </form>
-          </div>
-        );
-      })()}
+      {/* Inflation section removed */}
 
       <dl className="grid grid-cols-1 gap-2">
         <div className="rounded-md bg-foreground/5 p-2">
@@ -502,22 +359,11 @@ export default async function ContractsPage({
       return ad - bd;
     });
   } else {
-    // Default: order by closest upcoming indexing date (like home)
+    // Default: order by effective end date (indexing removed)
     contracts.sort((a, b) => {
       const expiredA = new Date(effectiveEndDate(a)) < now;
       const expiredB = new Date(effectiveEndDate(b)) < now;
-      if (expiredA !== expiredB) return expiredA ? 1 : -1; // push expired to end
-      const ai = (() => {
-        const n = nextIndexing(a.indexingDates);
-        return n ? new Date(n) : null;
-      })();
-      const bi = (() => {
-        const n = nextIndexing(b.indexingDates);
-        return n ? new Date(n) : null;
-      })();
-      if (ai && bi) return ai.getTime() - bi.getTime();
-      if (ai && !bi) return -1;
-      if (!ai && bi) return 1;
+      if (expiredA !== expiredB) return expiredA ? 1 : -1;
       const ad = new Date(effectiveEndDate(a)).getTime();
       const bd = new Date(effectiveEndDate(b)).getTime();
       return ad - bd;

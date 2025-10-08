@@ -19,8 +19,8 @@ async function main() {
     .find({}, { projection: { _id: 0 }, limit: 3 })
     .toArray();
   for (const d of docs) {
-    const { id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl, indexingDates } = d;
-    console.log({ id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl, indexingDates });
+  const { id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl } = d;
+  console.log({ id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl });
   }
 }
 

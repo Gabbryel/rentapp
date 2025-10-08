@@ -5,11 +5,7 @@ import { revalidatePath } from "next/cache";
 import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
-import {
-  effectiveEndDate,
-  fetchContractById,
-  upsertContract,
-} from "@/lib/contracts";
+import { effectiveEndDate, fetchContractById, upsertContract } from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import {
   listInvoicesForContract,
@@ -102,18 +98,8 @@ async function applyDoneIndexing(formData: FormData) {
     tvaPercent: existing.tvaPercent,
     note: `indexare ${indexingDate}`,
   } as any);
-  let indexingDates = Array.isArray(existing.indexingDates)
-    ? [...existing.indexingDates]
-    : [];
-  indexingDates = indexingDates.filter(
-    (d) => new Date(d).getFullYear() !== year
-  );
-  await upsertContract({
-    ...existing,
-    amountEUR: newAmountEUR,
-    rentHistory,
-    indexingDates,
-  } as any);
+  // indexingDates removed (scheduled future dates deprecated)
+  await upsertContract({ ...existing, amountEUR: newAmountEUR, rentHistory } as any);
   await logAction({
     action: "contract.indexing.done",
     targetType: "contract",
@@ -249,14 +235,7 @@ export default async function ContractPage({
     advanceFraction = include ? fraction : undefined;
   }
 
-  const endEff = new Date(effectiveEndDate(contract));
-  const idxDates = Array.isArray(contract.indexingDates)
-    ? contract.indexingDates.slice().sort()
-    : [];
-  const futureIndexingDates = idxDates.filter((d) => {
-    const dt = new Date(d);
-    return !isNaN(dt.getTime()) && dt > today && dt < endEff;
-  });
+  // indexingDates removed: no future scheduling
 
   const alreadyIssuedForThisMonth = Boolean(
     dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
@@ -308,7 +287,7 @@ export default async function ContractPage({
     });
   }
   indexations.sort((a, b) => b.date.localeCompare(a.date));
-  const hasFuture = futureIndexingDates.length > 0;
+  const hasFuture = false; // always false (feature removed)
 
   return (
     <main className="min-h-screen px-4 sm:px-6 py-10">
@@ -541,7 +520,7 @@ export default async function ContractPage({
                   </div>
                 )}
 
-              {(indexations.length > 0 || hasFuture) && (
+              {indexations.length > 0 && (
                 <div>
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                     Indexare
@@ -595,25 +574,7 @@ export default async function ContractPage({
                         })}
                       </div>
                     </div>
-                    {hasFuture && (
-                      <div>
-                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
-                          Viitoare
-                        </div>
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {futureIndexingDates.map((d) => (
-                            <span
-                              key={d}
-                              className="inline-flex items-center gap-1 rounded border border-dashed border-foreground/30 px-2 py-1 text-foreground/70"
-                              title="Indexare viitoare"
-                            >
-                              <span className="text-foreground/40">→</span>
-                              {fmt(d)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {/* Future indexings removed */}
                   </div>
                 </div>
               )}
@@ -677,7 +638,7 @@ export default async function ContractPage({
                   </button>
                 </form>
               )}
-              {indexations.length === 0 && !hasFuture && (
+              {indexations.length === 0 && (
                 <div className="mt-2 text-[11px] text-foreground/50 italic">
                   Nicio indexare înregistrată încă. Adaugă una folosind
                   formularul.

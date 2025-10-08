@@ -59,11 +59,7 @@ export const ContractSchema = z
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
-    indexingDates: z.array(ISODate).default([]),
-    // Optional periodic indexing schedule: day (1-31), month (1-12), every N months (default 12)
-    indexingScheduleDay: z.number().int().min(1).max(31).optional(),
-    indexingScheduleMonth: z.number().int().min(1).max(12).optional(),
-    indexingEveryMonths: z.number().int().min(1).max(120).optional(),
+  // (indexing related fields removed)
     // Optional additional dates
     extensionDate: ISODate.optional(),
     // When the extension (addendum) took place
@@ -108,13 +104,7 @@ export const ContractSchema = z
       })
     )
     .default([]),
-  // Optional persisted inflation verification
-  inflationVerified: z.boolean().optional(),
-  inflationVerifiedAt: ISODate.optional(),
-  inflationFromMonth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
-  inflationToMonth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
-  inflationLocalPercent: z.number().optional(),
-  inflationAiPercent: z.number().optional(),
+  // (inflation tracking fields removed)
   })
   .superRefine((val, ctx) => {
     const s = new Date(val.signedAt);

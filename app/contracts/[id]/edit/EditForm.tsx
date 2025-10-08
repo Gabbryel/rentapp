@@ -1,6 +1,6 @@
 "use client";
-import { useActionState, useMemo, useState } from "react";
-import MultiDateInput from "@/app/components/multi-date-input";
+import { useActionState } from "react";
+// indexing UI removed
 import Link from "next/link";
 import { updateContractAction, type EditFormState } from "./actions";
 import PartnerSelect from "@/app/components/partner-select";
@@ -25,21 +25,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
   const yearlyInvoices = Array.isArray(contract.yearlyInvoices)
     ? contract.yearlyInvoices
     : [];
-  const today = new Date();
-  const todayIso = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate()
-  )
-    .toISOString()
-    .slice(0, 10);
-  const formIndexing = (
-    (state.values.indexingDates as string[]) ??
-    contract.indexingDates ??
-    []
-  ).filter((d): d is string => typeof d === "string" && d.length >= 10);
-  const futureIdx = formIndexing.filter((d) => d > todayIso);
-  const pastIdx = formIndexing.filter((d) => d <= todayIso);
+  // indexing dates removed
 
   return (
     <form action={formAction} className="space-y-5 mt-6">
@@ -66,9 +52,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             nameName="asset"
             required
             defaultId={String(
-              (state.values.assetId as string) ??
-                (contract as any).assetId ??
-                ""
+              (state.values.assetId as string) ?? (contract as any).assetId ?? ""
             )}
             defaultName={String(
               (state.values.asset as string) ?? (contract as any).asset ?? ""
@@ -96,9 +80,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             nameName="owner"
             required
             defaultId={String(
-              (state.values.ownerId as string) ??
-                (contract as any).ownerId ??
-                ""
+              (state.values.ownerId as string) ?? (contract as any).ownerId ?? ""
             )}
             defaultName={String(
               (state.values.owner as string) ?? (contract as any).owner ?? ""
@@ -115,7 +97,6 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
         />
       </div>
-      {/* Dates */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium">Semnat</label>
@@ -357,80 +338,6 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             />
           </div>
         </div>
-      </fieldset>
-      {/* Indexing dates */}
-      {pastIdx.map((d) => (
-        <input key={d} type="hidden" name="indexingDates" value={d} />
-      ))}
-      <MultiDateInput
-        name="indexingDates"
-        initial={futureIdx}
-        label="Indexări chirie (viitoare)"
-      />
-      {/* Periodic schedule */}
-      <fieldset className="rounded-md border border-foreground/10 p-4">
-        <legend className="px-1 text-xs text-foreground/60">
-          Program indexare periodică (opțional)
-        </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium">Zi (1-31)</label>
-            <input
-              name="indexingScheduleDay"
-              type="number"
-              min={1}
-              max={31}
-              inputMode="numeric"
-              defaultValue={String(
-                (state.values.indexingScheduleDay as string) ??
-                  (contract as any).indexingScheduleDay ??
-                  ""
-              )}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              Luna start (1-12)
-            </label>
-            <input
-              name="indexingScheduleMonth"
-              type="number"
-              min={1}
-              max={12}
-              inputMode="numeric"
-              defaultValue={String(
-                (state.values.indexingScheduleMonth as string) ??
-                  (contract as any).indexingScheduleMonth ??
-                  ""
-              )}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              La fiecare (luni)
-            </label>
-            <input
-              name="indexingEveryMonths"
-              type="number"
-              min={1}
-              max={120}
-              inputMode="numeric"
-              placeholder="ex: 12 (anual)"
-              defaultValue={String(
-                (state.values.indexingEveryMonths as string) ??
-                  (contract as any).indexingEveryMonths ??
-                  ""
-              )}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-        <p className="mt-2 text-xs text-foreground/60">
-          Dacă completezi câmpurile de mai sus, datele generate vor fi combinate
-          cu cele introduse manual.
-        </p>
       </fieldset>
       <div className="pt-2 flex items-center justify-center gap-3">
         <button

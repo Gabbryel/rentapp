@@ -9,7 +9,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p1",
     partner: "Acme Corp",
   owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
@@ -27,7 +27,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p2",
     partner: "Globex LLC",
   owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
@@ -45,7 +45,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p3",
     partner: "Initech",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
@@ -63,7 +63,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p4",
     partner: "Umbrella Co",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
@@ -81,7 +81,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p5",
     partner: "Stark Industries",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
@@ -99,7 +99,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p6",
     partner: "Wayne Enterprises",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
@@ -117,7 +117,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p7",
     partner: "Hooli",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
@@ -135,7 +135,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p8",
     partner: "Soylent Corp",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-04-05",
     startDate: "2025-04-15",
     endDate: "2025-10-15",
@@ -152,7 +152,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p9",
     partner: "Duff Beer",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-09-01",
     startDate: "2024-09-15",
     endDate: "2025-09-14",
@@ -169,7 +169,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p10",
     partner: "Cyberdyne Systems",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-10-10",
     startDate: "2024-12-01",
     endDate: "2025-03-01",
@@ -186,7 +186,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p11",
     partner: "MomCorp",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-07-01",
     startDate: "2025-07-10",
     endDate: "2026-07-09",
@@ -203,7 +203,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p12",
     partner: "Tyrell Corporation",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-01-05",
     startDate: "2025-01-15",
     endDate: "2026-01-14",
@@ -220,7 +220,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p13",
     partner: "Oscorp",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-07-20",
     startDate: "2024-08-01",
     endDate: "2025-07-31",
@@ -237,7 +237,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p14",
     partner: "Aperture Science",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-09-10",
     startDate: "2025-10-01",
     endDate: "2025-12-31",
@@ -254,7 +254,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p15",
     partner: "Black Mesa",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-05-25",
     startDate: "2025-06-01",
     endDate: "2026-05-31",
@@ -271,7 +271,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p16",
     partner: "Nuka-Cola",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-03-28",
     startDate: "2025-05-01",
     endDate: "2025-09-01",
@@ -288,7 +288,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p17",
     partner: "Wonka Industries",
     owner: "Markov Services s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2024-12-01",
     startDate: "2025-01-10",
     endDate: "2025-07-10",
@@ -305,7 +305,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p18",
     partner: "Blue Sun",
     owner: "MKS Properties s.r.l.",
-    indexingDates: [],
+  // indexingDates removed
     signedAt: "2025-08-15",
     startDate: "2026-01-01",
     endDate: "2026-12-31",
@@ -376,10 +376,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     }
     return undefined;
   };
-  const idxRaw = Array.isArray(r.indexingDates) ? (r.indexingDates as unknown[]) : [];
-  const idx: string[] = idxRaw
-    .map((v) => toYmd(v))
-    .filter((s): s is string => typeof s === "string");
+  // indexingDates removed: ignore any persisted values
   const amountEUR = numOrUndef(r.amountEUR);
   const exchangeRateRON = numOrUndef(r.exchangeRateRON);
   const tvaPercent =
@@ -460,7 +457,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         );
       return mapped.length > 0 ? mapped : undefined;
     })(),
-    indexingDates: idx,
+  // indexingDates removed
     scanUrl: ((): string | undefined => {
       const v = r.scanUrl;
       if (v == null) return undefined;
@@ -492,12 +489,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
     correctionPercent,
-    inflationVerified: typeof r.inflationVerified === "boolean" ? r.inflationVerified : undefined,
-    inflationVerifiedAt: toYmd(r.inflationVerifiedAt),
-    inflationFromMonth: typeof r.inflationFromMonth === "string" ? r.inflationFromMonth : undefined,
-    inflationToMonth: typeof r.inflationToMonth === "string" ? r.inflationToMonth : undefined,
-    inflationLocalPercent: numOrUndef(r.inflationLocalPercent),
-    inflationAiPercent: numOrUndef(r.inflationAiPercent),
+  // inflation tracking fields removed
     rentHistory: ((): any[] => {
       const arr = Array.isArray((r as any).rentHistory) ? (r as any).rentHistory : [];
       return arr
@@ -523,18 +515,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         })
         .filter(Boolean);
     })(),
-    indexingScheduleDay: ((): number | undefined => {
-      const n = Number((r as Record<string, unknown>).indexingScheduleDay);
-      return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
-    })(),
-    indexingScheduleMonth: ((): number | undefined => {
-      const n = Number((r as Record<string, unknown>).indexingScheduleMonth);
-      return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
-    })(),
-    indexingEveryMonths: ((): number | undefined => {
-      const n = Number((r as Record<string, unknown>).indexingEveryMonths);
-      return Number.isInteger(n) && n >= 1 && n <= 120 ? n : undefined;
-    })(),
+    // indexing schedule fields removed
   } as Partial<ContractType>;
 }
 
@@ -603,61 +584,7 @@ export function effectiveEndDate(c: ContractType): string {
 }
 
 // Compute indexing instances from schedule fields within contract bounds
-export function generateIndexingDatesFromSchedule(opts: {
-  startDate: string;
-  endDate: string;
-  day?: number; // 1-31
-  month?: number; // 1-12 (first occurrence anchor)
-  everyMonths?: number; // e.g., 12 = yearly
-}): string[] {
-  const results: string[] = [];
-  const { startDate, endDate } = opts;
-  const every = Number(opts.everyMonths ?? 12);
-  const anchorMonth = Number(opts.month ?? 1);
-  const day = Number(opts.day ?? 1);
-  if (!Number.isInteger(every) || every < 1 || every > 120) return results;
-  if (!Number.isInteger(anchorMonth) || anchorMonth < 1 || anchorMonth > 12) return results;
-  if (!Number.isInteger(day) || day < 1 || day > 31) return results;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (!(start instanceof Date) || isNaN(start.getTime())) return results;
-  if (!(end instanceof Date) || isNaN(end.getTime())) return results;
-  // Find first occurrence on/after start, anchored to given month/day
-  let y = start.getFullYear();
-  let m = anchorMonth - 1; // 0-based month
-  // If anchor < start month in first year, advance to next cycle that is >= start
-  while (true) {
-    const candidate = new Date(y, m, Math.min(day, 28));
-    // Adjust for real month length: if desired day > last day of month, clamp to last day
-    const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
-    const realDay = Math.min(day, lastDay);
-    const dt = new Date(y, m, realDay);
-    if (dt >= start) break;
-    // advance by every months
-    m += every;
-    while (m >= 12) {
-      y += 1;
-      m -= 12;
-    }
-    if (new Date(y, m, 1) > end) return results;
-  }
-  // Generate until end
-  while (true) {
-    const candidate = new Date(y, m, 1);
-    if (candidate > end) break;
-    const lastDay = new Date(y, m + 1, 0).getDate();
-    const realDay = Math.min(day, lastDay);
-    const dt = new Date(y, m, realDay);
-    if (dt >= start && dt <= end) results.push(toYmd(dt)!);
-    // next occurrence
-    m += every;
-    while (m >= 12) {
-      y += 1;
-      m -= 12;
-    }
-  }
-  return results;
-}
+// generateIndexingDatesFromSchedule removed (indexing scheduling deprecated)
 
 export async function upsertContract(contract: ContractType) {
   ContractSchema.parse(contract);

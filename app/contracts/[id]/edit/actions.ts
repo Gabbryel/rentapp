@@ -1,6 +1,6 @@
 "use server";
 
-import { fetchContractById, upsertContract, generateIndexingDatesFromSchedule } from "@/lib/contracts";
+import { fetchContractById, upsertContract } from "@/lib/contracts";
 import { ContractSchema } from "@/lib/schemas/contract";
 import { logAction, computeDiffContract } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
@@ -40,10 +40,7 @@ export async function updateContractAction(
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
-    indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
-  indexingScheduleDay: (formData.get("indexingScheduleDay") as string) || "",
-  indexingScheduleMonth: (formData.get("indexingScheduleMonth") as string) || "",
-  indexingEveryMonths: (formData.get("indexingEveryMonths") as string) || "",
+    // indexing fields removed
     // Multi-scan edit fields
     existingUrl: (formData.getAll("existingUrl") as string[]) || [],
     existingTitle: (formData.getAll("existingTitle") as string[]) || [],
@@ -182,7 +179,7 @@ export async function updateContractAction(
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
       })(),
-  indexingDates: rawValues.indexingDates,
+  // indexingDates removed
   scans: nextScans,
   // Back-compat single field derived from first scan
   scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
@@ -223,30 +220,7 @@ export async function updateContractAction(
     }
 
     // Schedule computation
-    const schedDayRaw = String(rawValues.indexingScheduleDay || "").trim();
-    const schedMonthRaw = String(rawValues.indexingScheduleMonth || "").trim();
-    const schedEveryRaw = String(rawValues.indexingEveryMonths || "").trim();
-    const schedDay = Number(schedDayRaw);
-    const schedMonth = Number(schedMonthRaw);
-    const schedEvery = Number(schedEveryRaw);
-    const hasSchedule =
-      Number.isInteger(schedDay) && schedDay >= 1 &&
-      Number.isInteger(schedMonth) && schedMonth >= 1;
-    if (hasSchedule) {
-      const gen = generateIndexingDatesFromSchedule({
-        startDate: String(base.startDate),
-        endDate: String((base as any).extensionDate || base.endDate),
-        day: schedDay,
-        month: schedMonth,
-        everyMonths: Number.isInteger(schedEvery) ? schedEvery : 12,
-      });
-      const manual = Array.isArray(base.indexingDates) ? (base.indexingDates as string[]) : [];
-      const all = Array.from(new Set([...manual, ...gen])).sort();
-      base.indexingDates = all;
-      base.indexingScheduleDay = schedDay;
-      base.indexingScheduleMonth = schedMonth;
-      base.indexingEveryMonths = Number.isInteger(schedEvery) && schedEvery >= 1 ? schedEvery : 12;
-    }
+    // indexing schedule removed
 
     const parsed = ContractSchema.safeParse(base);
 
@@ -286,9 +260,7 @@ export async function updateContractAction(
   scansCount: parsed.data.scans?.length ?? 0,
     owner: parsed.data.owner,
     ownerId: (parsed.data as any).ownerId,
-        indexingScheduleDay: (parsed.data as any).indexingScheduleDay,
-        indexingScheduleMonth: (parsed.data as any).indexingScheduleMonth,
-        indexingEveryMonths: (parsed.data as any).indexingEveryMonths,
+  // indexing schedule fields removed
         rentType: parsed.data.rentType,
         monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
         yearlyInvoices: parsed.data.yearlyInvoices,
@@ -300,9 +272,7 @@ export async function updateContractAction(
         const scansAfter = parsed.data.scans?.length ?? 0;
         const scansDelta = scansAfter - scansBefore;
         const scanChangeLabel = scanChange && scanChange !== "none" ? ` • scanUrl: ${scanChange}` : "";
-        const sched = (parsed.data as any).indexingScheduleDay && (parsed.data as any).indexingScheduleMonth
-          ? ` • Indexare: ziua ${(parsed.data as any).indexingScheduleDay}, luna ${(parsed.data as any).indexingScheduleMonth}${(parsed.data as any).indexingEveryMonths ? ", la ${(parsed.data as any).indexingEveryMonths} luni" : ""}`
-          : "";
+        const sched = ""; // indexing schedule removed
         const fmtVal = (v: unknown) => {
           if (v === null || typeof v === "undefined") return "—";
           if (typeof v === "string") return v;

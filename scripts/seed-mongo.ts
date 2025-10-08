@@ -56,18 +56,7 @@ async function main() {
     return nd;
   }
 
-  function generateIndexingDates(start: string, end: string): string[] {
-    const s = parseISO(start);
-    const e = parseISO(end);
-    const picks: string[] = [];
-    // Create up to 3 index dates at 3, 6, 9 months from start, clamped before end
-    for (const m of [3, 6, 9]) {
-      const cand = addMonths(s, m);
-      if (cand < e) picks.push(fmt(cand));
-    }
-    // Ensure unique and sorted
-    return Array.from(new Set(picks)).sort();
-  }
+  // indexing date generation removed
 
   // Deterministic but varied amounts and rates
   function deriveAmounts(idx: number): { amountEUR: number; exchangeRateRON: number; tvaPercent: number; correctionPercent: number } {
@@ -90,9 +79,7 @@ async function main() {
       ? { amountEUR: (c as Partial<ContractType>).amountEUR!, exchangeRateRON: (c as Partial<ContractType>).exchangeRateRON!, tvaPercent: (c as Partial<ContractType>).tvaPercent ?? 19, correctionPercent: (c as Partial<ContractType>).correctionPercent ?? 0 }
       : deriveAmounts(i + 1);
 
-    const indexingDates = Array.isArray((c as Partial<ContractType>).indexingDates) && (c as Partial<ContractType>).indexingDates!.length > 0
-      ? (c as Partial<ContractType>).indexingDates as string[]
-      : generateIndexingDates(c.startDate, c.endDate);
+    // indexingDates removed
 
     const scanUrl = (c as Partial<ContractType>).scanUrl ?? ASSET_CHOICES[(i + 3) % ASSET_CHOICES.length];
 
@@ -101,7 +88,7 @@ async function main() {
     const enriched: ContractType = {
       ...c,
       owner,
-      indexingDates,
+  // indexingDates removed
       scanUrl,
       amountEUR,
       exchangeRateRON,

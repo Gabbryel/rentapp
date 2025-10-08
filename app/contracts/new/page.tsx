@@ -5,7 +5,7 @@ import ExchangeRateField from "@/app/components/exchange-rate-field";
 import PartnerSelect from "@/app/components/partner-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
-import MultiDateInput from "@/app/components/multi-date-input";
+// indexing UI removed
 
 export default function NewContractPage() {
   const [state, formAction] = useActionState<FormState, FormData>(
@@ -289,73 +289,7 @@ export default function NewContractPage() {
             </div>
           </div>
         </fieldset>
-        {/* Manual indexing dates */}
-        <fieldset className="rounded-md border border-foreground/10 p-4">
-          <legend className="px-1 text-xs text-foreground/60">
-            Date indexare manuală (opțional)
-          </legend>
-          <MultiDateInput
-            name="indexingDates"
-            initial={(state.values.indexingDates as string[]) ?? []}
-          />
-          <p className="mt-2 text-xs text-foreground/60">
-            Poți adăuga manual date de indexare specifice. Se vor uni cu cele
-            generate periodic.
-          </p>
-        </fieldset>
-        {/* Periodic indexing schedule */}
-        <fieldset className="rounded-md border border-foreground/10 p-4">
-          <legend className="px-1 text-xs text-foreground/60">
-            Program indexare periodică (opțional)
-          </legend>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium">Zi (1-31)</label>
-              <input
-                name="indexingScheduleDay"
-                type="number"
-                min={1}
-                max={31}
-                inputMode="numeric"
-                defaultValue={String(state.values.indexingScheduleDay ?? "")}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">
-                Luna start (1-12)
-              </label>
-              <input
-                name="indexingScheduleMonth"
-                type="number"
-                min={1}
-                max={12}
-                inputMode="numeric"
-                defaultValue={String(state.values.indexingScheduleMonth ?? "")}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">
-                La fiecare (luni)
-              </label>
-              <input
-                name="indexingEveryMonths"
-                type="number"
-                min={1}
-                max={120}
-                inputMode="numeric"
-                placeholder="ex: 12 (anual)"
-                defaultValue={String(state.values.indexingEveryMonths ?? "")}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-foreground/60">
-            Dacă completezi câmpurile de mai sus, datele generate vor fi
-            combinate cu cele introduse manual.
-          </p>
-        </fieldset>
+        {/* Indexing fields removed */}
         <div className="pt-2 flex justify-center">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează

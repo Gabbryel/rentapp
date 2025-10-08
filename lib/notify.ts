@@ -14,32 +14,7 @@ async function recipientsByPref(filter: (s: Awaited<ReturnType<typeof getNotific
   return result;
 }
 
-export async function notifyIndexations(range: 1 | 15 | 60) {
-  const contracts = await fetchContracts();
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const end = new Date(start);
-  end.setDate(end.getDate() + range);
-  function isWithin(iso?: string | null) {
-    if (!iso) return false;
-    const d = new Date(iso);
-    return d >= start && d <= end;
-  }
-  const due = contracts.filter((c) => (c.indexingDates || []).some((d) => isWithin(d || undefined)));
-  if (due.length === 0) return { sent: 0 };
-  let prefFilter: (s: Awaited<ReturnType<typeof getNotificationSettings>>) => boolean;
-  if (range === 60) prefFilter = (s) => s.indexingNext60;
-  else if (range === 15) prefFilter = (s) => s.indexingNext15;
-  else prefFilter = (s) => s.indexingNext1;
-  const to = await recipientsByPref(prefFilter);
-  if (to.length === 0) return { sent: 0 };
-  const subject = `Indexări chirie în următoarele ${range} zile (${due.length})`;
-  const lines = due
-    .map((c) => `- ${c.name} (${c.partner}) -> ${(c.indexingDates || []).filter((d) => isWithin(d || undefined)).join(", ")}`)
-    .join("\n");
-  await deliverAllChannels(subject, `Contracte cu indexare:\n${lines}`, to);
-  return { sent: to.length };
-}
+// notifyIndexations removed (indexing feature deprecated)
 
 export async function notifyContractCreated(c: Contract) {
   const to = await recipientsByPref((s) => s.onNewContracts);

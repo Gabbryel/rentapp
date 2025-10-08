@@ -1,7 +1,7 @@
 "use server";
 
 import { ContractSchema } from "@/lib/schemas/contract";
-import { upsertContract, generateIndexingDatesFromSchedule, fetchContractById } from "@/lib/contracts";
+import { upsertContract, fetchContractById } from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import { notifyContractCreated } from "@/lib/notify";
@@ -38,10 +38,7 @@ export async function createContractAction(
   extensionDate: (formData.get("extensionDate") as string) || "",
   extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
-    indexingDates: (formData.getAll("indexingDates") as string[]).filter(Boolean),
-  indexingScheduleDay: (formData.get("indexingScheduleDay") as string) || "",
-  indexingScheduleMonth: (formData.get("indexingScheduleMonth") as string) || "",
-  indexingEveryMonths: (formData.get("indexingEveryMonths") as string) || "",
+    // indexing fields removed
   scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
   scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
     amountEUR: (formData.get("amountEUR") as string) || "",
@@ -81,7 +78,7 @@ export async function createContractAction(
       signedAt: (rawValues.signedAt as string) ?? "",
       startDate: (rawValues.startDate as string) ?? "",
       endDate: (rawValues.endDate as string) ?? "",
-  indexingDates: (rawValues.indexingDates as string[]) ?? [],
+  // indexingDates removed
       extensionDate: (rawValues.extensionDate as string) || undefined,
   extendedAt: (rawValues.extendedAt as string) || undefined,
       paymentDueDays: (() => {
@@ -170,31 +167,7 @@ export async function createContractAction(
     }
 
     // If schedule fields are present, compute indexingDates union existing manual ones (unique, sorted)
-    const schedDayRaw = String(rawValues.indexingScheduleDay || "").trim();
-    const schedMonthRaw = String(rawValues.indexingScheduleMonth || "").trim();
-    const schedEveryRaw = String(rawValues.indexingEveryMonths || "").trim();
-    const schedDay = Number(schedDayRaw);
-    const schedMonth = Number(schedMonthRaw);
-    const schedEvery = Number(schedEveryRaw);
-    const hasSchedule =
-      Number.isInteger(schedDay) && schedDay >= 1 &&
-      Number.isInteger(schedMonth) && schedMonth >= 1;
-    if (hasSchedule) {
-      const gen = generateIndexingDatesFromSchedule({
-        startDate: data.startDate,
-        endDate: (data as any).extensionDate || data.endDate,
-        day: schedDay,
-        month: schedMonth,
-        everyMonths: Number.isInteger(schedEvery) ? schedEvery : 12,
-      });
-      const manual = Array.isArray(data.indexingDates) ? data.indexingDates : [];
-      const all = Array.from(new Set([...manual, ...gen])).sort();
-      data.indexingDates = all;
-      // Persist schedule fields as part of contract
-      (data as any).indexingScheduleDay = schedDay;
-      (data as any).indexingScheduleMonth = schedMonth;
-      (data as any).indexingEveryMonths = Number.isInteger(schedEvery) && schedEvery >= 1 ? schedEvery : 12;
-    }
+    // indexing schedule removed
 
     // Prefer uploaded file over URL, if provided
     // Multiple uploads
@@ -284,10 +257,7 @@ export async function createContractAction(
         signedAt: parsed.data.signedAt,
         startDate: parsed.data.startDate,
         endDate: parsed.data.endDate,
-        indexingDates: parsed.data.indexingDates,
-        indexingScheduleDay: (parsed.data as any).indexingScheduleDay,
-        indexingScheduleMonth: (parsed.data as any).indexingScheduleMonth,
-        indexingEveryMonths: (parsed.data as any).indexingEveryMonths,
+  // indexing fields removed
         scanUrl: parsed.data.scanUrl,
         amountEUR: parsed.data.amountEUR,
         exchangeRateRON: parsed.data.exchangeRateRON,
@@ -303,9 +273,7 @@ export async function createContractAction(
   // Broadcast to Messages + toasts
   try {
     const scansCount = parsed.data.scans?.length ?? 0;
-    const sched = (parsed.data as any).indexingScheduleDay && (parsed.data as any).indexingScheduleMonth
-      ? ` • Indexare: ziua ${(parsed.data as any).indexingScheduleDay}, luna ${(parsed.data as any).indexingScheduleMonth}${(parsed.data as any).indexingEveryMonths ? ", la ${(parsed.data as any).indexingEveryMonths} luni" : ""}`
-      : "";
+    const sched = ""; // indexing schedule removed
     const fmtVal = (v: unknown) => {
       if (v === null || typeof v === "undefined") return "—";
       if (typeof v === "string") return v;
@@ -313,8 +281,7 @@ export async function createContractAction(
       try { return JSON.stringify(v); } catch { return String(v); }
     };
     const initialFields = [
-      "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","extensionDate","paymentDueDays",
-      "indexingDates","indexingScheduleDay","indexingScheduleMonth","indexingEveryMonths","amountEUR","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices"
+  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","extensionDate","paymentDueDays","amountEUR","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices"
     ] as const;
     const summary = initialFields
       .map((k) => `${k}: ${fmtVal((parsed.data as any)[k])}`)
