@@ -52,7 +52,9 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             nameName="asset"
             required
             defaultId={String(
-              (state.values.assetId as string) ?? (contract as any).assetId ?? ""
+              (state.values.assetId as string) ??
+                (contract as any).assetId ??
+                ""
             )}
             defaultName={String(
               (state.values.asset as string) ?? (contract as any).asset ?? ""
@@ -80,7 +82,9 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             nameName="owner"
             required
             defaultId={String(
-              (state.values.ownerId as string) ?? (contract as any).ownerId ?? ""
+              (state.values.ownerId as string) ??
+                (contract as any).ownerId ??
+                ""
             )}
             defaultName={String(
               (state.values.owner as string) ?? (contract as any).owner ?? ""

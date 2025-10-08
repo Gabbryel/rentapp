@@ -9,9 +9,6 @@ export async function getNotificationSettings(userEmail: string): Promise<Notifi
       onChanges: false,
       onNewContracts: false,
       onNewInvoices: false,
-      indexingNext60: false,
-      indexingNext15: false,
-      indexingNext1: false,
       updatedAt: new Date(),
     });
   }

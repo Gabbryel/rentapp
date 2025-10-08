@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
-import { effectiveEndDate, fetchContractById, upsertContract } from "@/lib/contracts";
+import {
+  effectiveEndDate,
+  fetchContractById,
+  upsertContract,
+} from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import {
   listInvoicesForContract,
@@ -98,8 +102,12 @@ async function applyDoneIndexing(formData: FormData) {
     tvaPercent: existing.tvaPercent,
     note: `indexare ${indexingDate}`,
   } as any);
-  // indexingDates removed (scheduled future dates deprecated)
-  await upsertContract({ ...existing, amountEUR: newAmountEUR, rentHistory } as any);
+  // Future indexing scheduling removed
+  await upsertContract({
+    ...existing,
+    amountEUR: newAmountEUR,
+    rentHistory,
+  } as any);
   await logAction({
     action: "contract.indexing.done",
     targetType: "contract",
@@ -235,7 +243,7 @@ export default async function ContractPage({
     advanceFraction = include ? fraction : undefined;
   }
 
-  // indexingDates removed: no future scheduling
+  // No future scheduling (deprecated)
 
   const alreadyIssuedForThisMonth = Boolean(
     dueAt && invoices.some((inv) => inv.issuedAt === dueAt)

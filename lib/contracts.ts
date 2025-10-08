@@ -9,7 +9,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p1",
     partner: "Acme Corp",
   owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
@@ -27,7 +26,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p2",
     partner: "Globex LLC",
   owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
@@ -45,7 +43,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p3",
     partner: "Initech",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
@@ -63,7 +60,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p4",
     partner: "Umbrella Co",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
@@ -81,7 +77,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p5",
     partner: "Stark Industries",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
@@ -99,7 +94,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p6",
     partner: "Wayne Enterprises",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
@@ -117,7 +111,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p7",
     partner: "Hooli",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
@@ -135,7 +128,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p8",
     partner: "Soylent Corp",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2025-04-05",
     startDate: "2025-04-15",
     endDate: "2025-10-15",
@@ -152,7 +144,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p9",
     partner: "Duff Beer",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2024-09-01",
     startDate: "2024-09-15",
     endDate: "2025-09-14",
@@ -169,7 +160,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p10",
     partner: "Cyberdyne Systems",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2024-10-10",
     startDate: "2024-12-01",
     endDate: "2025-03-01",
@@ -203,7 +193,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p12",
     partner: "Tyrell Corporation",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2025-01-05",
     startDate: "2025-01-15",
     endDate: "2026-01-14",
@@ -220,7 +209,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p13",
     partner: "Oscorp",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2024-07-20",
     startDate: "2024-08-01",
     endDate: "2025-07-31",
@@ -237,7 +225,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p14",
     partner: "Aperture Science",
     owner: "MKS Properties s.r.l.",
-  // indexingDates removed
     signedAt: "2025-09-10",
     startDate: "2025-10-01",
     endDate: "2025-12-31",
@@ -254,7 +241,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     partnerId: "p15",
     partner: "Black Mesa",
     owner: "Markov Services s.r.l.",
-  // indexingDates removed
     signedAt: "2025-05-25",
     startDate: "2025-06-01",
     endDate: "2026-05-31",
@@ -374,7 +360,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     }
     return undefined;
   };
-  // indexingDates removed: ignore any persisted values
+  // ignore legacy indexing fields in persistence
   const amountEUR = numOrUndef(r.amountEUR);
   const exchangeRateRON = numOrUndef(r.exchangeRateRON);
   const tvaPercent =
@@ -455,7 +441,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         );
       return mapped.length > 0 ? mapped : undefined;
     })(),
-  // indexingDates removed
+  // legacy single scan handling
     scanUrl: ((): string | undefined => {
       const v = r.scanUrl;
       if (v == null) return undefined;
@@ -487,7 +473,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
     correctionPercent,
-  // inflation tracking fields removed
+  // inflation tracking removed
     rentHistory: ((): any[] => {
       const arr = Array.isArray((r as any).rentHistory) ? (r as any).rentHistory : [];
       return arr
@@ -513,7 +499,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         })
         .filter(Boolean);
     })(),
-    // indexing schedule fields removed
+  // schedule fields removed
   } as Partial<ContractType>;
 }
 

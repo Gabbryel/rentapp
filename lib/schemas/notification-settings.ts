@@ -5,9 +5,6 @@ export const NotificationSettingsSchema = z.object({
   onChanges: z.boolean().default(false),
   onNewContracts: z.boolean().default(false),
   onNewInvoices: z.boolean().default(false),
-  indexingNext60: z.boolean().default(false),
-  indexingNext15: z.boolean().default(false),
-  indexingNext1: z.boolean().default(false),
   updatedAt: z.date().default(() => new Date()),
 });
 

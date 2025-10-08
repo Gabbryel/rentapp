@@ -40,7 +40,7 @@ export async function updateContractAction(
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
-    // indexing fields removed
+  // legacy indexing fields removed
     // Multi-scan edit fields
     existingUrl: (formData.getAll("existingUrl") as string[]) || [],
     existingTitle: (formData.getAll("existingTitle") as string[]) || [],
@@ -179,7 +179,7 @@ export async function updateContractAction(
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
       })(),
-  // indexingDates removed
+  // legacy indexing dates removed
   scans: nextScans,
   // Back-compat single field derived from first scan
   scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
@@ -219,8 +219,7 @@ export async function updateContractAction(
       base.name = `${base.asset} ${base.partner}`.trim();
     }
 
-    // Schedule computation
-    // indexing schedule removed
+  // (indexing schedule feature removed)
 
     const parsed = ContractSchema.safeParse(base);
 
@@ -260,7 +259,7 @@ export async function updateContractAction(
   scansCount: parsed.data.scans?.length ?? 0,
     owner: parsed.data.owner,
     ownerId: (parsed.data as any).ownerId,
-  // indexing schedule fields removed
+  // schedule fields removed
         rentType: parsed.data.rentType,
         monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
         yearlyInvoices: parsed.data.yearlyInvoices,
@@ -272,7 +271,7 @@ export async function updateContractAction(
         const scansAfter = parsed.data.scans?.length ?? 0;
         const scansDelta = scansAfter - scansBefore;
         const scanChangeLabel = scanChange && scanChange !== "none" ? ` • scanUrl: ${scanChange}` : "";
-        const sched = ""; // indexing schedule removed
+  const sched = ""; // schedule removed
         const fmtVal = (v: unknown) => {
           if (v === null || typeof v === "undefined") return "—";
           if (typeof v === "string") return v;

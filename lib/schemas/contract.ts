@@ -104,7 +104,7 @@ export const ContractSchema = z
       })
     )
     .default([]),
-  // (inflation tracking fields removed)
+  // inflation tracking removed
   })
   .superRefine((val, ctx) => {
     const s = new Date(val.signedAt);

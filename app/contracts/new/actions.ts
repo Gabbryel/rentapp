@@ -38,7 +38,7 @@ export async function createContractAction(
   extensionDate: (formData.get("extensionDate") as string) || "",
   extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
-    // indexing fields removed
+  // legacy indexing fields removed
   scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
   scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
     amountEUR: (formData.get("amountEUR") as string) || "",
@@ -78,7 +78,7 @@ export async function createContractAction(
       signedAt: (rawValues.signedAt as string) ?? "",
       startDate: (rawValues.startDate as string) ?? "",
       endDate: (rawValues.endDate as string) ?? "",
-  // indexingDates removed
+  // removed legacy indexing dates
       extensionDate: (rawValues.extensionDate as string) || undefined,
   extendedAt: (rawValues.extendedAt as string) || undefined,
       paymentDueDays: (() => {
@@ -257,7 +257,7 @@ export async function createContractAction(
         signedAt: parsed.data.signedAt,
         startDate: parsed.data.startDate,
         endDate: parsed.data.endDate,
-  // indexing fields removed
+  // legacy indexing fields removed
         scanUrl: parsed.data.scanUrl,
         amountEUR: parsed.data.amountEUR,
         exchangeRateRON: parsed.data.exchangeRateRON,

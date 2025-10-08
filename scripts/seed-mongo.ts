@@ -56,7 +56,7 @@ async function main() {
     return nd;
   }
 
-  // indexing date generation removed
+  // legacy indexing generation removed
 
   // Deterministic but varied amounts and rates
   function deriveAmounts(idx: number): { amountEUR: number; exchangeRateRON: number; tvaPercent: number; correctionPercent: number } {
@@ -79,7 +79,7 @@ async function main() {
       ? { amountEUR: (c as Partial<ContractType>).amountEUR!, exchangeRateRON: (c as Partial<ContractType>).exchangeRateRON!, tvaPercent: (c as Partial<ContractType>).tvaPercent ?? 19, correctionPercent: (c as Partial<ContractType>).correctionPercent ?? 0 }
       : deriveAmounts(i + 1);
 
-    // indexingDates removed
+  // legacy indexing removed
 
     const scanUrl = (c as Partial<ContractType>).scanUrl ?? ASSET_CHOICES[(i + 3) % ASSET_CHOICES.length];
 
@@ -88,7 +88,7 @@ async function main() {
     const enriched: ContractType = {
       ...c,
       owner,
-  // indexingDates removed
+  // legacy indexing removed
       scanUrl,
       amountEUR,
       exchangeRateRON,

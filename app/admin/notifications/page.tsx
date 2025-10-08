@@ -86,35 +86,7 @@ export default async function NotificationsSettingsPage() {
             </label>
           </fieldset>
 
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-foreground/60 mb-2">
-              Indexări ce urmează
-            </legend>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                name="indexingNext60"
-                defaultChecked={settings.indexingNext60}
-              />
-              <span>În următoarele 60 de zile</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                name="indexingNext15"
-                defaultChecked={settings.indexingNext15}
-              />
-              <span>În următoarele 15 zile</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                name="indexingNext1"
-                defaultChecked={settings.indexingNext1}
-              />
-              <span>A doua zi</span>
-            </label>
-          </fieldset>
+          {/* Indexing notification options removed */}
 
           <button
             className="rounded-md border border-foreground/20 px-4 py-2 text-sm font-semibold hover:bg-foreground/5"

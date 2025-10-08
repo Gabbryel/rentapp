@@ -47,7 +47,7 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
   "extendedAt",
     "paymentDueDays",
     "scanUrl",
-    // indexing & schedule fields removed
+  // indexing & schedule removed
     "amountEUR",
     "exchangeRateRON",
     "tvaPercent",
@@ -57,7 +57,7 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
   "invoiceMonthMode",
     "monthlyInvoiceDay",
     "yearlyInvoices",
-  // inflation tracking fields removed
+  // inflation tracking removed
   ];
   const changes: Array<{ field: string; from: unknown; to: unknown }> = [];
   for (const f of fields) {
