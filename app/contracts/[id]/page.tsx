@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import ContractScans from "@/app/components/contract-scans";
+import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
 import {
   effectiveEndDate,
@@ -686,6 +687,16 @@ export default async function ContractPage({
             }
             contractName={contract.name}
           />
+          {process.env.MONGODB_URI && (
+            <ManageContractScans
+              id={contract.id}
+              scans={
+                (contract as { scans?: { url: string; title?: string }[] })
+                  .scans || (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
+              }
+              mongoConfigured={Boolean(process.env.MONGODB_URI)}
+            />
+          )}
         </div>
       </section>
 
