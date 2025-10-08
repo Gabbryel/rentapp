@@ -299,13 +299,13 @@ export default async function ContractPage({
       to = historyRaw[i + 1].amountEUR; // next snapshot previous amount
     else
       to = typeof contract.amountEUR === "number" ? contract.amountEUR : from;
-    if (to !== from)
-      indexations.push({
-        date: effectiveDate,
-        appliedAt: snap.changedAt,
-        from,
-        to,
-      });
+    // Always record the indexing, even if to === from (0% change) so the action is visible.
+    indexations.push({
+      date: effectiveDate,
+      appliedAt: snap.changedAt,
+      from,
+      to,
+    });
   }
   indexations.sort((a, b) => b.date.localeCompare(a.date));
   const hasFuture = futureIndexingDates.length > 0;
@@ -558,33 +558,38 @@ export default async function ContractPage({
                           </div>
                         )}
                         {indexations.map((ix) => {
-                          const diffPct = ix.from !== 0 ? ((ix.to - ix.from) / ix.from) * 100 : 0;
+                          const diffPct =
+                            ix.from !== 0
+                              ? ((ix.to - ix.from) / ix.from) * 100
+                              : 0;
                           return (
                             <div
                               key={ix.date + ix.appliedAt + ix.from + ix.to}
                               className="inline-flex flex-wrap items-center gap-2 rounded bg-foreground/5 px-2 py-1"
-                              title={`Indexare aplicată (înregistrat ${fmt(ix.appliedAt)})`}
+                              title={`Indexare aplicată (înregistrat ${fmt(
+                                ix.appliedAt
+                              )})`}
                             >
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓</span>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                ✓
+                              </span>
                               <span>{fmt(ix.date)}</span>
                               <span className="text-foreground/50">•</span>
                               <span className="text-indigo-700 dark:text-indigo-400 font-medium">
                                 {ix.from.toFixed(2)} → {ix.to.toFixed(2)} EUR
                               </span>
-                              {ix.from !== ix.to && (
-                                <span
-                                  className={
-                                    diffPct > 0
-                                      ? "text-emerald-600 dark:text-emerald-400"
-                                      : diffPct < 0
-                                      ? "text-red-600 dark:text-red-400"
-                                      : "text-foreground/50"
-                                  }
-                                >
-                                  ({diffPct > 0 ? "+" : ""}
-                                  {diffPct.toFixed(2)}%)
-                                </span>
-                              )}
+                              <span
+                                className={
+                                  diffPct > 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : diffPct < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-foreground/40"
+                                }
+                              >
+                                ({diffPct > 0 ? "+" : diffPct < 0 ? "" : "±"}
+                                {diffPct.toFixed(2)}%)
+                              </span>
                             </div>
                           );
                         })}
