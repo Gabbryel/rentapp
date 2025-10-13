@@ -3,15 +3,22 @@ import { consumeToken } from "@/lib/auth-tokens";
 import { getDb } from "@/lib/mongodb";
 import { redirect } from "next/navigation";
 
-export default async function VerifyPage({ searchParams }: { searchParams?: { token?: string } }) {
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ token?: string }>;
+}) {
   const me = await currentUser();
   if (me?.isVerified) redirect("/");
   let status: "ok" | "invalid" | "missing" = "missing";
-  if (searchParams?.token) {
-    const tok = await consumeToken(searchParams.token, "verify");
+  const sp = (await searchParams) ?? {};
+  if (sp?.token) {
+    const tok = await consumeToken(sp.token, "verify");
     if (tok?.email) {
       const db = await getDb();
-      await db.collection("users").updateOne({ email: tok.email }, { $set: { isVerified: true } });
+      await db
+        .collection("users")
+        .updateOne({ email: tok.email }, { $set: { isVerified: true } });
       status = "ok";
     } else {
       status = "invalid";
@@ -26,7 +33,11 @@ export default async function VerifyPage({ searchParams }: { searchParams?: { to
         {status === "ok" && (
           <div>
             <p>Contul a fost verificat.</p>
-            <p className="mt-2"><a className="underline" href="/login">Mergi la autentificare</a></p>
+            <p className="mt-2">
+              <a className="underline" href="/login">
+                Mergi la autentificare
+              </a>
+            </p>
           </div>
         )}
       </div>

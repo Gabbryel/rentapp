@@ -11,13 +11,14 @@ import EmailField from "@/components/email-field";
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams?: { invite?: string; email?: string; sent?: string };
+  searchParams?: Promise<{ invite?: string; email?: string; sent?: string }>;
 }) {
   // If already authenticated, don't show the register page
   const user = await currentUser();
   if (user) redirect("/");
-  const invitedEmail = searchParams?.email || "";
-  const inviteToken = searchParams?.invite || "";
+  const sp = (await searchParams) ?? {};
+  const invitedEmail = sp.email || "";
+  const inviteToken = sp.invite || "";
 
   async function action(formData: FormData) {
     "use server";
@@ -68,7 +69,7 @@ export default async function RegisterPage({
     <AuthLayout
       title="Înregistrare"
       subtitle={
-        searchParams?.sent
+        sp?.sent
           ? "Am trimis un email cu un link de verificare. Verificați și folderul Spam."
           : "După înregistrare veți primi un email pentru verificarea contului."
       }
