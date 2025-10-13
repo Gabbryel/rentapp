@@ -14,9 +14,10 @@ function hashPassword(password: string, salt: string) {
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams?: { token?: string };
+  searchParams?: Promise<{ token?: string }>;
 }) {
-  const token = searchParams?.token || "";
+  const sp = (await searchParams) ?? {};
+  const token = sp?.token || "";
   const valid = Boolean(token);
 
   async function action(formData: FormData) {

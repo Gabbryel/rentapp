@@ -14,6 +14,7 @@ export default async function AdminInvoicesPage({
 }) {
   const owners = await fetchOwners();
   const sp = await searchParams;
+  const saved = Array.isArray(sp.saved) ? sp.saved[0] : sp.saved;
   const selectedId =
     (typeof sp.ownerId === "string"
       ? sp.ownerId
@@ -48,7 +49,7 @@ export default async function AdminInvoicesPage({
 
   return (
     <div>
-      {((await searchParams).saved as string) === "1" ? (
+      {saved === "1" ? (
         <Flash
           message={`Setările de facturare au fost salvate pentru proprietar: ${
             selectedOwner?.name || "—"
