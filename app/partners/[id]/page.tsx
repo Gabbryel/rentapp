@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { fetchPartnerById } from "@/lib/partners";
 import { listPartnerDocs } from "@/lib/partner-docs";
 import DocsList from "@/app/components/docs-list";
+import ContractScans from "@/app/components/contract-scans";
+import AssetScans from "@/app/components/asset-scans";
+import { getAssetById } from "@/lib/assets";
 import { fetchContracts } from "@/lib/contracts";
 
 export default async function PartnerPage({
@@ -18,15 +21,76 @@ export default async function PartnerPage({
   let relatedContracts: Awaited<ReturnType<typeof fetchContracts>> = [];
   try {
     const all = await fetchContracts();
-    relatedContracts = all.filter(
-      (c) =>
+    relatedContracts = all.filter((c) => {
+      const ps = (c as any).partners as
+        | Array<{ id?: string; name: string }>
+        | undefined;
+      if (ps && ps.length > 0) {
+        if (ps.some((p) => p.id && p.id === partner.id)) return true;
+        if (!ps.some((p) => p.id)) {
+          return ps.some((p) => p.name === partner.name);
+        }
+      }
+      return (
         (c.partnerId && c.partnerId === partner.id) ||
         (!c.partnerId && c.partner === partner.name)
-    );
+      );
+    });
   } catch {}
 
   // Load partner documents
   const docs = await listPartnerDocs(partner.id);
+
+  // Build related scans from contracts and assets
+  const contractDocs = relatedContracts
+    .map((c) => {
+      const raw = [
+        ...(Array.isArray((c as any).scans)
+          ? ((c as any).scans as { url: string; title?: string }[])
+          : []),
+        ...(c.scanUrl ? [{ url: String(c.scanUrl) }] : []),
+      ];
+      // Deduplicate by URL; prefer entries with titles
+      const byUrl = new Map<string, { url: string; title?: string }>();
+      for (const s of raw) {
+        const u = String(s.url);
+        const existing = byUrl.get(u);
+        if (!existing) {
+          byUrl.set(u, { url: u, title: s.title });
+        } else if (!existing.title && s.title) {
+          byUrl.set(u, { url: u, title: s.title });
+        }
+      }
+      const scans = Array.from(byUrl.values());
+      return { contract: c, scans } as const;
+    })
+    .filter((x) => x.scans.length > 0);
+
+  const assetIds = Array.from(
+    new Set(
+      relatedContracts
+        .map((c) => (c.assetId ? String(c.assetId) : null))
+        .filter((v): v is string => Boolean(v))
+    )
+  );
+  const assets = (
+    await Promise.all(assetIds.map((aid) => getAssetById(aid)))
+  ).filter(Boolean) as Awaited<ReturnType<typeof getAssetById>>[];
+  const assetDocs = assets
+    .map((a) => {
+      const raw = Array.isArray(a?.scans) ? a!.scans : [];
+      const byUrl = new Map<string, { url: string; title?: string }>();
+      for (const s of raw) {
+        const u = String(s.url);
+        const existing = byUrl.get(u);
+        if (!existing) byUrl.set(u, { url: u, title: s.title });
+        else if (!existing.title && s.title)
+          byUrl.set(u, { url: u, title: s.title });
+      }
+      const scans = Array.from(byUrl.values());
+      return { asset: a!, scans };
+    })
+    .filter((x) => x.scans.length > 0);
 
   // Formatting helpers
   const fmtEUR = (n: number) =>
@@ -51,8 +115,8 @@ export default async function PartnerPage({
           0
         );
         monthlyEur = sumYear > 0 ? sumYear / 12 : 0;
-      } else if (typeof c.amountEUR === "number") {
-        monthlyEur = c.amountEUR;
+      } else if (typeof (c as any).rentAmountEuro === "number") {
+        monthlyEur = (c as any).rentAmountEuro;
       }
       acc.eur += monthlyEur;
       if (monthlyEur > 0 && typeof c.exchangeRateRON === "number") {
@@ -76,8 +140,8 @@ export default async function PartnerPage({
           (s, r) => s + (r.amountEUR || 0),
           0
         );
-      } else if (typeof c.amountEUR === "number") {
-        yearlyEur = c.amountEUR * 12;
+      } else if (typeof (c as any).rentAmountEuro === "number") {
+        yearlyEur = (c as any).rentAmountEuro * 12;
       }
       acc.eur += yearlyEur;
       if (yearlyEur > 0 && typeof c.exchangeRateRON === "number") {
@@ -130,6 +194,33 @@ export default async function PartnerPage({
             <div>
               <dt className="text-foreground/60">Nr. ORC</dt>
               <dd className="font-medium">{partner.orcNumber}</dd>
+            </div>
+            <div>
+              <dt className="text-foreground/60">Telefon</dt>
+              <dd className="font-medium">
+                {partner.phone ? (
+                  <a href={`tel:${partner.phone}`} className="hover:underline">
+                    {partner.phone}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-foreground/60">Email</dt>
+              <dd className="font-medium">
+                {partner.email ? (
+                  <a
+                    href={`mailto:${partner.email}`}
+                    className="hover:underline"
+                  >
+                    {partner.email}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-foreground/60">Sediu</dt>
@@ -236,6 +327,64 @@ export default async function PartnerPage({
             <p className="mt-2 text-sm text-foreground/60">
               Nu există contracte asociate.
             </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <div className="rounded-lg border border-foreground/15 p-4">
+          <h2 className="text-base font-semibold">Documente asociate</h2>
+          {contractDocs.length === 0 && assetDocs.length === 0 ? (
+            <p className="mt-2 text-sm text-foreground/60">
+              Nu există documente asociate din contracte sau asset-uri.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-6">
+              {contractDocs.length > 0 && (
+                <div>
+                  <div className="text-sm text-foreground/60 mb-2">
+                    Din contracte
+                  </div>
+                  <div className="space-y-4">
+                    {contractDocs.map(({ contract: c, scans }) => (
+                      <div
+                        key={`c-${c.id}`}
+                        className="rounded-md bg-foreground/5 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="font-medium">{c.name}</div>
+                          <Link
+                            href={`/contracts/${c.id}`}
+                            className="text-xs text-foreground/80 hover:underline"
+                          >
+                            Deschide contract
+                          </Link>
+                        </div>
+                        <ContractScans scans={scans} contractName={c.name} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {assetDocs.length > 0 && (
+                <div>
+                  <div className="text-sm text-foreground/60 mb-2">
+                    Din asset-uri
+                  </div>
+                  <div className="space-y-4">
+                    {assetDocs.map(({ asset: a, scans }) => (
+                      <div
+                        key={`a-${a.id}`}
+                        className="rounded-md bg-foreground/5 p-3"
+                      >
+                        <div className="font-medium mb-2">{a.name}</div>
+                        <AssetScans scans={scans} assetName={a.name} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </section>

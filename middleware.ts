@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 // Public paths that remain accessible without auth
 const PUBLIC_PREFIXES = ["/_next", "/favicon.ico", "/manifest.webmanifest", "/public/"];
-const PUBLIC_EXACT = new Set(["/login", "/register", "/unauthorized", "/api/me", "/api/logout"]);
+const PUBLIC_EXACT = new Set(["/login", "/register", "/verify", "/forgot-password", "/reset-password", "/unauthorized", "/api/me", "/api/logout"]);
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_EXACT.has(pathname)) return true;

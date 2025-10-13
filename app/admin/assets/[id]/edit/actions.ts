@@ -62,6 +62,15 @@ export async function updateAssetAction(
 
   // New uploads
   const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
+  // Enforce total payload limit of 2MB across all uploaded files
+  const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+  if (totalSize > 2 * 1024 * 1024) {
+    return {
+      ok: false,
+      message: "Dimensiunea totală a fișierelor depășește 2MB",
+      values: { id, name, address },
+    };
+  }
   for (const f of files) {
     const okType = [
       "application/pdf",
@@ -75,6 +84,13 @@ export async function updateAssetAction(
       return {
         ok: false,
         message: "Fișierele trebuie să fie PDF sau imagini",
+        values: { id, name, address },
+      };
+    }
+    if (f.size > 2 * 1024 * 1024) {
+      return {
+        ok: false,
+        message: `Fișierul \"${f.name}\" depășește limita de 2MB`,
         values: { id, name, address },
       };
     }

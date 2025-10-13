@@ -6,5 +6,13 @@
     "padWidth": 5,
     "includeYear": true,
     "updatedAt": "2025-10-07T08:42:04.514Z"
+  },
+  "markov-services-srl": {
+    "id": "markov-services-srl",
+    "series": "MS",
+    "nextNumber": 2,
+    "padWidth": 5,
+    "includeYear": true,
+    "updatedAt": "2025-10-12T14:27:48.352Z"
   }
 }

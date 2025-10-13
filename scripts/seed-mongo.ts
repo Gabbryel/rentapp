@@ -59,10 +59,10 @@ async function main() {
   // legacy indexing generation removed
 
   // Deterministic but varied amounts and rates
-  function deriveAmounts(idx: number): { amountEUR: number; exchangeRateRON: number; tvaPercent: number; correctionPercent: number } {
+  function deriveAmounts(idx: number): { rentAmountEuro: number; exchangeRateRON: number; tvaPercent: number; correctionPercent: number } {
     const base = 400 + (idx % 12) * 75; // 400..1275
     const cents = ((idx * 17) % 100) / 100; // .00 .. .99
-    const amountEUR = +(base + cents).toFixed(2);
+    const rentAmountEuro = +(base + cents).toFixed(2);
     // Slightly vary around 5.00 RON/EUR
     const rate = 4.95 + ((idx * 7) % 20) / 100; // 4.95 .. 5.14
     const exchangeRateRON = +rate.toFixed(4);
@@ -71,12 +71,12 @@ async function main() {
     const tvaPercent = tvaPool[idx % tvaPool.length];
     const corrPool = [0, 0, 0, 5, 10];
     const correctionPercent = corrPool[idx % corrPool.length];
-    return { amountEUR, exchangeRateRON, tvaPercent, correctionPercent };
+    return { rentAmountEuro, exchangeRateRON, tvaPercent, correctionPercent };
   }
 
   const data: ContractType[] = getMockContracts().map((c, i) => {
-    const { amountEUR, exchangeRateRON, tvaPercent, correctionPercent } = (c as Partial<ContractType>).amountEUR && (c as Partial<ContractType>).exchangeRateRON
-      ? { amountEUR: (c as Partial<ContractType>).amountEUR!, exchangeRateRON: (c as Partial<ContractType>).exchangeRateRON!, tvaPercent: (c as Partial<ContractType>).tvaPercent ?? 19, correctionPercent: (c as Partial<ContractType>).correctionPercent ?? 0 }
+    const { rentAmountEuro, exchangeRateRON, tvaPercent, correctionPercent } = (c as any).rentAmountEuro && (c as any).exchangeRateRON
+      ? { rentAmountEuro: (c as any).rentAmountEuro as number, exchangeRateRON: (c as any).exchangeRateRON as number, tvaPercent: (c as any).tvaPercent ?? 19, correctionPercent: (c as any).correctionPercent ?? 0 }
       : deriveAmounts(i + 1);
 
   // legacy indexing removed
@@ -90,7 +90,7 @@ async function main() {
       owner,
   // legacy indexing removed
       scanUrl,
-      amountEUR,
+      rentAmountEuro,
       exchangeRateRON,
       tvaPercent,
       correctionPercent,

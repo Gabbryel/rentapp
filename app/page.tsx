@@ -1,6 +1,7 @@
 import { fetchContracts, effectiveEndDate } from "@/lib/contracts";
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
+import Link from "next/link";
 import StatsCards from "@/app/components/stats-cards";
 import ActionButton from "@/app/components/action-button";
 import { revalidatePath } from "next/cache";
@@ -100,8 +101,8 @@ export default async function HomePage() {
           continue; // suppressed by rules (no overlap, ends day 1/2, etc.)
         }
         if (fraction > 0 && fraction < 1) {
-          if (typeof c.amountEUR === "number") {
-            amountEUROverride = c.amountEUR * fraction;
+          if (typeof (c as any).rentAmountEuro === "number") {
+            amountEUROverride = (c as any).rentAmountEuro * fraction;
           }
         }
       }
@@ -137,7 +138,8 @@ export default async function HomePage() {
       const contract = contracts.find((c) => c.id === contractId);
       if (!contract) return;
       if (
-        typeof (amountOverride ?? contract.amountEUR) !== "number" ||
+        typeof (amountOverride ?? (contract as any).rentAmountEuro) !==
+          "number" ||
         typeof contract.exchangeRateRON !== "number"
       )
         return;
@@ -214,8 +216,8 @@ export default async function HomePage() {
                   const amtEUR =
                     typeof d.amountEUR === "number"
                       ? d.amountEUR
-                      : typeof d.contract.amountEUR === "number"
-                      ? d.contract.amountEUR
+                      : typeof (d.contract as any).rentAmountEuro === "number"
+                      ? (d.contract as any).rentAmountEuro
                       : undefined;
                   const rate =
                     typeof d.contract.exchangeRateRON === "number"
@@ -254,11 +256,21 @@ export default async function HomePage() {
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-sm font-semibold tracking-tight leading-tight">
-                              {d.contract.name}
-                            </h3>
+                            <Link
+                              href={`/contracts/${d.contract.id}`}
+                              className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
+                            >
+                              <h3 className="text-sm font-semibold tracking-tight leading-tight">
+                                {d.contract.name}
+                              </h3>
+                            </Link>
                             <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
-                              {d.contract.partner}
+                              <Link
+                                href={`/partners/${d.contract.partnerId}`}
+                                className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
+                              >
+                                {d.contract.partner}
+                              </Link>
                             </span>
                             {(d.contract as any).invoiceMonthMode === "next" &&
                             d.contract.rentType === "monthly" ? (

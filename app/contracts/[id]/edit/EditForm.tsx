@@ -3,7 +3,8 @@ import { useActionState } from "react";
 // indexing UI removed
 import Link from "next/link";
 import { updateContractAction, type EditFormState } from "./actions";
-import PartnerSelect from "@/app/components/partner-select";
+import PartnerSelect from "@/app/components/partner-select"; // legacy single select (unused now)
+import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
 
@@ -12,9 +13,14 @@ import type { Contract } from "@/lib/schemas/contract";
 type Props = {
   contract: Contract;
   mongoConfigured: boolean;
+  indexingDefaults?: { indexingDay?: number; indexingMonth?: number };
 };
 
-export default function EditForm({ contract, mongoConfigured }: Props) {
+export default function EditForm({
+  contract,
+  mongoConfigured,
+  indexingDefaults,
+}: Props) {
   const [state, formAction] = useActionState<EditFormState, FormData>(
     updateContractAction,
     { ok: false, values: {} }
@@ -28,7 +34,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
   // indexing dates removed
 
   return (
-    <form action={formAction} className="space-y-5 mt-6">
+    <form action={formAction} className="space-y-8 mt-6">
       {state.message && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700">
           {state.message}
@@ -44,8 +50,8 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
         />
       </div>
       {/* Parties */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
           <label className="block text-sm font-medium">Asset</label>
           <AssetSelect
             idName="assetId"
@@ -61,21 +67,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             )}
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Partener</label>
-          <PartnerSelect
-            idName="partnerId"
-            nameName="partner"
-            required
-            defaultId={String(
-              (state.values.partnerId as string) ?? contract.partnerId ?? ""
-            )}
-            defaultName={String(
-              (state.values.partner as string) ?? contract.partner
-            )}
-          />
-        </div>
-        <div>
+        <div className="space-y-2">
           <label className="block text-sm font-medium">Proprietar</label>
           <OwnerSelect
             idName="ownerId"
@@ -91,7 +83,25 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             )}
           />
         </div>
-      </div>
+      </section>
+      <section className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium mb-1">Parteneri</label>
+          <p className="text-[11px] text-foreground/60 mb-2">
+            Gestionează lista partenerilor. Primul este considerat partener
+            principal.
+          </p>
+          <PartnerMultiSelect
+            defaultPartners={(() => {
+              const arr = (contract as any).partners as
+                | { id?: string; name: string }[]
+                | undefined;
+              if (Array.isArray(arr) && arr.length > 0) return arr;
+              return [{ id: contract.partnerId, name: contract.partner }];
+            })()}
+          />
+        </div>
+      </section>
       <div>
         <label className="block text-sm font-medium">Nume (generat)</label>
         <input
@@ -101,7 +111,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm font-medium">Semnat</label>
           <input
@@ -133,7 +143,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm font-medium">
             Prelungire (opțional)
@@ -183,11 +193,11 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
         </div>
       </div>
       {/* Rent structure */}
-      <fieldset className="rounded-md border border-foreground/10 p-4 space-y-4">
+      <fieldset className="rounded-md border border-foreground/10 p-5 space-y-6">
         <legend className="px-1 text-xs text-foreground/60">
           Structură chirie
         </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
           <div>
             <label className="block text-sm font-medium">Tip chirie</label>
             <select
@@ -219,6 +229,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
                   className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                 />
               </div>
+              {/* Secțiunea de indexare a fost mutată mai jos */}
               <div>
                 <label className="block text-sm font-medium">
                   Luna facturată
@@ -274,7 +285,7 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
           <div>
             <label className="block text-sm font-medium">Suma EUR</label>
             <input
@@ -340,6 +351,49 @@ export default function EditForm({ contract, mongoConfigured }: Props) {
               placeholder="ex: 10.5"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
+          </div>
+        </div>
+      </fieldset>
+      {/* Indexare - setări pe Contract */}
+      <fieldset className="rounded-md border border-foreground/10 p-5 space-y-4">
+        <legend className="px-1 text-xs text-foreground/60">Indexare</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-medium">Zi (1-31)</label>
+            <input
+              name="indexingDay"
+              type="number"
+              min={1}
+              max={31}
+              inputMode="numeric"
+              defaultValue={String(
+                (state.values as any).indexingDay ??
+                  (contract as any).indexingDay ??
+                  ""
+              )}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              Frecvență (luni)
+            </label>
+            <input
+              name="howOftenIsIndexing"
+              type="number"
+              min={1}
+              max={12}
+              inputMode="numeric"
+              defaultValue={String(
+                (state.values as any).howOftenIsIndexing ??
+                  (contract as any).howOftenIsIndexing ??
+                  ""
+              )}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-end text-[11px] text-foreground/60">
+            Datele viitoare vor fi calculate automat la salvare.
           </div>
         </div>
       </fieldset>

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDailyEurRon } from "@/lib/exchange";
 import { getDailyBtEurSell } from "@/lib/exchange-bt";
-import { updateContractsExchangeRate } from "@/lib/contracts";
+// Do not import updateContractsExchangeRate anymore; contracts must read exchange rate from exchange_rates.
 
 export const dynamic = "force-dynamic";
 
@@ -32,20 +32,11 @@ export async function GET(req: NextRequest) {
       getDailyBtEurSell({ forceRefresh: true }),
     ]);
 
-    // Update contracts to use the official BNR rate by default
-    let updated = 0;
-    try {
-      updated = await updateContractsExchangeRate(bnr.rate, true);
-    } catch (e) {
-      // If DB not configured, ignore
-    }
-
     return Response.json({
       ok: true,
       bnr,
       bt,
-      contractsUpdated: updated,
-      note: "Contracts exchangeRateRON updated to BNR rate.",
+      note: "Rates refreshed (BNR + BT) and persisted in exchange_rates.",
     });
   } catch (e: any) {
     return Response.json(

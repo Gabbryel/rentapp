@@ -21,3 +21,21 @@ export async function deletePartnerDoc(id: string): Promise<boolean> {
   const res = await db.collection<PartnerDoc>("partner_docs").deleteOne({ id });
   return Boolean(res.acknowledged && (res.deletedCount || 0) > 0);
 }
+
+export async function getPartnerDocById(id: string): Promise<PartnerDoc | null> {
+  if (!process.env.MONGODB_URI) return null;
+  const db = await getDb();
+  const doc = await db
+    .collection<PartnerDoc>("partner_docs")
+    .findOne({ id }, { projection: { _id: 0 } });
+  return doc ? PartnerDocSchema.parse(doc) : null;
+}
+
+export async function updatePartnerDocTitle(id: string, title: string): Promise<boolean> {
+  if (!process.env.MONGODB_URI) throw new Error("MongoDB nu este configurat.");
+  const db = await getDb();
+  const res = await db
+    .collection<PartnerDoc>("partner_docs")
+    .updateOne({ id }, { $set: { title } });
+  return Boolean(res.acknowledged && (res.modifiedCount || 0) >= 0);
+}

@@ -22,7 +22,7 @@ export async function registerUser(email: string, password: string): Promise<Use
   if (existing) throw new Error("Utilizatorul există deja");
   const salt = randomBytes(16).toString("hex");
   const passwordHash = hashPassword(parsed.password, salt) + ":" + salt;
-  const user: User = UserSchema.parse({ email: parsed.email, passwordHash, createdAt: new Date(), isAdmin: false });
+  const user: User = UserSchema.parse({ email: parsed.email, passwordHash, createdAt: new Date(), isAdmin: false, isVerified: false });
   await db.collection<User>("users").insertOne(user);
   return user;
 }
@@ -34,7 +34,15 @@ export async function authenticate(email: string, password: string): Promise<Use
   if (!user) return null;
   const [hash, salt] = (user.passwordHash || ":").split(":");
   const calc = createHash("sha256").update(password + ":" + salt).digest("hex");
-  return hash === calc ? user : null;
+  if (hash !== calc) return null;
+  // Enforce verification: treat missing flag as verified for legacy accounts
+  const isVerified = user.isVerified === undefined ? true : !!user.isVerified;
+  if (!isVerified) return null;
+  // Update lastLoginAt
+  try {
+    await db.collection<User>("users").updateOne({ email }, { $set: { lastLoginAt: new Date() } });
+  } catch {}
+  return user;
 }
 
 export async function createSession(user: User) {

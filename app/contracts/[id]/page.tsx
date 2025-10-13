@@ -19,136 +19,77 @@ import {
   updateInvoiceNumber,
 } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
+import {
+  createDeposit,
+  listDepositsForContract,
+  updateDeposit,
+  deleteDepositById,
+  toggleDepositDeposited,
+} from "@/lib/deposits";
 
-// Helpers ------------------------------------------------------
+const RO_MONTHS_SHORT = [
+  "ian.",
+  "feb.",
+  "mar.",
+  "apr.",
+  "mai",
+  "iun.",
+  "iul.",
+  "aug.",
+  "sept.",
+  "oct.",
+  "nov.",
+  "dec.",
+];
+
 function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString("ro-RO", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
+  if (!iso) return "";
+  const s = String(iso).slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d))
+    return s;
+  const monthName = RO_MONTHS_SHORT[Math.max(0, Math.min(11, mo - 1))];
+  return `${String(d).padStart(2, "0")} ${monthName} ${y}`;
 }
 
-const fmtEUR = (n: number) =>
-  new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(
-    n
-  );
-
-const fmtRON = (n: number) =>
-  new Intl.NumberFormat("ro-RO", {
-    style: "currency",
-    currency: "RON",
-    maximumFractionDigits: 2,
-  }).format(n);
-
-// Server Actions ------------------------------------------------
-async function applyDoneIndexing(formData: FormData) {
+// Actions
+async function saveIndexing(formData: FormData) {
   "use server";
-  const contractId = formData.get("contractId") as string;
-  const indexingDate = formData.get("indexingDate") as string; // required
-  const newAmountEUR = parseFloat(String(formData.get("newAmountEUR")));
-  if (!contractId || !indexingDate || isNaN(newAmountEUR)) return;
-  const existing = await fetchContractById(contractId);
-  if (!existing) return;
-  const effEnd = new Date(effectiveEndDate(existing));
-  const idxDate = new Date(indexingDate);
-  const today = new Date();
-  if (isNaN(idxDate.getTime()) || idxDate > today || idxDate >= effEnd) {
-    await logAction({
-      action: "contract.indexing.done.rejected",
-      targetType: "contract",
-      targetId: contractId,
-      meta: {
-        indexingDate,
-        reason: isNaN(idxDate.getTime())
-          ? "invalid-date"
-          : idxDate > today
-          ? "future-date"
-          : "on-or-after-effective-end",
-      },
-    });
-    return;
-  }
-  // Yearly restriction
-  const year = idxDate.getFullYear();
-  const history = Array.isArray((existing as any).rentHistory)
-    ? (existing as any).rentHistory
-    : [];
-  const existingYear = history.some((h: any) => {
-    if (!h || typeof h.note !== "string" || !h.note.startsWith("indexare"))
-      return false;
-    const token = h.note.split(/\s+/)[1];
-    if (!token || token === "imediat") return false;
-    const d = new Date(token);
-    return !isNaN(d.getTime()) && d.getFullYear() === year;
-  });
-  if (existingYear) {
-    await logAction({
-      action: "contract.indexing.done.rejected",
-      targetType: "contract",
-      targetId: contractId,
-      meta: { indexingDate, reason: "already-indexed-year", year },
-    });
-    return;
-  }
-  const rentHistory = Array.isArray(existing.rentHistory)
-    ? [...existing.rentHistory]
-    : [];
-  rentHistory.push({
-    changedAt: new Date().toISOString().slice(0, 10),
-    amountEUR: existing.amountEUR,
-    exchangeRateRON: existing.exchangeRateRON,
-    correctionPercent: existing.correctionPercent,
-    tvaPercent: existing.tvaPercent,
-    note: `indexare ${indexingDate}`,
-  } as any);
-  // Future indexing scheduling removed
-  await upsertContract({
-    ...existing,
-    amountEUR: newAmountEUR,
-    rentHistory,
-  } as any);
-  await logAction({
-    action: "contract.indexing.done",
-    targetType: "contract",
-    targetId: contractId,
-    meta: { indexingDate, newAmountEUR, removedScheduled: true },
-  });
-  revalidatePath(`/contracts/${contractId}`);
-}
-
-async function undoLastIndexing(formData: FormData) {
-  "use server";
-  const contractId = formData.get("contractId") as string;
+  const contractId = String(formData.get("contractId") || "");
   if (!contractId) return;
+  const forecastDate = String(formData.get("forecastDate") || "");
+  const actualDate = String(formData.get("actualDate") || "");
+  const done = String(formData.get("done") || "") === "1";
+  const newRentAmount = (() => {
+    const raw = formData.get("newRentAmount");
+    if (typeof raw === "string" && raw.trim() !== "") {
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    }
+    return undefined;
+  })();
   const existing = await fetchContractById(contractId);
   if (!existing) return;
-  const rentHistory = Array.isArray((existing as any).rentHistory)
-    ? [...(existing as any).rentHistory]
+  const idxs = Array.isArray((existing as any).indexingDates)
+    ? ((existing as any).indexingDates as any[]).map((it) =>
+        it && it.forecastDate === forecastDate
+          ? {
+              ...it,
+              actualDate: actualDate || undefined,
+              newRentAmount,
+              done: done || it.done,
+            }
+          : it
+      )
     : [];
-  const indexationSnapshots = rentHistory.filter(
-    (h: any) => h && typeof h.note === "string" && h.note.startsWith("indexare")
-  );
-  if (indexationSnapshots.length === 0) return;
-  indexationSnapshots.sort((a: any, b: any) =>
-    String(a.changedAt).localeCompare(String(b.changedAt))
-  );
-  const last = indexationSnapshots[indexationSnapshots.length - 1];
-  const lastIdx = rentHistory.indexOf(last);
-  if (lastIdx === -1) return;
-  const previousAmount = last.amountEUR;
-  rentHistory.splice(lastIdx, 1);
-  await upsertContract({
-    ...existing,
-    amountEUR: previousAmount,
-    rentHistory,
-  } as any);
-  await logAction({
-    action: "contract.indexing.undo",
-    targetType: "contract",
-    targetId: contractId,
-    meta: { revertedTo: previousAmount, undoneChangedAt: last.changedAt },
-  });
+  let patch: any = { indexingDates: idxs };
+  if (done && typeof newRentAmount === "number")
+    patch = { ...patch, rentAmountEuro: newRentAmount };
+  await upsertContract({ ...(existing as any), ...patch } as any);
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -169,6 +110,81 @@ async function issueInvoice(formData: FormData) {
     targetId: contractId,
     meta: { issuedAt, invoiceId: savedInvoice.id },
   });
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function createDepositAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "");
+  const type = String(formData.get("type") || "bank_transfer");
+  const returned = Boolean(formData.get("returned"));
+  const amountEUR = (() => {
+    if (!formData.has("amountEUR")) return undefined;
+    const raw = String(formData.get("amountEUR") || "").trim();
+    if (raw === "") return null;
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : null;
+  })();
+  const amountRON = (() => {
+    if (!formData.has("amountRON")) return undefined;
+    const raw = String(formData.get("amountRON") || "").trim();
+    if (raw === "") return null;
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : null;
+  })();
+  const note = formData.get("note")
+    ? String(formData.get("note") || "")
+    : undefined;
+  if (!contractId) return;
+  await createDeposit({
+    contractId,
+    type: type as any,
+    isDeposited: false,
+    returned,
+    amountEUR,
+    amountRON,
+    note,
+  } as any);
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function editDepositAction(formData: FormData) {
+  "use server";
+  const depositId = String(formData.get("depositId") || "");
+  const contractId = String(formData.get("contractId") || "");
+  if (!depositId) return;
+  const patch: any = {};
+  if (formData.get("type")) patch.type = String(formData.get("type"));
+  if (formData.has("amountEUR")) {
+    const raw = String(formData.get("amountEUR") || "").trim();
+    patch.amountEUR = raw === "" ? null : parseFloat(raw);
+  }
+  if (formData.has("amountRON")) {
+    const raw = String(formData.get("amountRON") || "").trim();
+    patch.amountRON = raw === "" ? null : parseFloat(raw);
+  }
+  if (formData.get("note")) patch.note = String(formData.get("note"));
+  patch.isDeposited = formData.get("isDeposited") ? true : false;
+  patch.returned = formData.get("returned") ? true : false;
+  await updateDeposit({ id: depositId, contractId, ...patch } as any);
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function deleteDepositAction(formData: FormData) {
+  "use server";
+  const depositId = String(formData.get("depositId") || "");
+  const contractId = String(formData.get("contractId") || "");
+  if (!depositId) return;
+  await deleteDepositById(depositId);
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function toggleDepositAction(formData: FormData) {
+  "use server";
+  const depositId = String(formData.get("depositId") || "");
+  const contractId = String(formData.get("contractId") || "");
+  if (!depositId) return;
+  await toggleDepositDeposited(depositId);
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -200,7 +216,6 @@ async function editInvoiceNumber(formData: FormData) {
   revalidatePath("/contracts");
 }
 
-// Page Component ------------------------------------------------
 export default async function ContractPage({
   params,
 }: {
@@ -243,68 +258,241 @@ export default async function ContractPage({
     advanceFraction = include ? fraction : undefined;
   }
 
-  // No future scheduling (deprecated)
+  const indexingDatesArr: {
+    forecastDate: string;
+    actualDate?: string;
+    newRentAmount?: number;
+    done?: boolean;
+  }[] = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as any[])
+    : [];
+  const unsavedFuture = indexingDatesArr
+    .filter((x) => x && typeof x.forecastDate === "string" && !x.done)
+    .map((x) => x.forecastDate)
+    .sort();
+  // Stable ISO for comparisons (server-rendered string). Avoid using dynamic values for defaultValue props.
+  const todayISOForLists = new Date().toISOString().slice(0, 10);
+  const nextIndexingDate = unsavedFuture.find((d) => d >= todayISOForLists);
+
+  // Compute days left until nextIndexingDate (server-side stable string math)
+  const daysToNextIndexing: number | undefined = (() => {
+    if (!nextIndexingDate) return undefined;
+    const start = new Date(todayISOForLists + "T00:00:00Z").getTime();
+    const target = new Date(nextIndexingDate + "T00:00:00Z").getTime();
+    const diff = Math.ceil((target - start) / 86400000);
+    return diff < 0 ? 0 : diff;
+  })();
 
   const alreadyIssuedForThisMonth = Boolean(
     dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
   );
 
-  // Build indexation history from rentHistory snapshots
-  const historyRaw = Array.isArray((contract as any).rentHistory)
-    ? (contract as any).rentHistory.filter(
-        (h: any) =>
-          h &&
-          typeof h === "object" &&
-          typeof h.changedAt === "string" &&
-          typeof h.amountEUR === "number" &&
-          typeof h.note === "string" &&
-          h.note.startsWith("indexare")
-      )
-    : [];
-  historyRaw.sort((a: any, b: any) => a.changedAt.localeCompare(b.changedAt));
+  // Build rent series and indexation history from rentHistory snapshots.
+  // Semantics: each snapshot stores the NEW rent amount at its effective date.
   type Indexation = {
     date: string;
     appliedAt: string;
     from: number;
     to: number;
   };
-  const indexations: Indexation[] = [];
-  for (let i = 0; i < historyRaw.length; i++) {
-    const snap = historyRaw[i];
-    const parts = snap.note.split(/\s+/);
-    const maybeDate = parts[1];
-    let effectiveDate = snap.changedAt;
-    if (
-      maybeDate &&
-      maybeDate !== "imediat" &&
-      /\d{4}-\d{2}-\d{2}/.test(maybeDate)
-    )
-      effectiveDate = maybeDate;
-    const from = snap.amountEUR;
-    let to: number;
-    if (i + 1 < historyRaw.length)
-      to = historyRaw[i + 1].amountEUR; // next snapshot previous amount
-    else
-      to = typeof contract.amountEUR === "number" ? contract.amountEUR : from;
-    // Always record the indexing, even if to === from (0% change) so the action is visible.
-    indexations.push({
-      date: effectiveDate,
-      appliedAt: snap.changedAt,
-      from,
-      to,
+  const hasFuture = false; // păstrat pentru compatibilitate vizuală; neutilizat
+  // Fetch deposits (supports local fallback) and scheduled indexings for rendering in the scans management box
+  const deposits = await listDepositsForContract(contract.id);
+  // Next/last scheduling using new model (todayISOForLists, futureIndexingDates, nextIndexingDate already defined above)
+  const lastApplicable = null as any; // eliminat din UI
+
+  // Build rent series for chart from contract.rentHistory (chronological), using effective dates from note when present
+  type SeriesPoint = { date: string; value: number };
+  type Snap = {
+    changedAt: string;
+    newValue: number; // snapshot stores the new rent value
+    effectiveDate: string;
+    note?: string;
+  };
+  const rentHistoryAscRaw: Array<{
+    changedAt: string;
+    rentAmountEuro: number;
+    note?: string;
+  }> = Array.isArray((contract as any).rentHistory)
+    ? (contract as any).rentHistory
+        .filter(
+          (h: any) =>
+            h &&
+            typeof h.changedAt === "string" &&
+            typeof (h as any).rentAmountEuro === "number"
+        )
+        .sort((a: any, b: any) =>
+          String(a.changedAt).localeCompare(String(b.changedAt))
+        )
+    : [];
+  // Normalize to include effectiveDate (from note: "indexare YYYY-MM-DD")
+  const rentHistoryNorm: Snap[] = rentHistoryAscRaw
+    .map((h) => {
+      let effectiveDate = h.changedAt;
+      const note = String(h.note || "");
+      if (note.startsWith("indexare")) {
+        const token = note.split(/\s+/)[1];
+        if (token && token !== "imediat" && /\d{4}-\d{2}-\d{2}/.test(token)) {
+          const d = new Date(token);
+          if (!isNaN(d.getTime())) effectiveDate = token;
+        }
+      }
+      return {
+        changedAt: h.changedAt,
+        newValue: (h as any).rentAmountEuro,
+        effectiveDate,
+        note: h.note,
+      };
+    })
+    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+
+  // Derive indexation events: from previous value to snapshot's new value, at effective date
+  const indexations: Indexation[] = (() => {
+    const out: Indexation[] = [];
+    for (let i = 0; i < rentHistoryNorm.length; i++) {
+      const snap = rentHistoryNorm[i];
+      const note = String(snap.note || "");
+      if (!note.startsWith("indexare")) continue;
+      const from = i > 0 ? rentHistoryNorm[i - 1].newValue : snap.newValue;
+      out.push({
+        date: snap.effectiveDate,
+        appliedAt: snap.changedAt,
+        from,
+        to: snap.newValue,
+      });
+    }
+    out.sort((a, b) => b.date.localeCompare(a.date));
+    return out;
+  })();
+
+  // Build the chart series: start at contract.startDate (or first effective date) with first known value,
+  // then set each effective date to its new value.
+  const series: SeriesPoint[] = [];
+  if (rentHistoryNorm.length > 0) {
+    const firstValue = rentHistoryNorm[0].newValue;
+    const startAt = String(
+      contract.startDate || rentHistoryNorm[0].effectiveDate
+    );
+    series.push({ date: startAt, value: firstValue });
+    for (let i = 0; i < rentHistoryNorm.length; i++) {
+      const snap = rentHistoryNorm[i];
+      series.push({ date: snap.effectiveDate, value: snap.newValue });
+    }
+  } else if (typeof (contract as any).rentAmountEuro === "number") {
+    series.push({
+      date: String(contract.startDate),
+      value: (contract as any).rentAmountEuro,
     });
   }
-  indexations.sort((a, b) => b.date.localeCompare(a.date));
-  const hasFuture = false; // always false (feature removed)
+  // Ensure a stable last point: cap at effective contract end date rather than "today" to avoid hydration drift
+  if (series.length > 0) {
+    const last = series[series.length - 1];
+    const capISO = String(effectiveEndDate(contract));
+    if (last.date !== capISO) series.push({ date: capISO, value: last.value });
+  }
+
+  // Deposits summary
+  const depositSummary = (() => {
+    const all = deposits || [];
+    const count = all.length;
+    let totalEUR = 0;
+    let totalRON = 0;
+    let depositedEUR = 0;
+    let depositedRON = 0;
+    let pendingEUR = 0;
+    let pendingRON = 0;
+    for (const d of all) {
+      const eur =
+        typeof (d as any).amountEUR === "number" ? (d as any).amountEUR : 0;
+      const ron =
+        typeof (d as any).amountRON === "number" ? (d as any).amountRON : 0;
+      totalEUR += eur;
+      totalRON += ron;
+      if (d.isDeposited) {
+        depositedEUR += eur;
+        depositedRON += ron;
+      } else {
+        pendingEUR += eur;
+        pendingRON += ron;
+      }
+    }
+    return {
+      count,
+      totalEUR,
+      totalRON,
+      depositedEUR,
+      depositedRON,
+      pendingEUR,
+      pendingRON,
+    };
+  })();
+  // Compute display-only summaries and sparkline data
+  const depositsSummary = (() => {
+    const all = deposits || [];
+    const totalCount = all.length;
+    const totalAmount = all.reduce(
+      (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
+      0
+    );
+    const deposited = all.filter((d) => d.isDeposited);
+    const depositedCount = deposited.length;
+    const depositedAmount = deposited.reduce(
+      (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
+      0
+    );
+    const pendingCount = totalCount - depositedCount;
+    const pendingAmount = totalAmount - depositedAmount;
+    const ratio = totalAmount > 0 ? depositedAmount / totalAmount : 0;
+    return {
+      totalCount,
+      totalAmount,
+      depositedCount,
+      depositedAmount,
+      pendingCount,
+      pendingAmount,
+      ratio,
+    };
+  })();
+
+  const spark = (() => {
+    // Build a small sparkline from the rentHistory-derived series values
+    const vals =
+      series.length > 0
+        ? series.map((p) => p.value)
+        : typeof (contract as any).rentAmountEuro === "number"
+        ? [(contract as any).rentAmountEuro]
+        : [];
+    const width = 240;
+    const height = 60;
+    const padX = 6;
+    const padY = 6;
+    if (vals.length === 0) return { width, height, points: "", min: 0, max: 0 };
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const span = Math.max(0.0001, max - min);
+    const n = vals.length;
+    const step = n > 1 ? (width - padX * 2) / (n - 1) : 0;
+    const points = vals
+      .map((v, i) => {
+        const x = padX + i * step;
+        const y = height - padY - ((v - min) / span) * (height - padY * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+    return { width, height, points, min, max };
+  })();
 
   return (
-    <main className="min-h-screen px-4 sm:px-6 py-10">
+    <main id="contract-page" className="min-h-screen px-4 sm:px-6 py-10">
       <div className="mb-6">
         <Link href="/" className="text-sm text-foreground/70 hover:underline">
           ← Înapoi la listă
         </Link>
       </div>
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+      <header
+        id="contract-header"
+        className="flex items-start justify-between gap-4 flex-wrap"
+      >
         <div className="space-y-1">
           <p className="text-base text-[#E9E294] font-semibold tracking-wide">
             {contract.partnerId ? (
@@ -349,11 +537,14 @@ export default async function ContractPage({
       </header>
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-3 lg:col-span-1">
-          <div className="rounded-lg border border-foreground/15 p-4 bg-[#334443]">
+        <div id="contract-left" className="space-y-3 lg:col-span-1">
+          <div
+            id="contract-details"
+            className="rounded-lg border border-foreground/15 p-4 bg-[#334443]"
+          >
             <h2 className="text-base font-semibold">Detalii</h2>
             <div className="mt-4 space-y-6 text-sm">
-              <div>
+              <div id="contract-meta">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                   Contract
                 </h3>
@@ -394,16 +585,6 @@ export default async function ContractPage({
                       </span>
                     </div>
                   ) : null}
-                  {typeof contract.paymentDueDays === "number" ? (
-                    <div>
-                      <span className="block text-foreground/60">
-                        Termen plată
-                      </span>
-                      <span className="font-medium">
-                        {contract.paymentDueDays} zile
-                      </span>
-                    </div>
-                  ) : null}
                   {(contract as any).asset ? (
                     <div className="col-span-2">
                       <span className="block text-foreground/60">Asset</span>
@@ -415,7 +596,7 @@ export default async function ContractPage({
                 </div>
               </div>
 
-              <div>
+              <div id="contract-billing">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                   Facturare
                 </h3>
@@ -444,6 +625,14 @@ export default async function ContractPage({
                         Zi: {contract.monthlyInvoiceDay}
                       </span>
                     )}
+                  {typeof contract.paymentDueDays === "number" && (
+                    <span
+                      className="rounded bg-foreground/5 px-2 py-1"
+                      title="Termen plată"
+                    >
+                      Termen plată: {contract.paymentDueDays} zile
+                    </span>
+                  )}
                   {typeof contract.tvaPercent === "number" && (
                     <span
                       className="rounded bg-foreground/5 px-2 py-1"
@@ -464,15 +653,16 @@ export default async function ContractPage({
                 </div>
               </div>
 
-              {typeof contract.amountEUR === "number" &&
+              {typeof (contract as any).rentAmountEuro === "number" &&
                 typeof contract.exchangeRateRON === "number" && (
-                  <div>
+                  <div id="contract-value">
                     <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                       Valoare
                     </h3>
                     {(() => {
                       const baseRon =
-                        contract.amountEUR * contract.exchangeRateRON;
+                        (contract as any).rentAmountEuro *
+                        contract.exchangeRateRON;
                       const corrPct =
                         typeof contract.correctionPercent === "number"
                           ? contract.correctionPercent
@@ -487,7 +677,10 @@ export default async function ContractPage({
                         <div className="space-y-1 text-[11px]">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400 font-medium">
-                              {contract.amountEUR.toFixed(2)} EUR
+                              {(
+                                (contract as any).rentAmountEuro as number
+                              ).toFixed(2)}{" "}
+                              EUR
                             </span>
                             <span className="text-foreground/50">@</span>
                             <span className="rounded bg-foreground/5 px-2 py-1 text-cyan-700 dark:text-cyan-400">
@@ -522,6 +715,80 @@ export default async function ContractPage({
                               </span>
                             </div>
                           )}
+                          <div id="contract-depozite" className="mt-3">
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+                              Depozite
+                            </div>
+                            {depositSummary.count === 0 ? (
+                              <div className="text-foreground/50 italic">
+                                Niciun depozit înregistrat
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="rounded bg-foreground/5 px-2 py-1">
+                                    {depositSummary.count} buc
+                                  </span>
+                                  <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400">
+                                    Total: {depositSummary.totalEUR.toFixed(2)}{" "}
+                                    EUR · {depositSummary.totalRON.toFixed(2)}{" "}
+                                    RON
+                                  </span>
+                                  <span className="rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2 py-1">
+                                    Depuse{" "}
+                                    {depositSummary.depositedEUR.toFixed(2)} EUR
+                                    · {depositSummary.depositedRON.toFixed(2)}{" "}
+                                    RON
+                                  </span>
+                                  <span className="rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-1">
+                                    În așteptare{" "}
+                                    {depositSummary.pendingEUR.toFixed(2)} EUR ·{" "}
+                                    {depositSummary.pendingRON.toFixed(2)} RON
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  {deposits.map((d) => (
+                                    <div
+                                      key={d.id}
+                                      className="rounded bg-foreground/5 px-2 py-1"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-xs">
+                                          {String(d.type).replace("_", " ")}
+                                        </span>
+                                        <span className="text-foreground/60 text-xs">
+                                          {typeof d.amountEUR === "number" &&
+                                          d.amountEUR > 0
+                                            ? `${d.amountEUR.toFixed(2)} EUR`
+                                            : ""}
+                                          {typeof d.amountRON === "number" &&
+                                          d.amountRON > 0
+                                            ? ` · ${d.amountRON.toFixed(2)} RON`
+                                            : ""}
+                                        </span>
+                                        {d.note && (
+                                          <span className="text-foreground/50 text-xs italic">
+                                            • {d.note}
+                                          </span>
+                                        )}
+                                        <span
+                                          className={`ml-2 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                            (d as any).returned
+                                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                              : "bg-foreground/10 text-foreground/70"
+                                          }`}
+                                        >
+                                          {(d as any).returned
+                                            ? "returnat"
+                                            : "custodie"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       );
                     })()}
@@ -529,21 +796,185 @@ export default async function ContractPage({
                 )}
 
               {indexations.length > 0 && (
-                <div>
+                <div id="contract-indexari-efectuate">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                     Indexare
                   </h3>
-                  <div className="flex flex-col gap-3 text-[11px]">
+                  {/* Rent history chart */}
+                  {(() => {
+                    const pts = series || [];
+                    if (!Array.isArray(pts) || pts.length < 2) {
+                      return (
+                        <div
+                          id="contract-rent-history-chart"
+                          className="text-xs text-foreground/50 mb-3"
+                        >
+                          Insuficiente date pentru grafic.
+                        </div>
+                      );
+                    }
+                    const width = 640;
+                    const height = 160;
+                    const m = { top: 10, right: 12, bottom: 18, left: 36 };
+                    const xs = pts
+                      .map((p) => new Date(p.date).getTime())
+                      .filter((n) => Number.isFinite(n));
+                    const ys = pts
+                      .map((p) => p.value)
+                      .filter((n) => Number.isFinite(n));
+                    const minX = Math.min(...xs);
+                    const maxX = Math.max(...xs);
+                    const minY = Math.min(...ys);
+                    const maxY = Math.max(...ys);
+                    const spanX = Math.max(1, maxX - minX);
+                    const spanY = Math.max(0.0001, maxY - minY);
+                    const x = (t: number) =>
+                      m.left +
+                      ((t - minX) / spanX) * (width - m.left - m.right);
+                    const y = (v: number) =>
+                      height -
+                      m.bottom -
+                      ((v - minY) / spanY) * (height - m.top - m.bottom);
+                    const line = pts
+                      .map(
+                        (p, i) =>
+                          `${i === 0 ? "M" : "L"} ${x(
+                            new Date(p.date).getTime()
+                          ).toFixed(2)} ${y(p.value).toFixed(2)}`
+                      )
+                      .join(" ");
+                    const area = `${line} L ${x(maxX).toFixed(2)} ${y(
+                      minY
+                    ).toFixed(2)} L ${x(minX).toFixed(2)} ${y(minY).toFixed(
+                      2
+                    )} Z`;
+                    const ticksY = 4;
+                    const yTicks = Array.from(
+                      { length: ticksY + 1 },
+                      (_, i) => minY + (i * (maxY - minY)) / ticksY
+                    );
+                    return (
+                      <div
+                        id="contract-rent-history-chart"
+                        className="mb-4 rounded-md border border-foreground/10 bg-foreground/[0.03]"
+                      >
+                        <svg
+                          viewBox={`0 0 ${width} ${height}`}
+                          width="100%"
+                          height="auto"
+                          preserveAspectRatio="none"
+                          role="img"
+                          aria-label="Evoluție chirie (EUR)"
+                        >
+                          <defs>
+                            <linearGradient
+                              id="rentGradient"
+                              x1="0"
+                              x2="0"
+                              y1="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor="rgb(16 185 129)"
+                                stopOpacity="0.35"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="rgb(16 185 129)"
+                                stopOpacity="0.02"
+                              />
+                            </linearGradient>
+                            <filter
+                              id="glow"
+                              x="-50%"
+                              y="-50%"
+                              width="200%"
+                              height="200%"
+                            >
+                              <feGaussianBlur
+                                stdDeviation="1.2"
+                                result="blur"
+                              />
+                              <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                              </feMerge>
+                            </filter>
+                          </defs>
+                          {/* Y grid */}
+                          {yTicks.map((tv, i) => {
+                            const yy = y(tv);
+                            return (
+                              <g key={i}>
+                                <line
+                                  x1={m.left}
+                                  x2={width - m.right}
+                                  y1={yy}
+                                  y2={yy}
+                                  stroke="currentColor"
+                                  opacity={0.08}
+                                />
+                                <text
+                                  x={m.left - 8}
+                                  y={yy + 3}
+                                  fontSize={10}
+                                  textAnchor="end"
+                                  fill="currentColor"
+                                  opacity={0.6}
+                                >
+                                  {tv.toFixed(0)}
+                                </text>
+                              </g>
+                            );
+                          })}
+                          {/* Chart area + line */}
+                          <path d={area} fill="url(#rentGradient)" />
+                          <path
+                            d={line}
+                            fill="none"
+                            stroke="rgb(16 185 129)"
+                            strokeWidth={2}
+                            filter="url(#glow)"
+                          />
+                        </svg>
+                      </div>
+                    );
+                  })()}
+                  <div className="flex flex-col gap-3 text[11px]">
                     <div>
                       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
                         Efectuate
                       </div>
+                      {nextIndexingDate && (
+                        <div id="contract-indexari-urmatoare" className="mb-1">
+                          {(() => {
+                            const d = daysToNextIndexing;
+                            const cls =
+                              typeof d !== "number"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                : d < 5
+                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-1 ring-rose-400/30 animate-pulse"
+                                : d < 15
+                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400"
+                                : d < 60
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+                            return (
+                              <span
+                                className={`rounded px-2 py-0.5 text-[11px] ${cls}`}
+                                title="Următoarea indexare programată"
+                              >
+                                Următoarea: {fmt(nextIndexingDate)}
+                                {typeof d === "number"
+                                  ? ` • în ${d} ${d === 1 ? "zi" : "zile"}`
+                                  : ""}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      )}
                       <div className="flex flex-col gap-1">
-                        {indexations.length === 0 && (
-                          <div className="italic text-foreground/40">
-                            Nicio indexare efectuată încă
-                          </div>
-                        )}
                         {indexations.map((ix) => {
                           const diffPct =
                             ix.from !== 0
@@ -581,82 +1012,23 @@ export default async function ContractPage({
                           );
                         })}
                       </div>
+                      {indexations.length === 0 && (
+                        <div className="italic text-foreground/40">
+                          Nicio indexare efectuată încă
+                        </div>
+                      )}
                     </div>
-                    {/* Future indexings removed */}
                   </div>
-                </div>
-              )}
-
-              <form
-                action={applyDoneIndexing}
-                className="mt-3 flex flex-wrap items-end gap-3 text-[11px] border-t border-foreground/10 pt-3"
-              >
-                <input type="hidden" name="contractId" value={contract.id} />
-                <div>
-                  <label className="block text-foreground/60 mb-1">
-                    Data indexării
-                  </label>
-                  <input
-                    name="indexingDate"
-                    type="date"
-                    max={new Date().toISOString().slice(0, 10)}
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    required
-                    className="rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-foreground/60 mb-1">
-                    Noua chirie (EUR)
-                  </label>
-                  <input
-                    name="newAmountEUR"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    required
-                    placeholder={
-                      typeof contract.amountEUR === "number"
-                        ? contract.amountEUR.toFixed(2)
-                        : "ex: 1500"
-                    }
-                    className="w-32 rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 font-semibold text-emerald-600 hover:bg-emerald-500/20"
-                  title="Salvează indexarea efectuată"
-                >
-                  Done
-                </button>
-              </form>
-              {indexations.length > 0 && (
-                <form
-                  action={undoLastIndexing}
-                  className="mt-2 flex items-center gap-2 text-[11px]"
-                >
-                  <input type="hidden" name="contractId" value={contract.id} />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1 rounded-md border border-red-400/40 bg-red-500/10 px-2.5 py-1.5 font-semibold text-red-600 hover:bg-red-500/20"
-                    title="Anulează ultima indexare"
-                  >
-                    Undo ultima indexare
-                  </button>
-                </form>
-              )}
-              {indexations.length === 0 && (
-                <div className="mt-2 text-[11px] text-foreground/50 italic">
-                  Nicio indexare înregistrată încă. Adaugă una folosind
-                  formularul.
                 </div>
               )}
 
               {advanceFraction &&
                 advanceFraction > 0 &&
                 advanceFraction < 1 && (
-                  <div className="mt-4 text-xs text-amber-600 dark:text-amber-400">
+                  <div
+                    id="contract-proration-note"
+                    className="mt-4 text-xs text-amber-600 dark:text-amber-400"
+                  >
                     Facturare parțială în avans:{" "}
                     {Math.round(advanceFraction * 100)}%
                   </div>
@@ -665,31 +1037,390 @@ export default async function ContractPage({
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div id="contract-right" className="lg:col-span-2">
           <ContractScans
             scans={
               (contract as { scans?: { url: string; title?: string }[] })
-                .scans || (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
+                .scans ||
+              (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : [])
             }
             contractName={contract.name}
           />
-          {process.env.MONGODB_URI && (
-            <ManageContractScans
-              id={contract.id}
-              scans={
-                (contract as { scans?: { url: string; title?: string }[] })
-                  .scans ||
-                (contract.scanUrl ? [{ url: contract.scanUrl }] : [])
-              }
-              mongoConfigured={Boolean(process.env.MONGODB_URI)}
-            />
-          )}
+          <ManageContractScans
+            id={contract.id}
+            scans={
+              (contract as { scans?: { url: string; title?: string }[] })
+                .scans ||
+              (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : [])
+            }
+            mongoConfigured={Boolean(process.env.MONGODB_URI)}
+          >
+            <div
+              id="contract-indexari-programate"
+              className="mt-4 border-t border-foreground/10 pt-3 text-sm"
+            >
+              <h4 className="text-[11px] font-semibold mb-2">
+                Indexări programate
+              </h4>
+              {Array.isArray((contract as any).indexingDates) &&
+              ((contract as any).indexingDates as any[]).filter(
+                (x: any) => !x.done
+              ).length === 0 ? (
+                <div className="text-foreground/60 text-xs italic">
+                  Nicio indexare viitoare programată.
+                </div>
+              ) : (
+                <ul className="space-y-2 text-[11px]">
+                  {(
+                    (Array.isArray((contract as any).indexingDates)
+                      ? ((contract as any).indexingDates as any[]).filter(
+                          (it: any) => !it.done
+                        )
+                      : []) as {
+                      forecastDate: string;
+                      actualDate?: string;
+                      newRentAmount?: number;
+                      done?: boolean;
+                    }[]
+                  ).map((it) => (
+                    <li
+                      key={contract.id + it.forecastDate}
+                      className="rounded bg-foreground/5 px-2 py-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{it.forecastDate}</div>
+                        </div>
+                        <form
+                          action={saveIndexing}
+                          className="flex items-end gap-2"
+                        >
+                          <input
+                            type="hidden"
+                            name="contractId"
+                            value={contract.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="forecastDate"
+                            value={it.forecastDate}
+                          />
+                          <input type="hidden" name="done" value="1" />
+                          <div>
+                            <label className="block text-foreground/60 mb-1">
+                              Data efectivă
+                            </label>
+                            <input
+                              name="actualDate"
+                              type="date"
+                              defaultValue={it.actualDate ?? ""}
+                              className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-foreground/60 mb-1">
+                              Chirie nouă (EUR)
+                            </label>
+                            <input
+                              name="newRentAmount"
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              defaultValue={
+                                typeof it.newRentAmount === "number"
+                                  ? it.newRentAmount
+                                  : ("" as any)
+                              }
+                              className="w-28 rounded-md border border-foreground/20 bg-background px-2 py-1"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className={`rounded-md px-3 py-1.5 font-semibold border ${
+                              it.done
+                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-700"
+                                : "border-foreground/20 hover:bg-foreground/5"
+                            }`}
+                            title="Marchează ca validat și actualizează chiria"
+                          >
+                            {it.done ? "Validat" : "Done"}
+                          </button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div id="contract-deposits-list" className="mt-4">
+                <div className="text-sm font-semibold mb-2">Depozite</div>
+                {deposits.length === 0 ? (
+                  <div className="text-foreground/60 text-xs">
+                    Niciun depozit.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 text-[11px]">
+                    {deposits.map((d) => (
+                      <div
+                        key={`${d.id}-${d.updatedAt ?? ""}`}
+                        className="rounded bg-foreground/5 px-2 py-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium">
+                              {String(d.type).replace("_", " ")}
+                              <span
+                                className={`ml-2 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                  (d as any).returned
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                    : "bg-foreground/10 text-foreground/70"
+                                }`}
+                              >
+                                {(d as any).returned ? "returnat" : "custodie"}
+                              </span>
+                            </div>
+                            <div className="text-foreground/60 text-xs">
+                              {(() => {
+                                const parts: string[] = [];
+                                if (
+                                  typeof d.amountEUR === "number" &&
+                                  d.amountEUR > 0
+                                )
+                                  parts.push(`${d.amountEUR.toFixed(2)} EUR`);
+                                if (
+                                  typeof (d as any).amountRON === "number" &&
+                                  (d as any).amountRON > 0
+                                )
+                                  parts.push(
+                                    `${(d as any).amountRON.toFixed(2)} RON`
+                                  );
+                                const amountStr =
+                                  parts.length > 0 ? parts.join(" · ") : "";
+                                const withNote = d.note
+                                  ? amountStr
+                                    ? `${amountStr} • ${d.note}`
+                                    : d.note
+                                  : amountStr || "—";
+                                return withNote;
+                              })()}
+                            </div>
+                            <div className="text-foreground/50 text-[10px] mt-1">
+                              Creat: {d.createdAt ?? "—"} • Actualizat:{" "}
+                              {d.updatedAt ?? "—"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <form action={toggleDepositAction}>
+                              <input
+                                type="hidden"
+                                name="depositId"
+                                value={d.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="contractId"
+                                value={contract.id}
+                              />
+                              <button
+                                type="submit"
+                                className={`rounded px-2 py-1 text-xs ${
+                                  d.isDeposited
+                                    ? "bg-emerald-500/10 text-emerald-600"
+                                    : "bg-foreground/5 text-foreground/70"
+                                }`}
+                              >
+                                {d.isDeposited ? "Depus" : "Marchează ca depus"}
+                              </button>
+                            </form>
+                            <details className="relative">
+                              <summary className="cursor-pointer text-sm text-foreground/70">
+                                Editează
+                              </summary>
+                              <form
+                                action={editDepositAction}
+                                className="mt-2 flex flex-wrap items-end gap-2"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="depositId"
+                                  value={d.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="contractId"
+                                  value={contract.id}
+                                />
+                                <select
+                                  name="type"
+                                  defaultValue={d.type}
+                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                >
+                                  <option value="bank_transfer">
+                                    Transfer bancar
+                                  </option>
+                                  <option value="check">Cec</option>
+                                  <option value="promissory_note">
+                                    Cambie
+                                  </option>
+                                </select>
+                                <input
+                                  name="amountEUR"
+                                  type="number"
+                                  step="0.01"
+                                  defaultValue={
+                                    typeof d.amountEUR === "number"
+                                      ? d.amountEUR
+                                      : ("" as any)
+                                  }
+                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                />
+                                <input
+                                  name="amountRON"
+                                  type="number"
+                                  step="0.01"
+                                  defaultValue={
+                                    typeof (d as any).amountRON === "number"
+                                      ? (d as any).amountRON
+                                      : ("" as any)
+                                  }
+                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                />
+                                <input
+                                  name="note"
+                                  defaultValue={d.note ?? ""}
+                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                />
+                                <label className="text-xs flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    name="isDeposited"
+                                    defaultChecked={Boolean(d.isDeposited)}
+                                  />{" "}
+                                  Depus
+                                </label>
+                                <label className="text-xs flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    name="returned"
+                                    defaultChecked={Boolean(
+                                      (d as any).returned
+                                    )}
+                                  />{" "}
+                                  Returnat
+                                </label>
+                                <button
+                                  type="submit"
+                                  className="rounded-md border border-foreground/20 px-2 py-1 text-sm"
+                                >
+                                  Salvează
+                                </button>
+                              </form>
+                            </details>
+                            <form action={deleteDepositAction}>
+                              <input
+                                type="hidden"
+                                name="depositId"
+                                value={d.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="contractId"
+                                value={contract.id}
+                              />
+                              <button
+                                type="submit"
+                                className="text-sm text-red-600"
+                              >
+                                Șterge
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div id="contract-deposits-create" className="mt-3">
+                  <div className="text-sm font-semibold mb-2">
+                    Adaugă depozit
+                  </div>
+                  <form
+                    action={createDepositAction}
+                    className="flex flex-wrap items-end gap-3 text-[11px]"
+                  >
+                    <input
+                      type="hidden"
+                      name="contractId"
+                      value={contract.id}
+                    />
+                    <div>
+                      <label className="block text-foreground/60 mb-1">
+                        Tip
+                      </label>
+                      <select
+                        name="type"
+                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        required
+                      >
+                        <option value="bank_transfer">Transfer bancar</option>
+                        <option value="check">Cec</option>
+                        <option value="promissory_note">Cambie</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-foreground/60 mb-1">
+                        Sumă (EUR)
+                      </label>
+                      <input
+                        name="amountEUR"
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-foreground/60 mb-1">
+                        Sumă (RON)
+                      </label>
+                      <input
+                        name="amountRON"
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-foreground/60 mb-1">
+                        Notă
+                      </label>
+                      <input
+                        name="note"
+                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                      />
+                    </div>
+                    <label className="text-xs flex items-center gap-2 mb-2">
+                      <input type="checkbox" name="returned" /> Returnat
+                    </label>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-3 py-2 font-semibold hover:bg-foreground/5"
+                    >
+                      Adaugă
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </ManageContractScans>
         </div>
       </section>
 
       {contract.rentType === "yearly" &&
         (contract.yearlyInvoices?.length ?? 0) > 0 && (
-          <section className="mt-8">
+          <section id="contract-yearly-invoices" className="mt-8">
             <div className="rounded-lg border border-foreground/15 p-4">
               <h2 className="text-base font-semibold">Facturi anuale</h2>
               <div className="mt-3 grid grid-cols-1 gap-4">
@@ -740,14 +1471,21 @@ export default async function ContractPage({
                         <div>
                           <span className="text-foreground/60">EUR: </span>
                           <span className="font-medium text-indigo-700 dark:text-indigo-400">
-                            {fmtEUR(eur)}
+                            {new Intl.NumberFormat("ro-RO", {
+                              style: "currency",
+                              currency: "EUR",
+                            }).format(eur)}
                           </span>
                         </div>
                         <div>
                           <span className="text-foreground/60">RON: </span>
                           <span className="font-medium">
                             {typeof baseRon === "number"
-                              ? fmtRON(baseRon)
+                              ? new Intl.NumberFormat("ro-RO", {
+                                  style: "currency",
+                                  currency: "RON",
+                                  maximumFractionDigits: 2,
+                                }).format(baseRon)
                               : "Indisponibil"}
                           </span>
                         </div>
@@ -757,7 +1495,11 @@ export default async function ContractPage({
                           </span>
                           <span className="font-medium text-amber-700 dark:text-amber-400">
                             {typeof correctionRon === "number"
-                              ? fmtRON(correctionRon)
+                              ? new Intl.NumberFormat("ro-RO", {
+                                  style: "currency",
+                                  currency: "RON",
+                                  maximumFractionDigits: 2,
+                                }).format(correctionRon)
                               : "Indisponibil"}
                           </span>
                         </div>
@@ -766,7 +1508,10 @@ export default async function ContractPage({
                             EUR după corecție:{" "}
                           </span>
                           <span className="font-medium text-indigo-700 dark:text-indigo-400">
-                            {fmtEUR(correctedEur)}
+                            {new Intl.NumberFormat("ro-RO", {
+                              style: "currency",
+                              currency: "EUR",
+                            }).format(correctedEur)}
                           </span>
                         </div>
                         <div>
@@ -775,7 +1520,11 @@ export default async function ContractPage({
                           </span>
                           <span className="font-medium text-sky-700 dark:text-sky-400">
                             {typeof correctedRon === "number"
-                              ? fmtRON(correctedRon)
+                              ? new Intl.NumberFormat("ro-RO", {
+                                  style: "currency",
+                                  currency: "RON",
+                                  maximumFractionDigits: 2,
+                                }).format(correctedRon)
                               : "Indisponibil"}
                           </span>
                         </div>
@@ -785,7 +1534,11 @@ export default async function ContractPage({
                           </span>
                           <span className="font-medium text-emerald-700 dark:text-emerald-400">
                             {typeof withVat === "number"
-                              ? fmtRON(withVat)
+                              ? new Intl.NumberFormat("ro-RO", {
+                                  style: "currency",
+                                  currency: "RON",
+                                  maximumFractionDigits: 2,
+                                }).format(withVat)
                               : "Indisponibil"}
                           </span>
                         </div>
@@ -793,7 +1546,11 @@ export default async function ContractPage({
                           <span className="text-foreground/60">TVA: </span>
                           <span className="font-medium text-rose-700 dark:text-rose-400">
                             {typeof vatAmount === "number"
-                              ? fmtRON(vatAmount)
+                              ? new Intl.NumberFormat("ro-RO", {
+                                  style: "currency",
+                                  currency: "RON",
+                                  maximumFractionDigits: 2,
+                                }).format(vatAmount)
                               : "Indisponibil"}
                           </span>
                         </div>
@@ -806,12 +1563,13 @@ export default async function ContractPage({
           </section>
         )}
 
-      <section className="mt-8">
+      <section id="contract-invoices" className="mt-8">
         <div className="rounded-lg border border-foreground/15 p-4">
           <h2 className="text-base font-semibold">Facturi emise</h2>
           <form
             action={issueInvoice}
             className="mt-3 flex items-center gap-2 text-sm"
+            id="contract-invoices-issue-form"
           >
             <input type="hidden" name="contractId" value={contract.id} />
             <label className="text-foreground/60" htmlFor="issuedAt">
@@ -822,26 +1580,33 @@ export default async function ContractPage({
               name="issuedAt"
               type="date"
               className="rounded-md border border-foreground/20 bg-background px-2 py-1 text-sm"
-              defaultValue={dueAt ?? new Date().toISOString().slice(0, 10)}
+              defaultValue={dueAt ?? todayISOForLists}
             />
             <button
               type="submit"
               className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
-                alreadyIssuedForThisMonth
+                Boolean(dueAt && invoices.some((inv) => inv.issuedAt === dueAt))
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-not-allowed"
                   : "border-foreground/20 hover:bg-foreground/5"
               }`}
-              disabled={alreadyIssuedForThisMonth}
+              disabled={Boolean(
+                dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+              )}
             >
               Emite factura
             </button>
-            {alreadyIssuedForThisMonth && (
+            {Boolean(
+              dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+            ) && (
               <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px]">
                 deja emisă pentru luna curentă{dueAt ? ` (${dueAt})` : ""}
               </span>
             )}
           </form>
-          <div className="mt-3 grid grid-cols-1 gap-3">
+          <div
+            id="contract-invoices-list"
+            className="mt-3 grid grid-cols-1 gap-3"
+          >
             {invoices.length === 0 ? (
               <div className="text-sm text-foreground/60">
                 Nicio factură emisă.
@@ -851,6 +1616,7 @@ export default async function ContractPage({
                 <div
                   key={inv.id}
                   className="rounded-md bg-foreground/5 p-3 flex flex-col gap-2"
+                  id={`invoice-${inv.id}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm">

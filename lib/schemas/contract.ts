@@ -52,6 +52,16 @@ export const ContractSchema = z
     asset: z.string().optional(),
     partnerId: z.string().optional(),
     partner: z.string().min(1, "partener obligatoriu"),
+    // New: multiple partners (first one mirrors partner/partnerId for backward compat)
+    partners: z
+      .array(
+        z.object({
+          id: z.string().min(1).optional(),
+          name: z.string().min(1, "nume partener obligatoriu"),
+        })
+      )
+      .min(1, "Cel puțin un partener")
+      .optional(),
     // Owner linkage from owners collection
     ownerId: z.string().optional(),
     // Denormalized owner name for display; UI now enforces selection from list
@@ -66,6 +76,23 @@ export const ContractSchema = z
     extendedAt: ISODate.optional(),
   // Payment term in days from invoice date
   paymentDueDays: z.number().int().min(0).max(120).optional(),
+    // Indexing schedule fields on Contract
+    // - indexingDay: day of month (1-31)
+    // - howOftenIsIndexing: recurrence in months (1-12)
+    // - indexingDates: computed forecast dates between startDate and effective end date
+    //   with mutable metadata for tracking actual application
+    indexingDay: z.number().int().min(1).max(31).optional(),
+    howOftenIsIndexing: z.number().int().min(1).max(12).optional(),
+    indexingDates: z
+      .array(
+        z.object({
+          forecastDate: ISODate,
+          actualDate: ISODate.optional(),
+          newRentAmount: z.number().positive().optional(),
+          done: z.boolean().default(false),
+        })
+      )
+      .default([]),
     // Rent structure
     rentType: z.enum(["monthly", "yearly"]).default("monthly"),
   // Whether monthly invoice corresponds to the current month (default) or is issued in advance for the next month
@@ -85,18 +112,18 @@ export const ContractSchema = z
   // New: multiple scans
   scans: z.array(ContractScanItemSchema).default([]),
   // Optional amounts: if one is provided, both must be provided and > 0
-  amountEUR: z.number().positive().optional(),
+  rentAmountEuro: z.number().positive().optional(),
   exchangeRateRON: z.number().positive().optional(),
   // TVA percent (0-100), integer
   tvaPercent: z.number().int().min(0).max(100).optional(),
   // Correction percent (0-100), can be decimal; applied to base amount before TVA
   correctionPercent: z.number().min(0).max(100).optional(),
-  // Historical rent changes (previous amounts). A new entry is appended automatically when amountEUR/exchangeRateRON change.
+  // Historical rent changes. First entry should reflect the initial rentAmountEuro.
   rentHistory: z
     .array(
       z.object({
         changedAt: ISODate, // when the previous amount stopped being current
-        amountEUR: z.number().positive(),
+        rentAmountEuro: z.number().positive(),
         exchangeRateRON: z.number().positive().optional(),
         correctionPercent: z.number().min(0).max(100).optional(),
         tvaPercent: z.number().int().min(0).max(100).optional(),
@@ -161,12 +188,12 @@ export const ContractSchema = z
 
     // paymentDueDays has no cross-field dependency
 
-    const hasAmount = typeof val.amountEUR === "number";
+    const hasAmount = typeof (val as any).rentAmountEuro === "number";
     const hasRate = typeof val.exchangeRateRON === "number";
     if (hasAmount !== hasRate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: hasAmount ? ["exchangeRateRON"] : ["amountEUR"],
+        path: hasAmount ? ["exchangeRateRON"] : ["rentAmountEuro"],
         message: "Dacă specifici suma în EUR, trebuie să specifici și cursul RON/EUR (și invers)",
       });
     }
@@ -179,6 +206,43 @@ export const ContractSchema = z
           code: z.ZodIssueCode.custom,
           path: ["yearlyInvoices"],
           message: "Pentru chirie anuală, adaugă cel puțin o factură cu sumă",
+        });
+      }
+    }
+
+    // Partners consistency: ensure partners array (if present) includes primary partner
+    if (Array.isArray((val as any).partners) && (val as any).partners.length > 0) {
+      const first = (val as any).partners[0];
+      if (first.name !== val.partner) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["partners"],
+          message: "Primul partener din listă trebuie să corespundă câmpului 'partner'",
+        });
+      }
+    }
+
+    // Validate indexing schedule only when BOTH fields are present.
+    // If one is missing or out-of-range in persistence, we ignore scheduling altogether
+    // instead of invalidating the whole contract.
+    if (
+      typeof (val as any).indexingDay !== "undefined" &&
+      typeof (val as any).howOftenIsIndexing !== "undefined"
+    ) {
+      const d = (val as any).indexingDay;
+      const f = (val as any).howOftenIsIndexing;
+      if (!(Number.isInteger(d) && d >= 1 && d <= 31)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["indexingDay"],
+          message: "indexingDay trebuie să fie un număr între 1 și 31",
+        });
+      }
+      if (!(Number.isInteger(f) && f >= 1 && f <= 12)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["howOftenIsIndexing"],
+          message: "howOftenIsIndexing trebuie să fie între 1 și 12 luni",
         });
       }
     }

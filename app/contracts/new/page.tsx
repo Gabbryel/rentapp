@@ -2,7 +2,8 @@
 import { useActionState, useState } from "react";
 import { createContractAction, type FormState } from "./actions";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
-import PartnerSelect from "@/app/components/partner-select";
+import PartnerSelect from "@/app/components/partner-select"; // kept for potential backward compatibility (not used now)
+import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
 // indexing UI removed
@@ -23,10 +24,10 @@ export default function NewContractPage() {
           {state.message}
         </div>
       ) : null}
-      <form action={formAction} className="space-y-5">
-        {/* Asset / Partner / Owner */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+      <form action={formAction} className="space-y-8">
+        {/* Asset & Owner */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
             <label className="block text-sm font-medium">Asset</label>
             <AssetSelect
               idName="assetId"
@@ -36,16 +37,7 @@ export default function NewContractPage() {
               defaultName={(state.values.asset as string) || ""}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium">Partener</label>
-            <PartnerSelect
-              idName="partnerId"
-              nameName="partner"
-              required
-              defaultName={(state.values.partner as string) || ""}
-            />
-          </div>
-          <div>
+          <div className="space-y-2">
             <label className="block text-sm font-medium">Proprietar</label>
             <OwnerSelect
               idName="ownerId"
@@ -55,7 +47,18 @@ export default function NewContractPage() {
               defaultName={(state.values.owner as string) || ""}
             />
           </div>
-        </div>
+        </section>
+        {/* Partners */}
+        <section className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Parteneri</label>
+            <p className="text-[11px] text-foreground/60 mb-2">
+              Adaugă unul sau mai mulți parteneri. Primul va fi utilizat ca
+              partener principal.
+            </p>
+            <PartnerMultiSelect />
+          </div>
+        </section>
         <div>
           <label className="block text-sm font-medium">Nume (generat)</label>
           <input
@@ -66,7 +69,7 @@ export default function NewContractPage() {
           />
         </div>
         {/* Dates */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <label className="block text-sm font-medium">Semnat</label>
             <input
@@ -98,7 +101,7 @@ export default function NewContractPage() {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <label className="block text-sm font-medium">
               Prelungire (opțional)
@@ -138,11 +141,11 @@ export default function NewContractPage() {
           </div>
         </div>
         {/* Rent + pricing */}
-        <fieldset className="rounded-md border border-foreground/10 p-4 space-y-4">
+        <fieldset className="rounded-md border border-foreground/10 p-5 space-y-6">
           <legend className="px-1 text-xs text-foreground/60">
             Structură chirie
           </legend>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
             <div>
               <label className="block text-sm font-medium">Tip chirie</label>
               <select
@@ -177,6 +180,7 @@ export default function NewContractPage() {
                     className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                   />
                 </div>
+                {/* Indexare mutată într-o secțiune dedicată mai jos */}
                 <div>
                   <label className="block text-sm font-medium">
                     Luna facturată
@@ -241,7 +245,7 @@ export default function NewContractPage() {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
             <div>
               <label className="block text-sm font-medium">Suma EUR</label>
               <input
@@ -289,7 +293,41 @@ export default function NewContractPage() {
             </div>
           </div>
         </fieldset>
-        {/* Indexing fields removed */}
+        {/* Indexare - setări pe Contract */}
+        <fieldset className="rounded-md border border-foreground/10 p-5 space-y-4">
+          <legend className="px-1 text-xs text-foreground/60">Indexare</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium">Zi (1-31)</label>
+              <input
+                name="indexingDay"
+                type="number"
+                min={1}
+                max={31}
+                inputMode="numeric"
+                defaultValue={String(state.values.indexingDay ?? "")}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">
+                Frecvență (luni)
+              </label>
+              <input
+                name="howOftenIsIndexing"
+                type="number"
+                min={1}
+                max={12}
+                inputMode="numeric"
+                defaultValue={String(state.values.howOftenIsIndexing ?? "")}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-end text-[11px] text-foreground/60">
+              Datele viitoare vor fi calculate automat la salvare.
+            </div>
+          </div>
+        </fieldset>
         <div className="pt-2 flex justify-center">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează

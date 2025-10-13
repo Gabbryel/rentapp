@@ -1,6 +1,12 @@
 import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
 import { getDb } from "@/lib/mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
+// Invoices: moved under contract model
+import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
+import { saveBufferAsUpload } from "@/lib/storage";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { createMessage } from "@/lib/messages";
+import { allocateInvoiceNumberForOwner } from "@/lib/invoice-settings";
 
 const MOCK_CONTRACTS: ContractType[] = [
   {
@@ -12,7 +18,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 5,
     scanUrl: "/contract-scan.svg",
@@ -29,7 +36,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 10,
     scanUrl: "/contract-scan.svg",
@@ -46,7 +54,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 15,
     scanUrl: "/contract-scan.svg",
@@ -63,7 +72,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 12,
     scanUrl: "/contract-scan.svg",
@@ -80,7 +90,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 8,
     scanUrl: "/contract-scan.svg",
@@ -97,7 +108,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 20,
     scanUrl: "/contract-scan.svg",
@@ -114,7 +126,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 7,
     extensionDate: "2026-06-30",
@@ -132,7 +145,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-04-15",
     endDate: "2025-10-15",
     paymentDueDays: 14,
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 3,
     scans: [],
@@ -148,7 +162,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2024-09-15",
     endDate: "2025-09-14",
     paymentDueDays: 20,
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 9,
     scans: [],
@@ -164,7 +179,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2024-12-01",
     endDate: "2025-03-01",
     paymentDueDays: 20,
-    rentType: "monthly",
+  rentType: "monthly",
+  indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 1,
     scans: [],
@@ -180,7 +196,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-07-01",
     startDate: "2025-07-10",
     endDate: "2026-07-09",
-    paymentDueDays: 15,
+  paymentDueDays: 15,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 11,
@@ -196,7 +213,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-01-05",
     startDate: "2025-01-15",
     endDate: "2026-01-14",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 14,
@@ -212,7 +230,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-07-20",
     startDate: "2024-08-01",
     endDate: "2025-07-31",
-    paymentDueDays: 30,
+  paymentDueDays: 30,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 6,
@@ -228,7 +247,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-09-10",
     startDate: "2025-10-01",
     endDate: "2025-12-31",
-    paymentDueDays: 10,
+  paymentDueDays: 10,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 4,
@@ -244,7 +264,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-05-25",
     startDate: "2025-06-01",
     endDate: "2026-05-31",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 16,
@@ -261,7 +282,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-03-28",
     startDate: "2025-05-01",
     endDate: "2025-09-01",
-    paymentDueDays: 25,
+  paymentDueDays: 25,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 18,
@@ -278,7 +300,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-12-01",
     startDate: "2025-01-10",
     endDate: "2025-07-10",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 13,
@@ -295,7 +318,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-08-15",
     startDate: "2026-01-01",
     endDate: "2026-12-31",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 2,
@@ -311,7 +335,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-02-02",
     startDate: "2025-02-15",
     endDate: "2026-02-14",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 22,
@@ -327,7 +352,8 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-06-05",
     startDate: "2025-06-15",
     endDate: "2026-06-14",
-    paymentDueDays: 20,
+  paymentDueDays: 20,
+  indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 19,
@@ -361,7 +387,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     return undefined;
   };
   // ignore legacy indexing fields in persistence
-  const amountEUR = numOrUndef(r.amountEUR);
+  const amountEUR = numOrUndef((r as any).rentAmountEuro ?? (r as any).amountEUR);
   const exchangeRateRON = numOrUndef(r.exchangeRateRON);
   const tvaPercent =
     typeof r.tvaPercent === "number"
@@ -469,26 +495,28 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       }
       return mapped;
     })(),
-    amountEUR: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
+  rentAmountEuro: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
     correctionPercent,
   // inflation tracking removed
     rentHistory: ((): any[] => {
       const arr = Array.isArray((r as any).rentHistory) ? (r as any).rentHistory : [];
-      return arr
+      const mapped = arr
         .map((it: any) => {
           const o = (it ?? {}) as Record<string, unknown>;
             const changedAt = toYmd(o.changedAt);
-            const amountEUR = typeof o.amountEUR === "number" ? o.amountEUR : Number(o.amountEUR);
+            const rentAmountEuro = typeof (o as any).rentAmountEuro === "number"
+              ? (o as any).rentAmountEuro
+              : (typeof (o as any).amountEUR === "number" ? (o as any).amountEUR : Number((o as any).amountEUR));
             const exchangeRateRON = typeof o.exchangeRateRON === "number" ? o.exchangeRateRON : Number(o.exchangeRateRON);
             const correctionPercent = typeof o.correctionPercent === "number" ? o.correctionPercent : Number(o.correctionPercent);
             const tvaPercent = typeof o.tvaPercent === "number" ? o.tvaPercent : Number(o.tvaPercent);
             const note = typeof o.note === "string" && o.note.trim() ? o.note.trim() : undefined;
-            if (changedAt && Number.isFinite(amountEUR) && amountEUR > 0) {
+            if (changedAt && Number.isFinite(rentAmountEuro) && (rentAmountEuro as number) > 0) {
               return {
                 changedAt,
-                amountEUR,
+                rentAmountEuro,
                 exchangeRateRON: Number.isFinite(exchangeRateRON) && exchangeRateRON > 0 ? exchangeRateRON : undefined,
                 correctionPercent: Number.isFinite(correctionPercent) && correctionPercent >= 0 ? correctionPercent : undefined,
                 tvaPercent: Number.isFinite(tvaPercent) && tvaPercent >= 0 ? Math.round(tvaPercent) : undefined,
@@ -497,9 +525,70 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
             }
             return null;
         })
-        .filter(Boolean);
+        .filter(Boolean) as any[];
+      // Seed initial history entry if missing and rentAmountEuro exists
+      const currentAmount = Number((r as any).rentAmountEuro ?? (r as any).amountEUR);
+      if (mapped.length === 0 && Number.isFinite(currentAmount) && currentAmount > 0) {
+        const start = toYmd((r as any).startDate) ?? toYmd((r as any).signedAt) ?? new Date().toISOString().slice(0, 10);
+        mapped.push({
+          changedAt: start,
+          rentAmountEuro: currentAmount,
+          exchangeRateRON: Number((r as any).exchangeRateRON) || undefined,
+          correctionPercent: Number((r as any).correctionPercent) || undefined,
+          tvaPercent: Number((r as any).tvaPercent) || undefined,
+          note: "inițial",
+        });
+      }
+      // sort ascending
+      mapped.sort((a, b) => String(a.changedAt).localeCompare(String(b.changedAt)));
+      return mapped;
     })(),
-  // schedule fields removed
+    // schedule fields
+    indexingDay: ((): number | undefined => {
+      const n = Number((r as any).indexingDay);
+      return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
+    })(),
+    howOftenIsIndexing: ((): number | undefined => {
+      const n = Number((r as any).howOftenIsIndexing);
+      return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+    })(),
+    // Indexing dates: prefer persisted indexingDates when present; otherwise derive from legacy futureIndexingDates only if schedule is valid
+    indexingDates: ((): { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[] => {
+      // If DB already has indexingDates, sanitize and keep them regardless of schedule fields
+      if (Array.isArray((r as any).indexingDates)) {
+        const arr = ((r as any).indexingDates as unknown[]).map((it) => {
+          const o = (it ?? {}) as any;
+          const forecastDate = toYmd(o.forecastDate);
+          if (!forecastDate) return null;
+          const actualDate = toYmd(o.actualDate);
+          const nra = Number(o.newRentAmount);
+          const newRentAmount = Number.isFinite(nra) && nra > 0 ? nra : undefined;
+          const done = Boolean(o.done);
+          return { forecastDate, actualDate, newRentAmount, done };
+        }).filter(Boolean) as { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[];
+        return arr;
+      }
+      // Else, build from legacy futureIndexingDates only when schedule is valid
+      const day = Number((r as any).indexingDay);
+      const freq = Number((r as any).howOftenIsIndexing);
+      const scheduleOk = Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(freq) && freq >= 1 && freq <= 12;
+      if (!scheduleOk) return [];
+      const legacyArr = Array.isArray((r as any).futureIndexingDates)
+        ? ((r as any).futureIndexingDates as unknown[])
+        : [];
+      const mapped: { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[] = [];
+      for (const it of legacyArr) {
+        if (typeof it === "string") {
+          const d = toYmd(it);
+          if (d) mapped.push({ forecastDate: d, done: false });
+        } else if (it && typeof it === "object") {
+          const o = it as any;
+          const d = toYmd(o.date);
+          if (d) mapped.push({ forecastDate: d, done: Boolean(o.saved) });
+        }
+      }
+      return mapped;
+    })(),
   } as Partial<ContractType>;
 }
 
@@ -562,13 +651,88 @@ export async function fetchContractById(id: string): Promise<ContractType | null
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
 }
 
+export async function fetchContractsByAssetId(assetId: string, injectedDb?: any): Promise<ContractType[]> {
+  // Allow injecting a DB for tests; otherwise use real MongoDB when configured
+  if (injectedDb || process.env.MONGODB_URI) {
+    try {
+      const db = injectedDb ?? (await getDb());
+      const docs = await db
+        .collection("contracts")
+        .find({ assetId }, { projection: { _id: 0 } })
+        .toArray();
+      const valid: ContractType[] = [];
+      for (const raw of docs) {
+        const parsed = ContractSchema.safeParse(normalizeRaw(raw));
+        if (parsed.success) valid.push(parsed.data);
+        else {
+          console.warn("Contract invalid, omis din listă (asset):", {
+            id: (raw as any)?.id,
+            issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+          });
+        }
+      }
+      return valid;
+    } catch (err) {
+      console.warn("Mongo indisponibil (fetchContractsByAssetId), fallback local.", err);
+    }
+  }
+  try {
+    const local = await readJson<ContractType[]>("contracts.json", []);
+    if (local.length > 0) return local.filter((c) => c.assetId === assetId);
+  } catch {}
+  return MOCK_CONTRACTS.filter((c) => (c as any).assetId === assetId);
+}
+
 // Effective end date: if an extension date exists, that becomes the new end date
 export function effectiveEndDate(c: ContractType): string {
   return c.extensionDate ?? c.endDate;
 }
 
-// Compute indexing instances from schedule fields within contract bounds
-// generateIndexingDatesFromSchedule removed (indexing scheduling deprecated)
+// Compute future indexing dates within contract bounds
+export function computeFutureIndexingDates(c: ContractType): { forecastDate: string; done: boolean }[] {
+  const dayRaw = (c as any).indexingDay as number | undefined;
+  const freqRaw = (c as any).howOftenIsIndexing as number | undefined;
+  if (!Number.isInteger(dayRaw) || !Number.isInteger(freqRaw)) return [];
+  const day = dayRaw as number;
+  const freq = freqRaw as number;
+  if (day < 1 || day > 31) return [];
+  if (freq < 1 || freq > 12) return [];
+  const start = new Date(c.startDate);
+  const end = new Date(effectiveEndDate(c));
+  // Determine first occurrence on/after start
+  let y = start.getFullYear();
+  let m = start.getMonth(); // 0-indexed
+  // Build the first candidate in start's month or later that hits the day
+  let candidate = new Date(y, m, Math.min(day, 28));
+  // If the month has >= day days, set; else, use the last valid day of that month
+  const lastDayInMonth = (yy: number, mm: number) => new Date(yy, mm + 1, 0).getDate();
+  const setDay = (d: Date, targetDay: number) => {
+    const last = lastDayInMonth(d.getFullYear(), d.getMonth());
+    d.setDate(Math.min(targetDay, last));
+    return d;
+  };
+  candidate = setDay(new Date(y, m, 1), day);
+  if (candidate < start) {
+    // move forward by one month at a time until reaching/after start
+    while (candidate < start) {
+  m += 1;
+  candidate = setDay(new Date(y, m, 1), day);
+    }
+  }
+  // Now generate every freq months until end
+  const out: { forecastDate: string; done: boolean }[] = [];
+  let cur = candidate;
+  while (cur <= end) {
+    const yyyy = cur.getFullYear();
+    const mm = String(cur.getMonth() + 1).padStart(2, "0");
+    const dd = String(cur.getDate()).padStart(2, "0");
+    out.push({ forecastDate: `${yyyy}-${mm}-${dd}`, done: false });
+    // advance by freq months safely
+    const nextMonthIndex = cur.getMonth() + freq;
+    cur = setDay(new Date(cur.getFullYear(), nextMonthIndex, 1), day);
+  }
+  return out;
+}
 
 export async function upsertContract(contract: ContractType) {
   ContractSchema.parse(contract);
@@ -577,37 +741,90 @@ export async function upsertContract(contract: ContractType) {
     const db = await getDb();
     const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
     let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+    // Peek provided indexing metadata from incoming contract to determine effective date
+    const providedIdx = Array.isArray((contract as any).indexingDates)
+      ? (((contract as any).indexingDates as unknown[]) as {
+          forecastDate: string;
+          actualDate?: string;
+          newRentAmount?: number;
+          done?: boolean;
+        }[])
+      : [];
     if (existing) {
-      const prevAmount = (existing as any).amountEUR;
+      const prevAmount = (existing as any).rentAmountEuro ?? (existing as any).amountEUR;
       const prevRate = (existing as any).exchangeRateRON;
       const prevCorrection = (existing as any).correctionPercent;
       const prevTva = (existing as any).tvaPercent;
       const changed =
-        (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
-        (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
+        (typeof prevAmount === "number" || typeof (contract as any).rentAmountEuro === "number") &&
+        (prevAmount !== (contract as any).rentAmountEuro || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
       if (changed && typeof prevAmount === "number" && prevAmount > 0) {
+        // Determine effective changedAt and note from indexing when applicable
+        const newAmount = (contract as any).rentAmountEuro;
+        const match =
+          typeof newAmount === "number"
+            ? providedIdx.find(
+                (x) => x && x.done && typeof x.newRentAmount === "number" && x.newRentAmount === newAmount
+              )
+            : undefined;
         const today = new Date();
         const y = today.getFullYear();
         const m = String(today.getMonth() + 1).padStart(2, "0");
         const d = String(today.getDate()).padStart(2, "0");
-        const iso = `${y}-${m}-${d}`;
+        const isoToday = `${y}-${m}-${d}`;
+        const changedAtIso = match?.actualDate || match?.forecastDate || isoToday;
+        const note = match?.actualDate
+          ? `indexare ${match.actualDate}`
+          : match?.forecastDate
+          ? `indexare ${match.forecastDate}`
+          : undefined;
         rentHistory.push({
-          changedAt: iso,
-          amountEUR: prevAmount,
+          changedAt: changedAtIso,
+          rentAmountEuro: typeof newAmount === "number" ? newAmount : prevAmount,
           exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
           correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
           tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
+          ...(note ? { note } : {}),
+        });
+      }
+    }
+    // If this is a new contract (no existing) and no history provided, seed initial entry
+    if (!existing) {
+      const currentAmount = (contract as any).rentAmountEuro;
+      if (typeof currentAmount === "number" && currentAmount > 0 && rentHistory.length === 0) {
+        const start = contract.startDate || contract.signedAt;
+        rentHistory.push({
+          changedAt: start,
+          rentAmountEuro: currentAmount,
+          exchangeRateRON: contract.exchangeRateRON,
+          correctionPercent: contract.correctionPercent,
+          tvaPercent: contract.tvaPercent,
+          note: "inițial",
         });
       }
     }
     rentHistory = rentHistory.reduce((acc: any[], cur) => {
-      const key = `${cur.changedAt}|${cur.amountEUR}`;
-      const idx = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
+      const key = `${cur.changedAt}|${cur.rentAmountEuro}`;
+      const idx = acc.findIndex((x) => `${x.changedAt}|${x.rentAmountEuro}` === key);
       if (idx >= 0) acc[idx] = cur; else acc.push(cur);
       return acc;
     }, []);
     rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
-    const toSave: ContractType = { ...contract, rentHistory };
+  // Recompute indexingDates if schedule fields present and preserve provided metadata (actualDate/newRentAmount/done)
+  const baseComputed = computeFutureIndexingDates(contract as any);
+  const provided = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as { forecastDate: string; actualDate?: string; newRentAmount?: number; done?: boolean }[])
+    : [];
+  const merged = baseComputed.map((e) => {
+    const hit = provided.find((p) => p.forecastDate === e.forecastDate);
+    return {
+      forecastDate: e.forecastDate,
+      actualDate: hit?.actualDate,
+      newRentAmount: hit?.newRentAmount,
+      done: Boolean(hit?.done),
+    };
+  });
+  const toSave: ContractType = { ...(contract as any), rentHistory, indexingDates: merged } as any;
     await db
       .collection<ContractType>("contracts")
       .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
@@ -618,38 +835,88 @@ export async function upsertContract(contract: ContractType) {
     const all = await readJson<ContractType[]>("contracts.json", []);
     const idx = all.findIndex((c) => c.id === contract.id);
     let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+    const providedIdx = Array.isArray((contract as any).indexingDates)
+      ? (((contract as any).indexingDates as unknown[]) as {
+          forecastDate: string;
+          actualDate?: string;
+          newRentAmount?: number;
+          done?: boolean;
+        }[])
+      : [];
     if (idx >= 0) {
       const prev = all[idx];
-      const prevAmount = (prev as any).amountEUR;
+      const prevAmount = (prev as any).rentAmountEuro ?? (prev as any).amountEUR;
       const prevRate = (prev as any).exchangeRateRON;
       const prevCorrection = (prev as any).correctionPercent;
       const prevTva = (prev as any).tvaPercent;
       const changed =
-        (typeof prevAmount === "number" || typeof contract.amountEUR === "number") &&
-        (prevAmount !== contract.amountEUR || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
+        (typeof prevAmount === "number" || typeof (contract as any).rentAmountEuro === "number") &&
+        (prevAmount !== (contract as any).rentAmountEuro || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
       if (changed && typeof prevAmount === "number" && prevAmount > 0) {
+        const newAmount = (contract as any).rentAmountEuro;
+        const match =
+          typeof newAmount === "number"
+            ? providedIdx.find(
+                (x) => x && x.done && typeof x.newRentAmount === "number" && x.newRentAmount === newAmount
+              )
+            : undefined;
         const today = new Date();
         const y = today.getFullYear();
         const m = String(today.getMonth() + 1).padStart(2, "0");
         const d = String(today.getDate()).padStart(2, "0");
-        const iso = `${y}-${m}-${d}`;
+        const isoToday = `${y}-${m}-${d}`;
+        const changedAtIso = match?.actualDate || match?.forecastDate || isoToday;
+        const note = match?.actualDate
+          ? `indexare ${match.actualDate}`
+          : match?.forecastDate
+          ? `indexare ${match.forecastDate}`
+          : undefined;
         rentHistory.push({
-          changedAt: iso,
-          amountEUR: prevAmount,
+          changedAt: changedAtIso,
+          rentAmountEuro: typeof newAmount === "number" ? newAmount : prevAmount,
           exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
           correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
           tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
+          ...(note ? { note } : {}),
+        });
+      }
+    }
+    // If this is a new contract (no previous in local store) and history empty, seed initial entry
+    if (idx < 0) {
+      const currentAmount = (contract as any).rentAmountEuro;
+      if (typeof currentAmount === "number" && currentAmount > 0 && rentHistory.length === 0) {
+        const start = contract.startDate || contract.signedAt;
+        rentHistory.push({
+          changedAt: start,
+          rentAmountEuro: currentAmount,
+          exchangeRateRON: contract.exchangeRateRON,
+          correctionPercent: contract.correctionPercent,
+          tvaPercent: contract.tvaPercent,
+          note: "inițial",
         });
       }
     }
     rentHistory = rentHistory.reduce((acc: any[], cur) => {
-      const key = `${cur.changedAt}|${cur.amountEUR}`;
-      const i = acc.findIndex((x) => `${x.changedAt}|${x.amountEUR}` === key);
+      const key = `${cur.changedAt}|${cur.rentAmountEuro}`;
+      const i = acc.findIndex((x) => `${x.changedAt}|${x.rentAmountEuro}` === key);
       if (i >= 0) acc[i] = cur; else acc.push(cur);
       return acc;
     }, []);
     rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
-    const toSave: ContractType = { ...contract, rentHistory };
+  const baseComputed = computeFutureIndexingDates(contract as any);
+  const provided = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as { forecastDate: string; actualDate?: string; newRentAmount?: number; done?: boolean }[])
+    : [];
+  const merged = baseComputed.map((e) => {
+    const hit = provided.find((p) => p.forecastDate === e.forecastDate);
+    return {
+      forecastDate: e.forecastDate,
+      actualDate: hit?.actualDate,
+      newRentAmount: hit?.newRentAmount,
+      done: Boolean(hit?.done),
+    };
+  });
+  const toSave: ContractType = { ...(contract as any), rentHistory, indexingDates: merged } as any;
     if (idx >= 0) all[idx] = toSave; else all.push(toSave);
     await writeJson("contracts.json", all);
   } catch (err) {
@@ -699,4 +966,396 @@ export async function updateContractsExchangeRate(newRate: number, onlyActive = 
     .collection<ContractType>("contracts")
     .updateMany(filter as any, { $set: { exchangeRateRON: newRate } });
   return res.modifiedCount ?? 0;
+}
+
+// =============================================================
+// Invoices logic (moved from lib/invoices.ts)
+// =============================================================
+
+export async function createInvoice(inv: Invoice) {
+  InvoiceSchema.parse(inv);
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const idx = all.findIndex((x) => x.id === inv.id);
+    if (idx >= 0) all[idx] = inv; else all.push(inv);
+    await writeJson("invoices.json", all);
+    return;
+  }
+  const db = await getDb();
+  await db.collection<Invoice>("invoices").insertOne(inv);
+}
+
+export async function fetchInvoicesByContract(contractId: string): Promise<Invoice[]> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.contractId === contractId).sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
+  }
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Invoice>("invoices")
+      .find({ contractId }, { projection: { _id: 0 } })
+      .sort({ issuedAt: 1 })
+      .toArray();
+    return docs.map((d) => InvoiceSchema.parse(d));
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.contractId === contractId).sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
+  }
+}
+
+export async function fetchInvoicesByPartner(partnerId: string): Promise<Invoice[]> {
+  if (!process.env.MONGODB_URI) return [];
+  const db = await getDb();
+  const docs = await db
+    .collection<Invoice>("invoices")
+    .find({ partnerId }, { projection: { _id: 0 } })
+    .sort({ issuedAt: -1 })
+    .toArray();
+  return docs.map((d) => InvoiceSchema.parse(d));
+}
+
+export async function fetchInvoiceById(id: string): Promise<Invoice | null> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find((x) => x.id === id);
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+  try {
+    const db = await getDb();
+    const doc = await db.collection<Invoice>("invoices").findOne({ id }, { projection: { _id: 0 } });
+    return doc ? InvoiceSchema.parse(doc) : null;
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find((x) => x.id === id);
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+}
+
+export async function updateInvoiceNumber(id: string, number: string): Promise<boolean> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const idx = all.findIndex((x) => x.id === id);
+    if (idx < 0) return false;
+    const updated: Invoice = { ...all[idx], id: number, number, updatedAt: new Date().toISOString() };
+    // ensure uniqueness by removing any existing entry with the new id
+    const filtered = all.filter((x, i) => i !== idx && x.id !== number);
+    filtered.push(updated);
+    await writeJson("invoices.json", filtered);
+    return true;
+  }
+  const db = await getDb();
+  const nowIso = new Date().toISOString();
+  // We need to change the primary id to match the number; emulate rename by upsert
+  const doc = await db.collection<Invoice>("invoices").findOne({ id });
+  if (!doc) return false;
+  const newDoc = { ...(doc as any), id: number, number, updatedAt: nowIso };
+  await db.collection<Invoice>("invoices").deleteOne({ id });
+  const res = await db.collection<Invoice>("invoices").updateOne({ id: number }, { $set: newDoc }, { upsert: true });
+  return Boolean(res.acknowledged && res.matchedCount === 1);
+}
+
+export async function deleteInvoiceById(id: string): Promise<boolean> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const next = all.filter((x) => x.id !== id);
+    const changed = next.length !== all.length;
+    if (changed) await writeJson("invoices.json", next);
+    return changed;
+  }
+  const db = await getDb();
+  const res = await db.collection<Invoice>("invoices").deleteOne({ id });
+  return Boolean(res.acknowledged && res.deletedCount === 1);
+}
+
+export function computeInvoiceFromContract(opts: {
+  contract: ContractType;
+  issuedAt: string; // YYYY-MM-DD
+  number?: string;
+  amountEUROverride?: number; // for yearly entries or special cases
+}): Invoice {
+  const c = opts.contract;
+  const dueDays = typeof c.paymentDueDays === "number" ? c.paymentDueDays : 0;
+  // Back-compat: prefer rentAmountEuro; fallback to legacy amountEUR when present in older data
+  const baseAmount = (c as any).rentAmountEuro ?? (c as any).amountEUR;
+  const amountEUR = Number((opts.amountEUROverride ?? baseAmount) ?? 0);
+  const rate = Number(c.exchangeRateRON ?? 0);
+  const corrPct = Number(c.correctionPercent ?? 0);
+  const tvaPct = Number(c.tvaPercent ?? 0);
+  const correctedAmountEUR = amountEUR * (1 + corrPct / 100);
+  const netRON = correctedAmountEUR * rate;
+  const vatRON = netRON * (tvaPct / 100);
+  const totalRON = netRON + vatRON;
+
+  const nowIso = new Date().toISOString().slice(0, 10);
+  const inv: Invoice = InvoiceSchema.parse({
+    // Temporary id; will be overwritten with the invoice number at issuance
+    id: opts.number || `${c.id}-${opts.issuedAt}`,
+    contractId: c.id,
+    contractName: c.name,
+    issuedAt: opts.issuedAt,
+    dueDays,
+    ownerId: (c as any).ownerId,
+    owner: (c as any).owner,
+    partnerId: (c as any).partnerId || (c as any).partner,
+    partner: c.partner,
+    amountEUR,
+    correctionPercent: corrPct,
+    correctedAmountEUR,
+    exchangeRateRON: rate,
+    netRON,
+    tvaPercent: tvaPct,
+    vatRON,
+    totalRON,
+    number: opts.number,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  });
+  return inv;
+}
+
+export async function renderInvoicePdf(inv: Invoice): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595.28, 841.89]); // A4 portrait in points
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const margin = 40;
+  let y = 800;
+
+  const text = (s: string, opts?: { size?: number; bold?: boolean; color?: { r: number; g: number; b: number } }) => {
+    const size = opts?.size ?? 12;
+    const f = opts?.bold ? fontBold : font;
+    const color = opts?.color ? rgb(opts.color.r, opts.color.g, opts.color.b) : rgb(0, 0, 0);
+    page.drawText(s, { x: margin, y, size, font: f, color });
+    y -= size + 6;
+  };
+
+  text("Factura", { size: 20, bold: true });
+  text(`Număr: ${inv.number || inv.id}`);
+  text(`Data emiterii: ${inv.issuedAt}`);
+  text("");
+  text(`Contract: ${inv.contractName} (ID ${inv.contractId})`, { bold: true });
+  text(`Vânzător: ${inv.owner}`);
+  text(`Cumpărător: ${inv.partner}`);
+  text("");
+  text(`Suma (EUR): ${inv.amountEUR.toFixed(2)}`);
+  text(`Corecție: ${inv.correctionPercent}% → EUR după corecție: ${inv.correctedAmountEUR.toFixed(2)}`);
+  text(`Curs RON/EUR: ${inv.exchangeRateRON.toFixed(4)}`);
+  text(`Bază RON: ${inv.netRON.toFixed(2)}`);
+  text(`TVA (${inv.tvaPercent}%): ${inv.vatRON.toFixed(2)} RON`);
+  text(`Total de plată: ${inv.totalRON.toFixed(2)} RON`, { bold: true });
+
+  return await pdfDoc.save();
+}
+
+export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice> {
+  // Global guard: only one invoice per contract per issued date
+  try {
+    const dupe = await findInvoiceByContractAndDate(inv.contractId, inv.issuedAt);
+    if (dupe) return dupe;
+  } catch {}
+  // Persist invoice, generate PDF, save PDF, update invoice with url
+  let useMongo = Boolean(process.env.MONGODB_URI);
+  let db: Awaited<ReturnType<typeof getDb>> | null = null;
+  if (useMongo) {
+    try {
+      db = await getDb();
+    } catch {
+      // Fallback to local store when DB is not reachable
+      useMongo = false;
+      db = null;
+    }
+  }
+  // Upsert by id to avoid duplicates
+  let toSave: Invoice = inv;
+  if (!toSave.number) {
+    try {
+      const num = await allocateInvoiceNumberForOwner((toSave as any).ownerId ?? null, toSave.owner ?? null);
+      // id must be the invoice number
+      toSave = { ...toSave, number: num, id: num };
+    } catch {}
+  }
+  // If number exists but id doesn't match, align them
+  if (toSave.number && toSave.id !== toSave.number) {
+    toSave = { ...toSave, id: toSave.number };
+  }
+  if (useMongo) {
+    await db!.collection<Invoice>("invoices").updateOne({ id: toSave.id }, { $set: toSave }, { upsert: true });
+  } else {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const idx = all.findIndex((x) => x.id === toSave.id);
+    if (idx >= 0) all[idx] = toSave; else all.push(toSave);
+    await writeJson("invoices.json", all);
+  }
+
+  // Generate a simple PDF receipt/invoice
+  const pdfBytes = await renderInvoicePdf(toSave);
+  const saved = await saveBufferAsUpload(new Uint8Array(pdfBytes), `${inv.id}.pdf`, "application/pdf", {
+    contractId: inv.contractId,
+    partnerId: inv.partnerId,
+  });
+
+  const updated: Invoice = { ...toSave, pdfUrl: saved.url };
+  if (useMongo) {
+    await db!.collection<Invoice>("invoices").updateOne(
+      { id: toSave.id },
+      { $set: { pdfUrl: saved.url, updatedAt: new Date().toISOString() } }
+    );
+  } else {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const idx = all.findIndex((x) => x.id === updated.id);
+    if (idx >= 0) all[idx] = updated; else all.push(updated);
+    await writeJson("invoices.json", all);
+  }
+
+  await createMessage({
+    text: `Factură emisă pentru contractul ${inv.contractName}: ${inv.totalRON.toFixed(2)} RON (TVA ${inv.tvaPercent}%).`,
+  });
+
+  // Invalidate cached yearly invoices so realized income is fresh
+  try { invalidateYearInvoicesCache(); } catch {}
+
+  return updated;
+}
+
+export async function listInvoicesForContract(contractId: string): Promise<Invoice[]> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+  }
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Invoice>("invoices")
+      .find({ contractId }, { projection: { _id: 0 } })
+      .sort({ issuedAt: -1 })
+      .toArray();
+    return docs.map((d) => InvoiceSchema.parse(d));
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+  }
+}
+
+/** Find an invoice by contract and exact issued date (YYYY-MM-DD) */
+export async function findInvoiceByContractAndDate(
+  contractId: string,
+  issuedAt: string
+): Promise<Invoice | null> {
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+  try {
+    const db = await getDb();
+    const doc = await db
+      .collection<Invoice>("invoices")
+      .findOne({ contractId, issuedAt }, { projection: { _id: 0 } });
+    return doc ? InvoiceSchema.parse(doc) : null;
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+}
+
+/** List all invoices for a specific month (1-12). Sorted ascending by date. */
+export async function listInvoicesForMonth(year: number, month: number): Promise<Invoice[]> {
+  const y = String(year).padStart(4, "0");
+  const m = String(month).padStart(2, "0");
+  const start = `${y}-${m}-01`;
+  // endExclusive = first day of next month
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endExclusive = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
+
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all
+      .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
+      .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
+  }
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Invoice>("invoices")
+      .find({ issuedAt: { $gte: start, $lt: endExclusive } }, { projection: { _id: 0 } })
+      .sort({ issuedAt: 1 })
+      .toArray();
+    return docs.map((d) => InvoiceSchema.parse(d));
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all
+      .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
+      .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
+  }
+}
+
+// In-memory cache for yearly invoice aggregation (simple TTL approach)
+let __yearInvoicesCache: { year: number; at: number; invoices: Invoice[] } | null = null;
+const YEAR_CACHE_TTL_MS = 60_000; // 60s TTL
+
+/** Fetch all invoices for a given calendar year with light in-memory caching. */
+export async function fetchInvoicesForYear(year: number): Promise<Invoice[]> {
+  const now = Date.now();
+  if (
+    __yearInvoicesCache &&
+    __yearInvoicesCache.year === year &&
+    now - __yearInvoicesCache.at < YEAR_CACHE_TTL_MS
+  ) {
+    return __yearInvoicesCache.invoices;
+  }
+  const start = `${String(year).padStart(4, "0")}-01-01`;
+  const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
+  let data: Invoice[] = [];
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+  } else {
+    try {
+      const db = await getDb();
+      const docs = await db
+        .collection<Invoice>("invoices")
+        .find(
+          { issuedAt: { $gte: start, $lt: endExclusive } },
+          { projection: { _id: 0 } }
+        )
+        .toArray();
+      data = docs.map((d) => InvoiceSchema.parse(d));
+    } catch {
+      const all = await readJson<Invoice[]>("invoices.json", []);
+      data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+    }
+  }
+  __yearInvoicesCache = { year, invoices: data, at: now };
+  return data;
+}
+
+export function invalidateYearInvoicesCache() {
+  __yearInvoicesCache = null;
+}
+
+/** Always fetch invoices for a year ignoring the in-memory cache (fresh read). */
+export async function fetchInvoicesForYearFresh(year: number): Promise<Invoice[]> {
+  const start = `${String(year).padStart(4, "0")}-01-01`;
+  const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+  }
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Invoice>("invoices")
+      .find(
+        { issuedAt: { $gte: start, $lt: endExclusive } },
+        { projection: { _id: 0 } }
+      )
+      .toArray();
+    return docs.map((d) => InvoiceSchema.parse(d));
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    return all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
+  }
 }

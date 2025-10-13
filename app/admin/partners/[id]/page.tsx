@@ -35,6 +35,12 @@ export default async function EditPartnerPage({
       orcNumber: (formData.get("orcNumber") as string) || current.orcNumber,
       headquarters:
         (formData.get("headquarters") as string) || current.headquarters,
+      phone:
+        ((formData.get("phone") as string) || current.phone || "").trim() ||
+        undefined,
+      email:
+        ((formData.get("email") as string) || current.email || "").trim() ||
+        undefined,
       createdAt: current.createdAt,
       updatedAt: new Date().toISOString().slice(0, 10),
     };
@@ -45,6 +51,8 @@ export default async function EditPartnerPage({
         "vatNumber",
         "orcNumber",
         "headquarters",
+        "phone",
+        "email",
       ];
       const changes = fields
         .map((f) => ({
@@ -68,6 +76,8 @@ export default async function EditPartnerPage({
         { k: "vatNumber", label: "CUI" },
         { k: "orcNumber", label: "Nr. ORC" },
         { k: "headquarters", label: "Sediu" },
+        { k: "phone", label: "Telefon" },
+        { k: "email", label: "Email" },
       ] as const;
       const diffs = fields
         .map(({ k, label }) => ({
@@ -167,6 +177,27 @@ export default async function EditPartnerPage({
             required
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium">Telefon</label>
+            <input
+              name="phone"
+              defaultValue={p.phone || ""}
+              placeholder="ex: +40 712 345 678"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              name="email"
+              type="email"
+              defaultValue={p.email || ""}
+              placeholder="ex: contact@exemplu.ro"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
         </div>
         <div className="pt-2 flex items-center gap-3">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">

@@ -235,7 +235,7 @@
 			"group": "build"
 		},
 		{
-			"label": "Build after icon buttons and indexing move",
+			"label": "Build after icon buttons update",
 			"type": "shell",
 			"command": "npm",
 			"args": [
@@ -265,7 +265,7 @@
 			"args": [],
 			"problemMatcher": [
 				"$tsc",
-				"$eslint - stylish"
+				"$eslint-stylish"
 			],
 			"group": "build"
 		},
@@ -276,7 +276,7 @@
 			"args": [],
 			"problemMatcher": [
 				"$tsc",
-				"$eslint - stylish"
+				"$eslint-stylish"
 			],
 			"group": "build"
 		},
@@ -459,16 +459,6 @@
 			"command": "npm run build",
 			"problemMatcher": [
 				"$tsc",
-				"$eslint - stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-rentapp",
-			"type": "shell",
-			"command": "npm run build",
-			"problemMatcher": [
-				"$tsc",
 				"$eslint-stylish"
 			],
 			"group": "build"
@@ -490,6 +480,25 @@
 			"problemMatcher": [
 				"$tsc",
 				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-rentapp",
+			"type": "shell",
+			"command": "npm run build",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "npm run build",
+			"problemMatcher": [
+				"$tsc"
 			],
 			"group": "build"
 		}

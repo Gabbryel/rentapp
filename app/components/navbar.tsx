@@ -110,27 +110,28 @@ export default function Navbar() {
         fetch("/api/exchange/refresh", { cache: "no-store" }),
         fetch("/api/exchange/bt/refresh", { cache: "no-store" }),
       ]);
+      let bnrFailed = false,
+        btFailed = false;
+      if (bnrRes.status === "rejected" || !bnrRes.value.ok) bnrFailed = true;
+      if (btRes.status === "rejected" || !btRes.value.ok) btFailed = true;
 
-      let bnrFailed = false;
-      let btFailed = false;
-      if (bnrRes.status === "rejected") bnrFailed = true;
-      else if (!bnrRes.value.ok) bnrFailed = true;
-      if (btRes.status === "rejected") btFailed = true;
-      else if (!btRes.value.ok) btFailed = true;
-
-      // Re-fetch normal endpoints (always attempt, even if refresh failed)
+      // Re-fetch exchange rate data and update state
       const load = async () => {
+        let newBnrRate = null,
+          newBnrDate = null;
         try {
           const res = await fetch("/api/exchange/eurron?force=1", {
             cache: "no-store",
           });
           if (res.ok) {
             const data = await res.json();
-            setBnrRate(typeof data.rate === "number" ? data.rate : null);
-            setBnrDate(data.date || null);
+            newBnrRate = typeof data.rate === "number" ? data.rate : null;
+            newBnrDate = data.date || null;
+            setBnrRate(newBnrRate);
+            setBnrDate(newBnrDate);
             setBnrSource(data.source || null);
           } else {
-            bnrFailed = true; // treat non-200 as failure
+            bnrFailed = true;
           }
         } catch {
           bnrFailed = true;
@@ -148,8 +149,25 @@ export default function Navbar() {
         } catch {
           btFailed = true;
         }
+        return { newBnrRate, newBnrDate };
       };
-      await load();
+      const { newBnrRate } = await load();
+
+      // If BNR succeeded, apply the latest stored rate to all contracts
+      if (!bnrFailed && typeof newBnrRate === "number" && newBnrRate > 0) {
+        try {
+          const res = await fetch("/api/contracts/apply-exchange-rate", {
+            method: "POST",
+            cache: "no-store",
+          });
+          if (!res.ok) {
+            // Mark as error for toast
+            bnrFailed = true;
+          }
+        } catch {
+          bnrFailed = true;
+        }
+      }
 
       if (bnrFailed || btFailed) {
         const type = bnrFailed && btFailed ? "both" : bnrFailed ? "bnr" : "bt";
@@ -161,9 +179,9 @@ export default function Navbar() {
                 type: "error",
                 message:
                   type === "both"
-                    ? "Eroare: cursurile BNR și BT nu au putut fi reîmprospătate."
+                    ? "Eroare: cursurile BNR și BT nu au putut fi reîmprospătate/aplicate."
                     : type === "bnr"
-                    ? "Eroare la reîmprospătarea cursului BNR."
+                    ? "Eroare la reîmprospătarea sau aplicarea cursului BNR."
                     : "Eroare la reîmprospătarea cursului BT.",
               },
             })
@@ -175,7 +193,8 @@ export default function Navbar() {
             new CustomEvent("app:toast", {
               detail: {
                 type: "success",
-                message: "Cursurile EUR/RON au fost reîmprospătate.",
+                message:
+                  "Cursurile EUR/RON au fost reîmprospătate și aplicate contractelor.",
               },
             })
           );
@@ -184,7 +203,15 @@ export default function Navbar() {
     } finally {
       setRefreshingFx(false);
     }
-  }, [refreshingFx]);
+  }, [
+    refreshingFx,
+    setBnrRate,
+    setBnrDate,
+    setBnrSource,
+    setBtRate,
+    setBtDate,
+    setBtSource,
+  ]);
   useEffect(() => {
     let aborted = false;
     const controller = new AbortController();
@@ -362,10 +389,8 @@ export default function Navbar() {
                 >
                   {mounted &&
                     (theme === "light" ? (
-                      // Sun icon
                       <path d="M12 18a6 6 0 100-12 6 6 0 000 12zm0 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm0-22a1 1 0 011-1V-1a1 1 0 10-2 0V0a1 1 0 011 1zm11 11a1 1 0 011 1h1a1 1 0 110 2h-1a1 1 0 11-2 0 1 1 0 011-1zM1 12a1 1 0 01-1-1H-1a1 1 0 100 2H0a1 1 0 011-1zm16.95 6.364a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.415l-.707-.708a1 1 0 010-1.414zM4.636 5.05a1 1 0 010-1.414l.707-.707A1 1 0 016.757 4.343l-.707.707A1 1 0 014.636 5.05zm14.142-2.121a1 1 0 010 1.414l-.707.707A1 1 0 0116.657 3.94l.707-.707a1 1 0 011.414 0zM5.343 18.95a1 1 0 010 1.414l-.707.707A1 1 0 112.222 19.95l.707-.707a1 1 0 011.414 0z" />
                     ) : (
-                      // Moon icon
                       <path d="M21 12.79A9 9 0 1111.21 3c.05-.34.79-.21.79-.21A7 7 0 1021 12.79z" />
                     ))}
                 </svg>

@@ -168,3 +168,33 @@ select:disabled,
 select:focus {
   background-color: var(--background) !important;
 }
+
+/* Sci-fi gradient grid background for auth pages */
+.bg-sci-fi {
+  position: relative;
+  isolation: isolate;
+}
+.bg-sci-fi::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: radial-gradient(1200px 600px at 10% 10%, color-mix(in oklab, var(--foreground) 14%, transparent), transparent 60%),
+              radial-gradient(1000px 500px at 90% 20%, color-mix(in oklab, #22d3ee 20%, transparent), transparent 60%),
+              radial-gradient(900px 600px at 30% 80%, color-mix(in oklab, #a78bfa 18%, transparent), transparent 60%),
+              linear-gradient(180deg, color-mix(in oklab, var(--foreground) 3%, transparent), transparent 20%);
+  filter: saturate(1.1) contrast(1.05);
+}
+.bg-sci-fi::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(transparent 0 0),
+    linear-gradient(90deg, color-mix(in oklab, var(--foreground) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in oklab, var(--foreground) 8%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%, 64px 64px, 64px 64px;
+  background-position: 0 0, 0 0, 0 0;
+  mask-image: radial-gradient(1000px 600px at 50% 50%, #000 60%, transparent 100%);
+  opacity: 0.18;
+}

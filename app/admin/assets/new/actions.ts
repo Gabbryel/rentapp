@@ -38,6 +38,11 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
   // Merge URLs and optional titles by index
   let scans: { url: string; title?: string }[] = scanUrlsRaw.map((u, i) => ({ url: u, title: (scanTitlesRaw[i] || "").trim() || undefined }));
     // Upload files
+    // Enforce total payload limit of 2MB across all uploaded files
+    const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+    if (totalSize > 2 * 1024 * 1024) {
+      return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: { id, name, address, scanUrls: scanUrlsRaw } };
+    }
     for (const f of files) {
       const okType = [
         "application/pdf",
@@ -50,8 +55,11 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
       if (!okType) {
         return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: { id, name, address, scanUrls: scanUrlsRaw } };
       }
+      if (f.size > 2 * 1024 * 1024) {
+        return { ok: false, message: `Fișierul "${f.name}" depășește limita de 2MB`, values: { id, name, address, scanUrls: scanUrlsRaw } };
+      }
       const res = await saveScanFile(f, `${id}-${f.name.replace(/\.[^.]+$/, "")}`, {});
-  scans.push({ url: res.url, title: undefined });
+      scans.push({ url: res.url, title: undefined });
     }
   const payload = { id, name, address, scans };
     const parsed = AssetSchema.safeParse(payload);

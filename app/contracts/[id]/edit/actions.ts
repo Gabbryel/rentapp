@@ -9,6 +9,7 @@ import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
 import { notifyContractUpdated } from "@/lib/notify";
 import { getDailyEurRon } from "@/lib/exchange";
 import { redirect } from "next/navigation";
+import { effectiveEndDate, computeFutureIndexingDates } from "@/lib/contracts";
 
 export type EditFormState = {
   ok: boolean;
@@ -26,8 +27,10 @@ export async function updateContractAction(
     name: (formData.get("name") as string) ?? "",
     assetId: (formData.get("assetId") as string) || "",
     asset: (formData.get("asset") as string) || "",
-    partnerId: (formData.get("partnerId") as string) || "",
-    partner: (formData.get("partner") as string) ?? "",
+  partnerId: (formData.get("partnerId") as string) || "",
+  partner: (formData.get("partner") as string) ?? "",
+  partnerIds: (formData.getAll("partnerIds") as string[]).filter(Boolean),
+  partnerNames: (formData.getAll("partnerNames") as string[]).filter((n) => typeof n === "string" && n.trim()),
   ownerId: (formData.get("ownerId") as string) || "",
   owner: (formData.get("owner") as string) || "",
     signedAt: (formData.get("signedAt") as string) ?? "",
@@ -50,6 +53,9 @@ export async function updateContractAction(
     rentType: (formData.get("rentType") as string) || "",
   invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
+  // indexing schedule settings on Contract
+  indexingDay: (formData.get("indexingDay") as string) || "",
+  howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
     // yearly invoices rows
     ...(() => {
       const out: Record<string, string> = {};
@@ -73,7 +79,7 @@ export async function updateContractAction(
       return { ok: false, message: "Contract inexistent", values: rawValues };
     }
 
-    let amountEUR = (() => {
+    let rentAmountEuro = (() => {
       const n = Number(String(rawValues.amountEUR).replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
     })();
@@ -95,7 +101,7 @@ export async function updateContractAction(
     })();
 
     // Autofill logic similar to server page
-    if (typeof amountEUR === "number" && typeof exchangeRateRON !== "number") {
+    if (typeof rentAmountEuro === "number" && typeof exchangeRateRON !== "number") {
       if (typeof prev.exchangeRateRON === "number") {
         exchangeRateRON = prev.exchangeRateRON;
       } else {
@@ -105,9 +111,9 @@ export async function updateContractAction(
         } catch {}
       }
     }
-    if (typeof exchangeRateRON === "number" && typeof amountEUR !== "number") {
-      if (typeof prev.amountEUR === "number") {
-        amountEUR = prev.amountEUR;
+    if (typeof exchangeRateRON === "number" && typeof rentAmountEuro !== "number") {
+      if (typeof (prev as any).rentAmountEuro === "number") {
+        rentAmountEuro = (prev as any).rentAmountEuro as number;
       }
     }
 
@@ -133,6 +139,11 @@ export async function updateContractAction(
     }
     // New uploads
     const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
+    // Enforce total payload limit of 2MB across all uploaded files
+    const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+    if (totalSize > 2 * 1024 * 1024) {
+      return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: rawValues };
+    }
     for (const file of files) {
       const okType = [
         "application/pdf",
@@ -145,9 +156,9 @@ export async function updateContractAction(
       if (!okType) {
         return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: rawValues };
       }
-      const maxSize = 10 * 1024 * 1024;
+      const maxSize = 2 * 1024 * 1024;
       if (file.size > maxSize) {
-        return { ok: false, message: "Fișier prea mare (max 10MB)", values: rawValues };
+        return { ok: false, message: "Fișier prea mare (max 2MB)", values: rawValues };
       }
       const orig = file.name || "scan";
       const base = orig.replace(/\.[^.]+$/, "");
@@ -168,6 +179,19 @@ export async function updateContractAction(
       asset: rawValues.asset || undefined,
       partnerId: rawValues.partnerId || undefined,
   partner: rawValues.partner,
+  partners: (() => {
+    const ids = (rawValues.partnerIds as any as string[]) || [];
+    const names = (rawValues.partnerNames as any as string[]) || [];
+    const rows: { id?: string; name: string }[] = [];
+    for (let i=0;i<Math.max(ids.length, names.length);i++) {
+      const name = (names[i]||"").trim();
+      if (!name) continue;
+      const id = (ids[i]||"").trim() || undefined;
+      rows.push({ id, name });
+    }
+    if (rows.length === 0 && rawValues.partner) rows.push({ id: rawValues.partnerId || undefined, name: rawValues.partner });
+    return rows.length>0 ? rows : undefined;
+  })(),
   ownerId: rawValues.ownerId || undefined,
   owner: rawValues.owner,
       signedAt: rawValues.signedAt,
@@ -179,11 +203,20 @@ export async function updateContractAction(
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
       })(),
+      // indexing settings on Contract
+      indexingDay: (() => {
+        const n = Number(String(rawValues.indexingDay));
+        return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
+      })(),
+      howOftenIsIndexing: (() => {
+        const n = Number(String(rawValues.howOftenIsIndexing));
+        return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+      })(),
   // legacy indexing dates removed
   scans: nextScans,
   // Back-compat single field derived from first scan
   scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
-      amountEUR,
+  rentAmountEuro,
       exchangeRateRON,
       tvaPercent,
       correctionPercent,
@@ -215,8 +248,13 @@ export async function updateContractAction(
     } as Record<string, unknown>;
 
     // Recompute name from asset + partner if present
-    if (typeof base.asset === "string" && base.asset && typeof base.partner === "string" && base.partner) {
-      base.name = `${base.asset} ${base.partner}`.trim();
+    if (typeof base.asset === "string" && base.asset) {
+      const partnersArr = Array.isArray((base as any).partners) ? (base as any).partners as {name:string}[] : (base.partner ? [{name: String(base.partner)}] : []);
+      if (partnersArr.length>0) {
+        const names = partnersArr.map(p=>p.name);
+        const label = names.slice(0,3).join("+") + (names.length>3?`+${names.length-3}`:"");
+        base.name = `${base.asset} ${label}`.trim();
+      }
     }
 
   // (indexing schedule feature removed)
@@ -245,7 +283,10 @@ export async function updateContractAction(
 
     const { changes, scanChange } = computeDiffContract(prev, parsed.data);
 
-    await upsertContract(parsed.data);
+  // Recompute futureIndexingDates prior to saving
+  const fut = computeFutureIndexingDates(parsed.data as any);
+  await upsertContract({ ...(parsed.data as any), indexingDates: fut } as any);
+  // Indexing model upsert removed; schedule is kept on Contract
     await logAction({
       action: "contract.update",
       targetType: "contract",
@@ -265,6 +306,7 @@ export async function updateContractAction(
         yearlyInvoices: parsed.data.yearlyInvoices,
       },
     });
+    // No Indexing model writes here (model changed)
       try { await notifyContractUpdated(parsed.data); } catch {}
       try {
         const scansBefore = Array.isArray(prev.scans) ? prev.scans.length : 0;

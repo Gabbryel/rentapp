@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Roboto_Condensed } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/app/components/navbar";
+import NavbarGate from "@/app/components/navbar-gate";
 import Toaster from "@/app/components/toaster";
-import FlashHub from "@/app/components/flash-hub";
+import FlashGate from "@/app/components/flash-gate";
 
 const robotoCondensed = Roboto_Condensed({
   variable: "--font-roboto-condensed",
@@ -72,12 +72,12 @@ export default function RootLayout({
       </head>
       {/* PWA installability: metadata above injects manifest + apple meta/icons */}
       <body className={`${robotoCondensed.variable} antialiased`}>
-        <Navbar />
+        <NavbarGate />
         <div id="app-root" className="w-full app-root-for-blur">
           {children}
         </div>
         <Toaster />
-        <FlashHub />
+        <FlashGate />
       </body>
     </html>
   );

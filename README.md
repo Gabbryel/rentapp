@@ -22,20 +22,17 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## New features
 
-- Contracts list filtering by upcoming rent indexing dates: 15 or 60 days (toggle above the list)
-- Basic authentication: register and login with email/password (MongoDB-backed sessions)
-- Email alarm endpoint for upcoming indexings: `/api/cron/indexing?range=15|60`
+<!-- Indexing notifications removed: features and endpoints deprecated -->
 
 ### Environment variables
 
-Add these to `.env.local` (Mongo is required for auth and email recipients; SMTP is optional in dev):
-
+<!-- Manual triggers for indexing notifications removed -->
 ```bash
 MONGODB_URI="mongodb://localhost:27017"
 MONGODB_DB="rentapp"
 
-# Optional SMTP for sending emails; if missing, emails are logged to console
-SMTP_HOST="smtp.yourhost.com"
+		{ "path": "<!-- Cron examples for indexing removed -->" },
+		{ "path": "<!-- Cron examples for indexing removed -->" }
 SMTP_PORT="587"
 SMTP_USER="smtp-user"
 SMTP_PASS="smtp-pass"

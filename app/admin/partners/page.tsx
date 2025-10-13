@@ -50,6 +50,26 @@ export default async function AdminPartnersPage() {
                 <dt className="text-foreground/60">Nr. ORC</dt>
                 <dd className="font-medium">{p.orcNumber}</dd>
               </div>
+              {(p.phone || p.email) && (
+                <div className="flex flex-col gap-0.5">
+                  {p.phone && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-foreground/60">Tel</dt>
+                      <dd className="font-medium truncate max-w-[10rem]">
+                        {p.phone}
+                      </dd>
+                    </div>
+                  )}
+                  {p.email && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-foreground/60">Email</dt>
+                      <dd className="font-medium truncate max-w-[10rem]">
+                        {p.email}
+                      </dd>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <dt className="text-foreground/60">Sediu</dt>
                 <dd className="font-medium break-words">{p.headquarters}</dd>
@@ -67,6 +87,8 @@ export default async function AdminPartnersPage() {
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Nume</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">CUI</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Nr. ORC</th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Telefon</th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Email</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Sediu</th>
               <th className="text-right px-3 py-2 sm:px-4 sm:py-3">Acțiuni</th>
             </tr>
@@ -85,6 +107,18 @@ export default async function AdminPartnersPage() {
                 <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                   {p.orcNumber}
                 </td>
+                <td
+                  className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[8rem] truncate"
+                  title={p.phone || ""}
+                >
+                  {p.phone || "—"}
+                </td>
+                <td
+                  className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[12rem] truncate"
+                  title={p.email || ""}
+                >
+                  {p.email || "—"}
+                </td>
                 <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[16rem]">
                   {p.headquarters}
                 </td>
@@ -101,7 +135,7 @@ export default async function AdminPartnersPage() {
             {partners.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="px-3 py-6 text-center text-foreground/60"
                 >
                   Niciun partener.

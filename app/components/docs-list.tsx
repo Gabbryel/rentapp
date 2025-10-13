@@ -28,6 +28,8 @@ export default function DocsList({
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState<PartnerDocItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState<string>("");
 
   const deleteDoc = async (id: string) => {
     if (!confirm("Sigur vrei să ștergi acest document?")) return;
@@ -135,18 +137,85 @@ export default function DocsList({
   return (
     <div>
       {docs.length > 0 ? (
-        <ul className="mt-4 space-y-2">
+        <ul id="docs-list" className="mt-4 space-y-2">
           {docs.map((d) => (
             <li
               key={d.id}
-              className="rounded-md bg-foreground/5 px-3 py-2 flex items-center justify-between gap-3"
+              className="rounded-md bg-foreground/5 px-3 py-2 flex flex-wrap items-start gap-3"
             >
-              <div className="min-w-0 flex items-center gap-2">
+              <div className="min-w-0 flex items-start gap-2 flex-1">
                 <span className="text-foreground/70">
                   {iconFor(d.contentType, d.url)}
                 </span>
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{d.title}</div>
+                  {editingId === d.id ? (
+                    <form
+                      className="w-full flex flex-wrap items-center gap-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const title = draftTitle.trim();
+                        if (!title || title === d.title) {
+                          setEditingId(null);
+                          return;
+                        }
+                        try {
+                          const res = await fetch(
+                            `/api/partners/${partnerId}/docs`,
+                            {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: d.id, title }),
+                            }
+                          );
+                          if (!res.ok) {
+                            const txt = await res.text();
+                            window.dispatchEvent(
+                              new CustomEvent("app:toast", {
+                                detail: {
+                                  message: txt || "Eroare la salvare",
+                                  type: "error",
+                                },
+                              })
+                            );
+                            return;
+                          }
+                          startTransition(() => router.refresh());
+                          window.dispatchEvent(
+                            new CustomEvent("app:toast", {
+                              detail: {
+                                message: "Titlu actualizat",
+                                type: "success",
+                              },
+                            })
+                          );
+                        } finally {
+                          setEditingId(null);
+                        }
+                      }}
+                    >
+                      <input
+                        value={draftTitle}
+                        onChange={(e) => setDraftTitle(e.target.value)}
+                        autoFocus
+                        className="w-full sm:w-auto flex-1 min-w-0 max-w-full sm:max-w-[28rem] rounded-md border border-foreground/20 bg-background px-2 py-1 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                      >
+                        Salvează
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                      >
+                        Anulează
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="font-medium truncate">{d.title}</div>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-foreground/60">
                     {d.createdAt ? <span>{d.createdAt}</span> : null}
                     {d.sizeBytes !== undefined ? (
@@ -155,7 +224,7 @@ export default function DocsList({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="ml-auto flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
@@ -170,6 +239,17 @@ export default function DocsList({
                 >
                   Descarcă
                 </Link>
+                <button
+                  type="button"
+                  className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                  onClick={() => {
+                    setEditingId(d.id);
+                    setDraftTitle(d.title);
+                  }}
+                  disabled={editingId !== null && editingId !== d.id}
+                >
+                  Edit
+                </button>
                 {allowDelete && (
                   <button
                     type="button"

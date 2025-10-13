@@ -3,7 +3,15 @@ import nodemailer from "nodemailer";
 export type Mail = { to: string | string[]; subject: string; text?: string; html?: string };
 
 function getTransport() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  let { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env as Record<string, string | undefined>;
+  // Sensible defaults for Gmail if only user/pass are provided
+  if (!SMTP_HOST && SMTP_USER && /@gmail\.com$/i.test(SMTP_USER)) {
+    SMTP_HOST = "smtp.gmail.com";
+  }
+  if (!SMTP_PORT && SMTP_USER && /@gmail\.com$/i.test(SMTP_USER)) {
+    SMTP_PORT = "465"; // default SSL port for Gmail
+  }
+  if (!SMTP_FROM && SMTP_USER) SMTP_FROM = SMTP_USER;
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) return null;
   const port = Number(SMTP_PORT);
   return nodemailer.createTransport({

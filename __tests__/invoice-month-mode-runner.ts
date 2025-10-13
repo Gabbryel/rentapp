@@ -63,7 +63,6 @@ const createMockContract = (overrides: Partial<Contract> = {}): Contract => ({
   signedAt: '2024-01-01',
   startDate: '2024-01-01',
   endDate: '2024-12-31',
-  indexingDates: [],
   rentType: 'monthly',
   invoiceMonthMode: 'current',
   monthlyInvoiceDay: 15,

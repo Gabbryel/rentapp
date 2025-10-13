@@ -13,6 +13,8 @@ async function savePartner(formData: FormData) {
     vatNumber: (formData.get("vatNumber") as string) || "",
     orcNumber: (formData.get("orcNumber") as string) || "",
     headquarters: (formData.get("headquarters") as string) || "",
+    phone: ((formData.get("phone") as string) || "").trim() || undefined,
+    email: ((formData.get("email") as string) || "").trim() || undefined,
     createdAt: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString().slice(0, 10),
   };
@@ -86,6 +88,25 @@ export default function NewPartnerPage() {
             required
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium">Telefon</label>
+            <input
+              name="phone"
+              placeholder="ex: +40 712 345 678"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              name="email"
+              type="email"
+              placeholder="ex: contact@exemplu.ro"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
         </div>
         <div className="pt-2">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">

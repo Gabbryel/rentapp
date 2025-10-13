@@ -1,9 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function FlashHub() {
+  const [canConnect, setCanConnect] = useState<boolean | null>(null);
+
+  // Heuristic: resolve session state first; only connect if an authenticated user exists
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) setCanConnect(Boolean(data?.email));
+      } catch {
+        if (!cancelled) setCanConnect(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (canConnect !== true) return; // only connect when authenticated
     let es: EventSource | null = null;
     let stopped = false;
     const connect = () => {
@@ -41,6 +61,7 @@ export default function FlashHub() {
       stopped = true;
       es?.close();
     };
-  }, []);
+  }, [canConnect]);
+
   return null;
 }

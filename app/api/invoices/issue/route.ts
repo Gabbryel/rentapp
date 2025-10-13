@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
     const contract = await fetchContractById(contractId);
     if (!contract) return NextResponse.json({ error: "Contract inexistent" }, { status: 404 });
-    if (typeof contract.amountEUR !== "number" || typeof contract.exchangeRateRON !== "number") {
+    if (typeof (contract as any).rentAmountEuro !== "number" || typeof contract.exchangeRateRON !== "number") {
       return NextResponse.json({ error: "Contractul nu are sumă EUR și curs RON/EUR definite" }, { status: 400 });
     }
     const inv = computeInvoiceFromContract({ contract, issuedAt, number: body.number });

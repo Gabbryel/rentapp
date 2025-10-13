@@ -1,13 +1,14 @@
 "use server";
 
 import { ContractSchema } from "@/lib/schemas/contract";
-import { upsertContract, fetchContractById } from "@/lib/contracts";
+import { upsertContract, fetchContractById, computeFutureIndexingDates } from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import { notifyContractCreated } from "@/lib/notify";
 import type { ZodIssue } from "zod";
 import { saveScanFile } from "@/lib/storage";
 import { redirect } from "next/navigation";
+import { effectiveEndDate } from "@/lib/contracts";
 
 export type FormState = {
   ok: boolean;
@@ -28,8 +29,10 @@ export async function createContractAction(
     name: (formData.get("name") as string) ?? "",
     assetId: (formData.get("assetId") as string) || "",
     asset: (formData.get("asset") as string) || "",
-    partnerId: (formData.get("partnerId") as string) || "",
-    partner: (formData.get("partner") as string) ?? "",
+  partnerId: (formData.get("partnerId") as string) || "",
+  partner: (formData.get("partner") as string) ?? "",
+  partnerIds: (formData.getAll("partnerIds") as string[]).filter(Boolean),
+  partnerNames: (formData.getAll("partnerNames") as string[]).filter((n) => typeof n === "string" && n.trim()),
   ownerId: (formData.get("ownerId") as string) || "",
   owner: (formData.get("owner") as string) || "",
     signedAt: (formData.get("signedAt") as string) ?? "",
@@ -38,10 +41,11 @@ export async function createContractAction(
   extensionDate: (formData.get("extensionDate") as string) || "",
   extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
-  // legacy indexing fields removed
+    indexingDay: (formData.get("indexingDay") as string) || "",
+    howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
   scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
   scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
-    amountEUR: (formData.get("amountEUR") as string) || "",
+  amountEUR: (formData.get("amountEUR") as string) || "",
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
@@ -73,6 +77,21 @@ export async function createContractAction(
       asset: (rawValues.asset as string) || undefined,
       partnerId: ((rawValues.partnerId as string) || undefined) as string | undefined,
       partner: (rawValues.partner as string) ?? "",
+      partners: (() => {
+        const ids = (rawValues.partnerIds as unknown as string[]) || [];
+        const names = (rawValues.partnerNames as unknown as string[]) || [];
+        const rows: { id?: string; name: string }[] = [];
+        for (let i = 0; i < Math.max(ids.length, names.length); i++) {
+          const name = (names[i] || "").trim();
+          if (!name) continue;
+            const id = (ids[i] || "").trim() || undefined;
+          rows.push({ id, name });
+        }
+        if (rows.length === 0 && (rawValues.partner as string)) {
+          rows.push({ id: (rawValues.partnerId as string) || undefined, name: rawValues.partner as string });
+        }
+        return rows.length > 0 ? rows : undefined;
+      })(),
   ownerId: ((rawValues.ownerId as string) || undefined) as string | undefined,
   owner: (rawValues.owner as string) || "",
       signedAt: (rawValues.signedAt as string) ?? "",
@@ -85,9 +104,18 @@ export async function createContractAction(
         const n = Number(rawValues.paymentDueDays as string);
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
       })(),
+      // indexing settings on Contract
+      indexingDay: (() => {
+        const n = Number(rawValues.indexingDay as string);
+        return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
+      })(),
+      howOftenIsIndexing: (() => {
+        const n = Number(rawValues.howOftenIsIndexing as string);
+        return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+      })(),
   scanUrl: undefined as string | undefined,
   scans: [] as { url: string; title?: string }[],
-      amountEUR: (() => {
+      rentAmountEuro: (() => {
         const raw = (rawValues.amountEUR as string) || "";
         const n = Number(raw.replace(",", "."));
         return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -147,8 +175,10 @@ export async function createContractAction(
         .replace(/[^a-zA-Z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .toLowerCase();
-    if (data.asset && data.partner) {
-      const baseName = `${data.asset} ${data.partner}`.trim();
+    if (data.asset && (data.partners?.length || data.partner)) {
+      const partnerNames = data.partners?.map((p) => p.name) || [data.partner];
+      const partnersLabel = partnerNames.slice(0,3).join("+") + (partnerNames.length>3?`+${partnerNames.length-3}`:"");
+      const baseName = `${data.asset} ${partnersLabel}`.trim();
       data.name = baseName;
       let baseId = `c_${safeSlug(baseName)}`;
       if (!baseId) baseId = `c_${Date.now()}`;
@@ -172,6 +202,11 @@ export async function createContractAction(
     // Prefer uploaded file over URL, if provided
     // Multiple uploads
     const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
+    // Enforce total payload limit of 2MB across all uploaded files
+    const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+    if (totalSize > 2 * 1024 * 1024) {
+      return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: rawValues };
+    }
     for (const file of files) {
       const okType = [
         "application/pdf",
@@ -188,9 +223,9 @@ export async function createContractAction(
           values: rawValues,
         };
       }
-      const maxSize = 10 * 1024 * 1024;
+      const maxSize = 2 * 1024 * 1024;
       if (file.size > maxSize) {
-        return { ok: false, message: "Fișier prea mare (max 10MB)", values: rawValues };
+        return { ok: false, message: "Fișier prea mare (max 2MB)", values: rawValues };
       }
       const orig = file.name || "scan";
       const base = orig.replace(/\.[^.]+$/, "");
@@ -205,7 +240,8 @@ export async function createContractAction(
     // Back-compat single scanUrl: set to first scan if available
     if (!data.scanUrl && data.scans.length > 0) data.scanUrl = data.scans[0].url;
 
-    const parsed = ContractSchema.safeParse(data);
+  const fut = computeFutureIndexingDates(data as any);
+  const parsed = ContractSchema.safeParse({ ...(data as any), indexingDates: fut });
     if (!parsed.success) {
       return {
         ok: false,
@@ -243,6 +279,7 @@ export async function createContractAction(
     }
 
   await upsertContract(parsed.data);
+  // Indexing schedule creation moved to Indexing model UI section
     await logAction({
       action: "contract.create",
       targetType: "contract",
@@ -259,7 +296,7 @@ export async function createContractAction(
         endDate: parsed.data.endDate,
   // legacy indexing fields removed
         scanUrl: parsed.data.scanUrl,
-        amountEUR: parsed.data.amountEUR,
+        rentAmountEuro: (parsed.data as any).rentAmountEuro,
         exchangeRateRON: parsed.data.exchangeRateRON,
         tvaPercent: parsed.data.tvaPercent,
         correctionPercent: parsed.data.correctionPercent,
@@ -281,7 +318,7 @@ export async function createContractAction(
       try { return JSON.stringify(v); } catch { return String(v); }
     };
     const initialFields = [
-  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","extensionDate","paymentDueDays","amountEUR","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices"
+  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","extensionDate","paymentDueDays","rentAmountEuro","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices"
     ] as const;
     const summary = initialFields
       .map((k) => `${k}: ${fmtVal((parsed.data as any)[k])}`)

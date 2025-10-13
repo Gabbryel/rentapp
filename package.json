@@ -14,7 +14,9 @@
     "contracts:update:rate": "tsx scripts/update-exchange-rate.ts",
   "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts",
   "migrate:remove-indexing": "tsx scripts/migrate-remove-indexing-inflation-fields.ts",
-  "migrate:remove-notification-indexing": "tsx scripts/migrate-remove-notification-indexing-fields.ts"
+  "migrate:remove-notification-indexing": "tsx scripts/migrate-remove-notification-indexing-fields.ts",
+  "migrate:contracts:rename-fields": "tsx scripts/migrate-contract-rename-amount-indexing.ts",
+  "migrate:contracts:normalize-history": "tsx scripts/migrate-normalize-rent-history.ts"
   },
   "dependencies": {
     "busboy": "^1.6.0",

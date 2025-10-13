@@ -49,8 +49,9 @@ export async function addScanAction(_: ScanActionState, formData: FormData): Pro
       if (!okType) {
         return { ok: false, message: "Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)" };
       }
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) return { ok: false, message: "Fișierul este prea mare (max 10MB)" };
+      const maxSize = 2 * 1024 * 1024;
+      if (file.size > maxSize)
+        return { ok: false, message: "Fișierul este prea mare (max 2MB)" };
       const orig = file.name || "scan";
       const base = orig.replace(/\.[^.]+$/, "");
       const res = await saveScanFile(file, `${id}-${base}`, { contractId: id });
