@@ -37,7 +37,12 @@ export default function AuthLayout({
           <div className="absolute -top-16 -left-16 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-indigo-200/30 blur-3xl" />
         </div>
-        <div className="relative z-10 max-w-md p-10">
+        {/* Contrast scrim to ensure text legibility over backgrounds */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-white/60 to-white/20 dark:from-black/40 dark:to-black/20"
+          aria-hidden
+        />
+        <div className="relative z-10 max-w-md p-8 md:p-10 rounded-2xl border border-foreground/10 bg-background/75 backdrop-blur-md shadow-lg">
           <div className="inline-flex items-center gap-2 rounded-full border border-foreground/10 bg-background/70 px-3 py-1 text-xs font-semibold text-foreground/80 shadow-sm">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-500" />
             RentApp

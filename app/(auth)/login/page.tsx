@@ -1,4 +1,7 @@
 import { authenticate, createSession, currentUser } from "@/lib/auth";
+import { getDb } from "@/lib/mongodb";
+import { issueToken } from "@/lib/auth-tokens";
+import { sendVerificationEmail } from "@/lib/auth-email";
 import { logAction } from "@/lib/audit";
 import PasswordField from "@/components/password-field";
 import { redirect } from "next/navigation";
@@ -13,7 +16,25 @@ export default async function LoginPage() {
     const email = String(formData.get("email") || "");
     const password = String(formData.get("password") || "");
     const user = await authenticate(email, password);
-    if (!user) throw new Error("Email/parolă greșită sau cont neverificat");
+    if (!user) {
+      // If user exists but is not verified, auto-resend verification and inform the user
+      try {
+        if (process.env.MONGODB_URI) {
+          const db = await getDb();
+          const existing = await db.collection("users").findOne({ email });
+          if (existing && existing.isVerified === false) {
+            try {
+              const token = await issueToken(email, "verify", 48);
+              await sendVerificationEmail(email, token);
+            } catch {}
+            throw new Error(
+              "Cont neverificat. Ți-am retrimis emailul de verificare."
+            );
+          }
+        }
+      } catch {}
+      throw new Error("Email/parolă greșită sau cont neverificat");
+    }
     await createSession(user);
     try {
       await logAction({
@@ -29,7 +50,7 @@ export default async function LoginPage() {
     <main className="relative min-h-screen px-4 py-10 grid place-items-center overflow-hidden">
       {/* Large semi-transparent AppRent branding (5% opacity, 30vw) */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-0 overflow-hidden">
-        <span className="w-full text-center font-extrabold leading-none tracking-tight whitespace-nowrap text-foreground/5 text-[30vw] opacity-[.05]">
+        <span className="w-full text-center font-extrabold leading-none tracking-tight whitespace-nowrap text-foreground/5 text-[30vw] opacity-[.015]">
           RentApp
         </span>
       </div>
