@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
+import RepresentativesField from "@/app/components/representatives-field";
 
 export default async function EditPartnerPage({
   params,
@@ -26,6 +27,8 @@ export default async function EditPartnerPage({
 
   async function savePartner(formData: FormData) {
     "use server";
+    const EMAIL_RE =
+      /^(?!\.)((?!.*\.\.)[A-Za-z0-9_'+\-.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/;
     const current = await fetchPartnerById(id);
     if (!current) return redirect("/admin/partners");
     const partner: Partner = {
@@ -41,6 +44,30 @@ export default async function EditPartnerPage({
       email:
         ((formData.get("email") as string) || current.email || "").trim() ||
         undefined,
+      representatives: (() => {
+        try {
+          const raw = String(formData.get("representatives") || "[]");
+          const arr = JSON.parse(raw) as Array<{
+            fullname?: string | null;
+            phone?: string | null;
+            email?: string | null;
+          }>;
+          return Array.isArray(arr)
+            ? arr
+                .map((r) => ({
+                  fullname: r.fullname?.toString().trim() || null,
+                  phone: r.phone?.toString().trim() || null,
+                  email: (() => {
+                    const e = r.email?.toString().trim() || "";
+                    return e && EMAIL_RE.test(e) ? e : null;
+                  })(),
+                }))
+                .filter((r) => r.fullname || r.phone || r.email)
+            : current.representatives ?? [];
+        } catch {
+          return current.representatives ?? [];
+        }
+      })(),
       createdAt: current.createdAt,
       updatedAt: new Date().toISOString().slice(0, 10),
     };
@@ -53,6 +80,7 @@ export default async function EditPartnerPage({
         "headquarters",
         "phone",
         "email",
+        "representatives",
       ];
       const changes = fields
         .map((f) => ({
@@ -199,6 +227,7 @@ export default async function EditPartnerPage({
             />
           </div>
         </div>
+        <RepresentativesField initial={p.representatives} />
         <div className="pt-2 flex items-center gap-3">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează

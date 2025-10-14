@@ -7,6 +7,8 @@ import ContractScans from "@/app/components/contract-scans";
 import AssetScans from "@/app/components/asset-scans";
 import { getAssetById } from "@/lib/assets";
 import { fetchContracts } from "@/lib/contracts";
+import CardsGrid from "@/app/components/ui/cards-grid";
+import Card from "@/app/components/ui/card";
 
 export default async function PartnerPage({
   params,
@@ -162,29 +164,60 @@ export default async function PartnerPage({
       <div className="mb-6 flex items-center justify-between">
         <Link
           href="/admin/partners"
-          className="text-sm text-foreground/70 hover:underline"
+          className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+          aria-label="Înapoi la parteneri"
+          title="Înapoi la parteneri"
         >
-          ← Înapoi la parteneri
+          <span className="sr-only">Înapoi la parteneri</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-2 w-2"
+            aria-hidden="true"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
         {process.env.MONGODB_URI ? (
           <Link
             href={`/admin/partners/${partner.id}`}
-            className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+            className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+            aria-label="Editează"
+            title="Editează"
           >
-            Editează
+            <span className="sr-only">Editează</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-2 w-2"
+              aria-hidden="true"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+            </svg>
           </Link>
         ) : null}
       </div>
 
-      <header>
+      <header className="mb-6">
         <h1 className="text-fluid-4xl font-bold">{partner.name}</h1>
         <p className="mt-1 text-foreground/70">
           ID: <span className="text-xs">{partner.id}</span>
         </p>
       </header>
 
-      <section className="mt-6">
-        <div className="rounded-lg border border-foreground/15 p-4">
+      <CardsGrid>
+        <Card>
           <h2 className="text-base font-semibold">Detalii</h2>
           <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -195,51 +228,74 @@ export default async function PartnerPage({
               <dt className="text-foreground/60">Nr. ORC</dt>
               <dd className="font-medium">{partner.orcNumber}</dd>
             </div>
-            <div>
-              <dt className="text-foreground/60">Telefon</dt>
-              <dd className="font-medium">
-                {partner.phone ? (
-                  <a href={`tel:${partner.phone}`} className="hover:underline">
-                    {partner.phone}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-foreground/60">Email</dt>
-              <dd className="font-medium">
-                {partner.email ? (
-                  <a
-                    href={`mailto:${partner.email}`}
-                    className="hover:underline"
-                  >
-                    {partner.email}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
             <div className="sm:col-span-2">
               <dt className="text-foreground/60">Sediu</dt>
               <dd className="font-medium">{partner.headquarters}</dd>
-            </div>
-            <div>
-              <dt className="text-foreground/60">Creat</dt>
-              <dd className="font-medium">{partner.createdAt}</dd>
             </div>
             <div>
               <dt className="text-foreground/60">Actualizat</dt>
               <dd className="font-medium">{partner.updatedAt}</dd>
             </div>
           </dl>
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="rounded-lg border border-foreground/15 p-4">
+        </Card>
+        <Card>
+          <h2 className="text-base font-semibold">Reprezentanți</h2>
+          {Array.isArray((partner as any).representatives) &&
+          (partner as any).representatives.length > 0 ? (
+            <ul className="mt-3 space-y-2 text-sm">
+              {(partner as any).representatives.map(
+                (
+                  r: {
+                    fullname?: string | null;
+                    phone?: string | null;
+                    email?: string | null;
+                  },
+                  idx: number
+                ) => (
+                  <li
+                    key={idx}
+                    className="rounded-md bg-foreground/5 flex flex-col"
+                  >
+                    <div className="font-medium">{r.fullname || "—"}</div>
+                    <div className="mt-1 grid grid-cols-1 gap-2 text-foreground/80">
+                      <div>
+                        <span className="text-foreground/60">Telefon:</span>{" "}
+                        {r.phone ? (
+                          <a
+                            href={`tel:${r.phone}`}
+                            className="hover:underline"
+                          >
+                            {r.phone}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-foreground/60">Email:</span>{" "}
+                        {r.email ? (
+                          <a
+                            href={`mailto:${r.email}`}
+                            className="hover:underline"
+                          >
+                            {r.email}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                )
+              )}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-foreground/60">
+              Niciun reprezentant definit.
+            </p>
+          )}
+        </Card>
+        <Card>
           <h2 className="text-base font-semibold">Totaluri</h2>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div className="rounded-md bg-foreground/5 p-3">
@@ -297,42 +353,12 @@ export default async function PartnerPage({
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="rounded-lg border border-foreground/15 p-4">
-          <h2 className="text-base font-semibold">Contracte</h2>
-          {relatedContracts.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {relatedContracts.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between rounded-md bg-foreground/5 px-3 py-2"
-                >
-                  <div>
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-foreground/60">{c.id}</div>
-                  </div>
-                  <Link
-                    href={`/contracts/${c.id}`}
-                    className="text-sm text-foreground/80 hover:underline"
-                  >
-                    Deschide
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-foreground/60">
-              Nu există contracte asociate.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="rounded-lg border border-foreground/15 p-4">
+        </Card>
+        <Card>
+          <h2 className="text-base font-semibold">Documente</h2>
+          <DocsList partnerId={partner.id} docs={docs} allowDelete={false} />
+        </Card>
+        <Card className="xl:col-span-2">
           <h2 className="text-base font-semibold">Documente asociate</h2>
           {contractDocs.length === 0 && assetDocs.length === 0 ? (
             <p className="mt-2 text-sm text-foreground/60">
@@ -355,9 +381,26 @@ export default async function PartnerPage({
                           <div className="font-medium">{c.name}</div>
                           <Link
                             href={`/contracts/${c.id}`}
-                            className="text-xs text-foreground/80 hover:underline"
+                            className="rounded-md border border-foreground/20 p-1.5 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+                            aria-label="Deschide contract"
+                            title="Deschide contract"
                           >
-                            Deschide contract
+                            <span className="sr-only">Deschide contract</span>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-2 w-2"
+                              aria-hidden="true"
+                            >
+                              <path d="M14 3h7v7" />
+                              <path d="M10 14L21 3" />
+                              <path d="M5 7v11a2 2 0 0 0 2 2h11" />
+                            </svg>
                           </Link>
                         </div>
                         <ContractScans scans={scans} contractName={c.name} />
@@ -386,16 +429,8 @@ export default async function PartnerPage({
               )}
             </div>
           )}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="rounded-lg border border-foreground/15 p-4">
-          <h2 className="text-base font-semibold">Documente</h2>
-          <DocsList partnerId={partner.id} docs={docs} allowDelete={false} />
-          {/* Camera scan is admin-only, kept on edit page */}
-        </div>
-      </section>
+        </Card>
+      </CardsGrid>
     </main>
   );
 }

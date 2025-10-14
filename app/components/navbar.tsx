@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { fetchMeCached } from "@/lib/client-cache";
 
 const links = [
   { href: "/contracts", label: "Contracte" },
@@ -215,20 +216,18 @@ export default function Navbar() {
   useEffect(() => {
     let aborted = false;
     const controller = new AbortController();
-    const loadMe = async () => {
+    const loadMe = async (force = false) => {
       try {
-        const res = await fetch("/api/me", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!aborted && data) {
-          setIsAdmin(Boolean(data.isAdmin));
-          setEmail(data.email ?? null);
+        const me = await fetchMeCached({ force });
+        if (!aborted) {
+          setIsAdmin(Boolean(me?.isAdmin));
+          setEmail(me?.email ?? null);
         }
       } catch {
-        // ignore
+        if (!aborted) {
+          setIsAdmin(false);
+          setEmail(null);
+        }
       }
     };
     const loadDb = async () => {
@@ -310,6 +309,7 @@ export default function Navbar() {
 
     // Also refetch when tab regains focus to keep it fresh
     const onFocus = () => {
+      // Refresh /api/me only if cache is stale (handled inside fetchMeCached)
       loadMe();
       loadDb();
       loadBnr();

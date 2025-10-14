@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchVersionCached } from "@/lib/client-cache";
 
 type NavItem = { href: string; label: string };
 const navItems: NavItem[] = [
@@ -52,6 +53,23 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
+  const [version, setVersion] = useState<{
+    version: string;
+    commit?: string;
+    env?: string;
+  } | null>(null);
+
+  // Fetch version once on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const v = await fetchVersionCached();
+      if (!cancelled) setVersion(v);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -69,9 +87,24 @@ export default function AdminSidebar() {
 
       {/* Desktop sidebar */}
       <aside className="hidden md:block h-screen sticky top-0 border-r border-foreground/10 bg-background/80 backdrop-blur">
-        <div className="p-4">
+        <div className="p-4 flex h-full flex-col">
           <div className="text-lg font-bold tracking-tight">Admin</div>
-          <NavLinks />
+          <div className="flex-1 overflow-y-auto">
+            <NavLinks />
+          </div>
+          <div className="mt-3 pt-3 border-t border-foreground/10 text-xs text-foreground/60">
+            {version ? (
+              <div className="px-1">
+                <div>
+                  v{version.version}
+                  {version.commit ? ` · ${version.commit}` : ""}
+                </div>
+                {version.env && <div className="opacity-70">{version.env}</div>}
+              </div>
+            ) : (
+              <div className="px-1">v—</div>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -93,7 +126,24 @@ export default function AdminSidebar() {
                 Închide
               </button>
             </div>
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <div className="max-h-[calc(100%-4rem)] overflow-y-auto">
+              <NavLinks onNavigate={() => setOpen(false)} />
+            </div>
+            <div className="mt-3 pt-3 border-t border-foreground/10 text-xs text-foreground/60">
+              {version ? (
+                <div className="px-1">
+                  <div>
+                    v{version.version}
+                    {version.commit ? ` · ${version.commit}` : ""}
+                  </div>
+                  {version.env && (
+                    <div className="opacity-70">{version.env}</div>
+                  )}
+                </div>
+              ) : (
+                <div className="px-1">v—</div>
+              )}
+            </div>
           </div>
         </div>
       )}

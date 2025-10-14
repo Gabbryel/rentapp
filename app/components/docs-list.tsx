@@ -76,7 +76,7 @@ export default function DocsList({
     const isImage =
       (contentType || "").startsWith("image/") ||
       /\.(png|jpe?g|gif|webp|svg)(?:$|[?#])/.test(u);
-    const cls = "h-4 w-4";
+    const cls = "h-2 w-2";
     if (isPdf) {
       return (
         <svg
@@ -87,7 +87,7 @@ export default function DocsList({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={cls}
+          className={"h-7 w-4"}
           aria-hidden="true"
         >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -141,7 +141,7 @@ export default function DocsList({
           {docs.map((d) => (
             <li
               key={d.id}
-              className="rounded-md bg-foreground/5 px-3 py-2 flex flex-wrap items-start gap-3"
+              className="rounded-md bg-foreground/5 px-3 py-2 flex flex-col items-start gap-3"
             >
               <div className="min-w-0 flex items-start gap-2 flex-1">
                 <span className="text-foreground/70">
@@ -201,16 +201,47 @@ export default function DocsList({
                       />
                       <button
                         type="submit"
-                        className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                        className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+                        aria-label="Salvează"
+                        title="Salvează"
                       >
-                        Salvează
+                        <span className="sr-only">Salvează</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-2 w-2"
+                          aria-hidden="true"
+                        >
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
-                        className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                        className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+                        aria-label="Anulează"
+                        title="Anulează"
                       >
-                        Anulează
+                        <span className="sr-only">Anulează</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-2 w-2"
+                          aria-hidden="true"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                       </button>
                     </form>
                   ) : (
@@ -224,40 +255,126 @@ export default function DocsList({
                   </div>
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                  className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
                   onClick={() => setPreview(d)}
+                  aria-label="Previzualizează"
+                  title="Previzualizează"
                 >
-                  Previzualizează
+                  <span className="sr-only">Previzualizează</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-2 w-2"
+                    aria-hidden="true"
+                  >
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                 </button>
                 <Link
                   href={d.url}
                   target="_blank"
-                  className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                  className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
+                  aria-label="Descarcă"
+                  title="Descarcă"
                 >
-                  Descarcă
+                  <span className="sr-only">Descarcă</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-2 w-2"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
                 </Link>
                 <button
                   type="button"
-                  className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
+                  className="rounded-md border border-foreground/20 p-2 text-foreground/80 hover:bg-foreground/5 inline-flex items-center"
                   onClick={() => {
                     setEditingId(d.id);
                     setDraftTitle(d.title);
                   }}
                   disabled={editingId !== null && editingId !== d.id}
+                  aria-label="Editează titlul"
+                  title="Editează titlul"
                 >
-                  Edit
+                  <span className="sr-only">Editează</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-2 w-2"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                  </svg>
                 </button>
                 {allowDelete && (
                   <button
                     type="button"
                     onClick={() => deleteDoc(d.id)}
                     disabled={deletingId === d.id || isPending}
-                    className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-500/15 disabled:opacity-60"
+                    className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-red-600 hover:bg-red-500/15 disabled:opacity-60 inline-flex items-center"
+                    aria-label={deletingId === d.id ? "Se șterge…" : "Șterge"}
+                    title={deletingId === d.id ? "Se șterge…" : "Șterge"}
                   >
-                    {deletingId === d.id ? "Se șterge…" : "Șterge"}
+                    <span className="sr-only">
+                      {deletingId === d.id ? "Se șterge…" : "Șterge"}
+                    </span>
+                    {deletingId === d.id ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-2 w-2 animate-spin"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-2 w-2"
+                        aria-hidden="true"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    )}
                   </button>
                 )}
               </div>

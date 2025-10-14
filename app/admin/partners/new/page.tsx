@@ -4,9 +4,12 @@ import type { Partner } from "@/lib/schemas/partner";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { createMessage } from "@/lib/messages";
+import RepresentativesField from "@/app/components/representatives-field";
 
 async function savePartner(formData: FormData) {
   "use server";
+  const EMAIL_RE =
+    /^(?!\.)((?!.*\.\.)[A-Za-z0-9_'+\-.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/;
   const p: Partner = {
     id: (formData.get("id") as string) || `p_${Date.now()}`,
     name: (formData.get("name") as string) || "",
@@ -15,6 +18,30 @@ async function savePartner(formData: FormData) {
     headquarters: (formData.get("headquarters") as string) || "",
     phone: ((formData.get("phone") as string) || "").trim() || undefined,
     email: ((formData.get("email") as string) || "").trim() || undefined,
+    representatives: (() => {
+      try {
+        const raw = String(formData.get("representatives") || "[]");
+        const arr = JSON.parse(raw) as Array<{
+          fullname?: string | null;
+          phone?: string | null;
+          email?: string | null;
+        }>;
+        return Array.isArray(arr)
+          ? arr
+              .map((r) => ({
+                fullname: r.fullname?.toString().trim() || null,
+                phone: r.phone?.toString().trim() || null,
+                email: (() => {
+                  const e = r.email?.toString().trim() || "";
+                  return e && EMAIL_RE.test(e) ? e : null;
+                })(),
+              }))
+              .filter((r) => r.fullname || r.phone || r.email)
+          : [];
+      } catch {
+        return [];
+      }
+    })(),
     createdAt: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString().slice(0, 10),
   };
@@ -108,6 +135,7 @@ export default function NewPartnerPage() {
             />
           </div>
         </div>
+        <RepresentativesField />
         <div className="pt-2">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează

@@ -28,13 +28,31 @@ export default function EmailField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           defaultValue={defaultValue}
-          className={`${leftIcon ? "pl-9" : ""}`}
+          className={`w-full ${leftIcon ? "!pl-9" : ""}`}
         />
         {leftIcon && (
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-foreground/60" aria-hidden>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v.217a2 2 0 01-.894 1.664l-7 4.667a2 2 0 01-2.212 0l-7-4.667A2 2 0 013 7.217V7z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8" />
+          <span
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-foreground/60"
+            aria-hidden
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-5 w-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 7a2 2 0 012-2h14a2 2 0 012 2v.217a2 2 0 01-.894 1.664l-7 4.667a2 2 0 01-2.212 0l-7-4.667A2 2 0 013 7.217V7z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 8v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8"
+              />
             </svg>
           </span>
         )}

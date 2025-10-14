@@ -71,7 +71,7 @@ export default function RootLayout({
         />
       </head>
       {/* PWA installability: metadata above injects manifest + apple meta/icons */}
-      <body className={`${robotoCondensed.variable} antialiased`}>
+      <body className={`${robotoCondensed.variable} antialiased bg-sci-fi`}>
         <NavbarGate />
         <div id="app-root" className="w-full app-root-for-blur">
           {children}

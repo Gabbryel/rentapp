@@ -26,8 +26,14 @@ export default async function LoginPage() {
     redirect("/");
   }
   return (
-    <main className="min-h-screen px-4 py-10 grid place-items-center bg-sci-fi">
-      <div className="mx-auto w-full max-w-md rounded-xl border border-foreground/10 bg-foreground/5 p-6">
+    <main className="relative min-h-screen px-4 py-10 grid place-items-center overflow-hidden">
+      {/* Large semi-transparent AppRent branding (5% opacity, 30vw) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-0 overflow-hidden">
+        <span className="w-full text-center font-extrabold leading-none tracking-tight whitespace-nowrap text-foreground/5 text-[30vw] opacity-[.05]">
+          RentApp
+        </span>
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-xl border border-foreground/10 bg-foreground/5 p-6">
         <h1 className="text-2xl font-bold mb-4">Autentificare</h1>
         <form action={action} className="grid gap-3">
           <label className="grid gap-1">
@@ -39,9 +45,15 @@ export default async function LoginPage() {
             Intră
           </button>
         </form>
-        <div className="mt-3 text-sm">
+        <div className="mt-3 text-sm flex flex-col gap-2">
           <a className="text-foreground/80 underline" href="/forgot-password">
             Ai uitat parola?
+          </a>
+          <a
+            className="text-indigo-700 underline font-semibold"
+            href="/register"
+          >
+            Nu ai cont? Înregistrează-te
           </a>
         </div>
       </div>

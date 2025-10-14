@@ -36,7 +36,6 @@ export default function Sparkline({
   // width may be a number or responsive string; compute w later after measuring
   const h = height - padding * 2;
   const n = points.length;
-  if (n < 2) return null;
   // Generate a smoothed path using Catmull-Rom to Cubic Bezier conversion
   function getSmoothPath(points: { x: number; y: number }[]) {
     let d = `M${points[0].x},${points[0].y}`;
@@ -116,62 +115,69 @@ export default function Sparkline({
       ref={containerRef}
       style={{ width: typeof width === "string" ? width : undefined }}
     >
-      <svg
-        width={svgWidth}
-        height={height}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        role="img"
-        aria-labelledby={`${titleId} ${descId}`}
-      >
-        <title id={titleId}>{ariaLabel ?? "Sparkline"}</title>
-        <desc id={descId}>
-          {summary ??
-            (points.length > 0
-              ? `Values from ${points[0].date} (${points[0].amount}) to ${
-                  points[points.length - 1].date
-                } (${points[points.length - 1].amount})`
-              : "No data")}
-        </desc>
-        <defs>
-          <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+      {n < 2 ? null : (
+        <svg
+          width={svgWidth}
+          height={height}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          role="img"
+          aria-labelledby={`${titleId} ${descId}`}
+        >
+          <title id={titleId}>{ariaLabel ?? "Sparkline"}</title>
+          <desc id={descId}>
+            {summary ??
+              (points.length > 0
+                ? `Values from ${points[0].date} (${points[0].amount}) to ${
+                    points[points.length - 1].date
+                  } (${points[points.length - 1].amount})`
+                : "No data")}
+          </desc>
+          <defs>
+            <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-        {/* Draw the smoothed line */}
-        <path d={smoothPathFinal} fill="none" stroke={stroke} strokeWidth={2} />
-        {/* Draw the area under the curve using the gradient fill */}
-        <path
-          d={`${smoothPathFinal} L${svgWidth - padding},${
-            height - padding
-          } L${padding},${height - padding} Z`}
-          fill={fill || "url(#sparklineGradient)"}
-        />
-        {/* Highlight the nearest point on hover with amount label */}
-        {hoverIndex !== null && (
-          <>
-            <circle
-              cx={coordsFinal[hoverIndex].x}
-              cy={coordsFinal[hoverIndex].y}
-              r={4}
-              fill="#f87171"
-              stroke="#fff"
-              strokeWidth={1.5}
-            />
-            <text
-              x={coordsFinal[hoverIndex].x}
-              y={coordsFinal[hoverIndex].y - 8}
-              fill="#333"
-              fontSize="10"
-              textAnchor="middle"
-            >
-              {coordsFinal[hoverIndex].amount}
-            </text>
-          </>
-        )}
-      </svg>
+          {/* Draw the smoothed line */}
+          <path
+            d={smoothPathFinal}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={2}
+          />
+          {/* Draw the area under the curve using the gradient fill */}
+          <path
+            d={`${smoothPathFinal} L${svgWidth - padding},${
+              height - padding
+            } L${padding},${height - padding} Z`}
+            fill={fill || "url(#sparklineGradient)"}
+          />
+          {/* Highlight the nearest point on hover with amount label */}
+          {hoverIndex !== null && (
+            <>
+              <circle
+                cx={coordsFinal[hoverIndex].x}
+                cy={coordsFinal[hoverIndex].y}
+                r={4}
+                fill="#f87171"
+                stroke="#fff"
+                strokeWidth={1.5}
+              />
+              <text
+                x={coordsFinal[hoverIndex].x}
+                y={coordsFinal[hoverIndex].y - 8}
+                fill="#333"
+                fontSize="10"
+                textAnchor="middle"
+              >
+                {coordsFinal[hoverIndex].amount}
+              </text>
+            </>
+          )}
+        </svg>
+      )}
     </div>
   );
 }

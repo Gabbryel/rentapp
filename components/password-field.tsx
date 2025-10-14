@@ -35,7 +35,7 @@ export default function PasswordField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           defaultValue={defaultValue}
-          className={`w-full pr-10 ${leftIcon ? "pl-9" : ""}`}
+          className={`w-full pr-10 ${leftIcon ? "!pl-9" : ""}`}
         />
         {leftIcon && (
           <span

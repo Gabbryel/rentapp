@@ -29,6 +29,31 @@ export const PartnerSchema = z.object({
         .transform((v) => (v && v.length > 0 ? v : undefined))
     )
     .optional(),
+  representatives: z
+    .array(
+      z.object({
+        fullname: z
+          .preprocess(
+            (v) => (v === "" || v === undefined ? null : v),
+            z.string().trim().min(1).nullable()
+          )
+          .optional(),
+        phone: z
+          .preprocess(
+            (v) => (v === "" || v === undefined ? null : v),
+            z.string().trim().max(40).nullable()
+          )
+          .optional(),
+        email: z
+          .preprocess(
+            (v) => (v === "" || v === undefined ? null : v),
+            z.string().trim().email("email invalid").nullable()
+          )
+          .optional(),
+      })
+    )
+    .optional()
+    .default([]),
   createdAt: ISODate.default(() => new Date().toISOString().slice(0, 10)),
   updatedAt: ISODate.default(() => new Date().toISOString().slice(0, 10)),
 });

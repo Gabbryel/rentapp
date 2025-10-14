@@ -3,6 +3,7 @@
 import * as React from "react";
 import Modal from "@/app/components/modal";
 import ScanViewer from "@/app/components/scan-viewer";
+import IconButton from "@/app/components/ui/icon-button";
 
 export default function AssetScans({
   scans,
@@ -45,19 +46,39 @@ export default function AssetScans({
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              <a
-                href={s.url}
-                target="_blank"
-                className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
-              >
-                Deschide
-              </a>
-              <button
-                className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
-                onClick={() => setOpenIdx(idx)}
-              >
-                Vezi
-              </button>
+              <IconButton ariaLabel="Deschide" href={s.url} target="_blank">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-2 w-2"
+                  aria-hidden="true"
+                >
+                  <path d="M14 3h7v7" />
+                  <path d="M10 14L21 3" />
+                  <path d="M5 7v11a2 2 0 0 0 2 2h11" />
+                </svg>
+              </IconButton>
+              <IconButton ariaLabel="Vezi" onClick={() => setOpenIdx(idx)}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-2 w-2"
+                  aria-hidden="true"
+                >
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </IconButton>
             </div>
             <Modal
               open={openIdx === idx}
@@ -72,21 +93,44 @@ export default function AssetScans({
                     completă.
                   </div>
                   <div className="shrink-0 flex items-center gap-2">
-                    <a
+                    <IconButton
+                      ariaLabel="Filă nouă"
                       href={s.url}
                       target="_blank"
-                      className="rounded-md border border-foreground/20 px-2 py-1 font-semibold hover:bg-foreground/5"
-                      rel="noreferrer"
                     >
-                      Filă nouă
-                    </a>
-                    <a
-                      href={s.url}
-                      download
-                      className="rounded-md border border-foreground/20 px-2 py-1 font-semibold hover:bg-foreground/5"
-                    >
-                      Descarcă
-                    </a>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-2 w-2"
+                        aria-hidden="true"
+                      >
+                        <path d="M14 3h7v7" />
+                        <path d="M10 14L21 3" />
+                        <path d="M5 7v11a2 2 0 0 0 2 2h11" />
+                      </svg>
+                    </IconButton>
+                    <IconButton ariaLabel="Descarcă" href={s.url} download>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-2 w-2"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <path d="M7 10l5 5 5-5" />
+                        <path d="M12 15V3" />
+                      </svg>
+                    </IconButton>
                   </div>
                 </div>
                 <ScanViewer

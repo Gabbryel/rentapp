@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchMeCached } from "@/lib/client-cache";
 
 export default function FlashHub() {
   const [canConnect, setCanConnect] = useState<boolean | null>(null);
@@ -9,13 +10,8 @@ export default function FlashHub() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch("/api/me", { cache: "no-store" });
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled) setCanConnect(Boolean(data?.email));
-      } catch {
-        if (!cancelled) setCanConnect(false);
-      }
+      const me = await fetchMeCached();
+      if (!cancelled) setCanConnect(Boolean(me?.email));
     })();
     return () => {
       cancelled = true;
