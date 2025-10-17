@@ -51,7 +51,7 @@ async function main() {
 
     const id = doc.id;
     const rentHistory = Array.isArray(doc.rentHistory) ? doc.rentHistory.slice() : [];
-    const idxDates: Array<{ forecastDate: string; actualDate?: string; newRentAmount?: number; done?: boolean }> = Array.isArray(doc.indexingDates)
+    const idxDates: Array<{ forecastDate: string; actualDate?: string; document?: string; newRentAmount?: number; done?: boolean }> = Array.isArray(doc.indexingDates)
       ? doc.indexingDates
       : [];
 

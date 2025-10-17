@@ -41,6 +41,14 @@ export default async function AdminAssetsPage() {
                 </div>
                 <div className="text-xs text-foreground/60 flex items-center gap-4">
                   <div>{a.scans.length} fișiere</div>
+                  {typeof (a as any).areaSqm === "number" && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-foreground/15">
+                      <span className="text-foreground/60">Suprafață</span>
+                      <span className="font-medium">
+                        {(a as any).areaSqm} mp
+                      </span>
+                    </div>
+                  )}
                   <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-foreground/5">
                     <span className="font-medium">{contracts.length}</span>
                     <span className="text-foreground/60">contracte</span>

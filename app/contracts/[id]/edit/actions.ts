@@ -36,8 +36,6 @@ export async function updateContractAction(
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
-    extensionDate: (formData.get("extensionDate") as string) || "",
-  extendedAt: (formData.get("extendedAt") as string) || "",
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
     amountEUR: (formData.get("amountEUR") as string) || "",
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
@@ -55,7 +53,9 @@ export async function updateContractAction(
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
   // indexing schedule settings on Contract
   indexingDay: (formData.get("indexingDay") as string) || "",
+  indexingMonth: (formData.get("indexingMonth") as string) || "",
   howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
+  contractExtensions: (formData.get("contractExtensions") as string) || "[]",
     // yearly invoices rows
     ...(() => {
       const out: Record<string, string> = {};
@@ -79,7 +79,7 @@ export async function updateContractAction(
       return { ok: false, message: "Contract inexistent", values: rawValues };
     }
 
-    let rentAmountEuro = (() => {
+    const parsedAmountEUR = (() => {
       const n = Number(String(rawValues.amountEUR).replace(",", "."));
       return Number.isFinite(n) && n > 0 ? n : undefined;
     })();
@@ -101,7 +101,7 @@ export async function updateContractAction(
     })();
 
     // Autofill logic similar to server page
-    if (typeof rentAmountEuro === "number" && typeof exchangeRateRON !== "number") {
+    if (typeof parsedAmountEUR === "number" && typeof exchangeRateRON !== "number") {
       if (typeof prev.exchangeRateRON === "number") {
         exchangeRateRON = prev.exchangeRateRON;
       } else {
@@ -111,9 +111,9 @@ export async function updateContractAction(
         } catch {}
       }
     }
-    if (typeof exchangeRateRON === "number" && typeof rentAmountEuro !== "number") {
+    if (typeof exchangeRateRON === "number" && typeof parsedAmountEUR !== "number") {
       if (typeof (prev as any).rentAmountEuro === "number") {
-        rentAmountEuro = (prev as any).rentAmountEuro as number;
+        // no-op: amount now derived from history; keep previous for compatibility when needed
       }
     }
 
@@ -196,9 +196,7 @@ export async function updateContractAction(
   owner: rawValues.owner,
       signedAt: rawValues.signedAt,
       startDate: rawValues.startDate,
-      endDate: rawValues.endDate,
-      extensionDate: rawValues.extensionDate || undefined,
-  extendedAt: (rawValues as any).extendedAt || undefined,
+    endDate: rawValues.endDate,
       paymentDueDays: (() => {
         const n = Number(String(rawValues.paymentDueDays));
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -208,6 +206,10 @@ export async function updateContractAction(
         const n = Number(String(rawValues.indexingDay));
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
+      indexingMonth: (() => {
+        const n = Number(String(rawValues.indexingMonth));
+        return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+      })(),
       howOftenIsIndexing: (() => {
         const n = Number(String(rawValues.howOftenIsIndexing));
         return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
@@ -216,7 +218,7 @@ export async function updateContractAction(
   scans: nextScans,
   // Back-compat single field derived from first scan
   scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
-  rentAmountEuro,
+  // amount now derived from rentHistory; keep for compatibility in upsert logic
       exchangeRateRON,
       tvaPercent,
       correctionPercent,
@@ -244,6 +246,24 @@ export async function updateContractAction(
           }
         }
         return rows.length > 0 ? rows : undefined;
+      })(),
+      contractExtensions: (() => {
+        try {
+          const raw = String((rawValues as any).contractExtensions || "[]");
+          const arr = JSON.parse(raw) as Array<{ docDate?: string; document?: string; extendedUntil?: string }>;
+          const rows = Array.isArray(arr)
+            ? arr
+                .map((r) => ({
+                  docDate: (r.docDate || "").trim(),
+                  document: (r.document || "").trim(),
+                  extendedUntil: (r.extendedUntil || "").trim(),
+                }))
+                .filter((r) => r.docDate && r.document && r.extendedUntil)
+            : [];
+          return rows.length > 0 ? rows : undefined;
+        } catch {
+          return undefined;
+        }
       })(),
     } as Record<string, unknown>;
 
@@ -283,9 +303,17 @@ export async function updateContractAction(
 
     const { changes, scanChange } = computeDiffContract(prev, parsed.data);
 
-  // Recompute futureIndexingDates prior to saving
+  // Recompute futureIndexingDates and ensure the first entry has the Suma EUR value
   const fut = computeFutureIndexingDates(parsed.data as any);
-  await upsertContract({ ...(parsed.data as any), indexingDates: fut } as any);
+  const initAmount = parsedAmountEUR;
+  const initDate = parsed.data.startDate || parsed.data.signedAt;
+  const init = typeof initAmount === "number"
+    ? [{ forecastDate: initDate, actualDate: initDate, newRentAmount: initAmount, done: true }]
+    : [];
+  const byDate = new Map<string, any>();
+  for (const r of [...init, ...fut]) byDate.set(r.forecastDate, r);
+  const indexingDates = Array.from(byDate.values()).sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+  await upsertContract({ ...(parsed.data as any), indexingDates } as any);
   // Indexing model upsert removed; schedule is kept on Contract
     await logAction({
       action: "contract.update",

@@ -35,6 +35,7 @@ function normalize(raw: unknown): Partial<Asset> {
     id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
     name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
     address: typeof r.address === "string" ? r.address : (r.address as string | undefined),
+    areaSqm: typeof (r as any).areaSqm === "number" ? ((r as any).areaSqm as number) : undefined,
     scans,
     createdAt: toYmd((r as any).createdAt),
     updatedAt: toYmd((r as any).updatedAt),

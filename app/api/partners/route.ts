@@ -8,7 +8,7 @@ export async function GET() {
     const partners = await fetchPartners();
     // Only send minimal fields needed by the selector
     return NextResponse.json(
-      partners.map(p => ({ id: p.id, name: p.name, phone: p.phone, email: p.email }))
+  partners.map(p => ({ id: p.id, name: p.name }))
     );
   } catch {
     // On error, degrade gracefully with an empty list

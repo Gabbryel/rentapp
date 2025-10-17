@@ -59,6 +59,17 @@ export default function NewAssetPage() {
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium">Suprafață (mp)</label>
+            <input
+              name="areaSqm"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue={String(state.values.areaSqm ?? "")}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
           <fieldset className="rounded-md border border-foreground/10 p-3">
             <legend className="px-1 text-xs text-foreground/60">
               Scan-uri

@@ -6,7 +6,23 @@ import PartnerSelect from "@/app/components/partner-select"; // kept for potenti
 import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
+import ExtensionsField from "@/app/components/extensions-field";
 // indexing UI removed
+
+const MONTH_OPTIONS = [
+  { value: 1, label: "Ianuarie" },
+  { value: 2, label: "Februarie" },
+  { value: 3, label: "Martie" },
+  { value: 4, label: "Aprilie" },
+  { value: 5, label: "Mai" },
+  { value: 6, label: "Iunie" },
+  { value: 7, label: "Iulie" },
+  { value: 8, label: "August" },
+  { value: 9, label: "Septembrie" },
+  { value: 10, label: "Octombrie" },
+  { value: 11, label: "Noiembrie" },
+  { value: 12, label: "Decembrie" },
+] as const;
 
 export default function NewContractPage() {
   const [state, formAction] = useActionState<FormState, FormData>(
@@ -101,29 +117,14 @@ export default function NewContractPage() {
             />
           </div>
         </div>
+        {/* Contract extensions */}
+        <fieldset className="rounded-md border border-foreground/10 p-4 space-y-3">
+          <legend className="px-1 text-xs text-foreground/60">
+            Prelungiri contract
+          </legend>
+          <ExtensionsField name="contractExtensions" />
+        </fieldset>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium">
-              Prelungire (opțional)
-            </label>
-            <input
-              type="date"
-              name="extensionDate"
-              defaultValue={(state.values.extensionDate as string) || ""}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              Data actului de prelungire (opțional)
-            </label>
-            <input
-              type="date"
-              name="extendedAt"
-              defaultValue={(state.values as any).extendedAt || ""}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium">
               Zile până la scadență
@@ -296,7 +297,12 @@ export default function NewContractPage() {
         {/* Indexare - setări pe Contract */}
         <fieldset className="rounded-md border border-foreground/10 p-5 space-y-4">
           <legend className="px-1 text-xs text-foreground/60">Indexare</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <p className="text-xs text-foreground/60">
+            Specifică luna și ziua pentru indexare, împreună cu frecvența în
+            luni. Vom genera automat următoarele indexări până la finalul
+            contractului.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="block text-sm font-medium">Zi (1-31)</label>
               <input
@@ -307,7 +313,23 @@ export default function NewContractPage() {
                 inputMode="numeric"
                 defaultValue={String(state.values.indexingDay ?? "")}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                placeholder="ex: 10"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Luna</label>
+              <select
+                name="indexingMonth"
+                defaultValue={String(state.values.indexingMonth ?? "")}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              >
+                <option value="">Selectează luna</option>
+                {MONTH_OPTIONS.map((month) => (
+                  <option key={month.value} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium">
@@ -321,10 +343,12 @@ export default function NewContractPage() {
                 inputMode="numeric"
                 defaultValue={String(state.values.howOftenIsIndexing ?? "")}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                placeholder="ex: 12"
               />
             </div>
-            <div className="flex items-end text-[11px] text-foreground/60">
-              Datele viitoare vor fi calculate automat la salvare.
+            <div className="rounded-md border border-dashed border-foreground/20 p-3 text-[11px] text-foreground/60">
+              Poți completa ulterior documentele și valorile indexate din pagina
+              contractului, odată ce indexarea devine efectivă.
             </div>
           </div>
         </fieldset>

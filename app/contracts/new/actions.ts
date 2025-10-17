@@ -38,10 +38,10 @@ export async function createContractAction(
     signedAt: (formData.get("signedAt") as string) ?? "",
     startDate: (formData.get("startDate") as string) ?? "",
     endDate: (formData.get("endDate") as string) ?? "",
-  extensionDate: (formData.get("extensionDate") as string) || "",
-  extendedAt: (formData.get("extendedAt") as string) || "",
+  // legacy extension fields removed
   paymentDueDays: (formData.get("paymentDueDays") as string) || "",
     indexingDay: (formData.get("indexingDay") as string) || "",
+    indexingMonth: (formData.get("indexingMonth") as string) || "",
     howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
   scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
   scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
@@ -52,6 +52,7 @@ export async function createContractAction(
     rentType: (formData.get("rentType") as string) || "monthly",
     invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
+  contractExtensions: (formData.get("contractExtensions") as string) || "[]",
     // collect yearlyInvoices flat fields
     ...(() => {
       const out: Record<string, string> = {};
@@ -96,10 +97,7 @@ export async function createContractAction(
   owner: (rawValues.owner as string) || "",
       signedAt: (rawValues.signedAt as string) ?? "",
       startDate: (rawValues.startDate as string) ?? "",
-      endDate: (rawValues.endDate as string) ?? "",
-  // removed legacy indexing dates
-      extensionDate: (rawValues.extensionDate as string) || undefined,
-  extendedAt: (rawValues.extendedAt as string) || undefined,
+    endDate: (rawValues.endDate as string) ?? "",
       paymentDueDays: (() => {
         const n = Number(rawValues.paymentDueDays as string);
         return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -109,17 +107,16 @@ export async function createContractAction(
         const n = Number(rawValues.indexingDay as string);
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
+      indexingMonth: (() => {
+        const n = Number(rawValues.indexingMonth as string);
+        return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
+      })(),
       howOftenIsIndexing: (() => {
         const n = Number(rawValues.howOftenIsIndexing as string);
         return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
       })(),
   scanUrl: undefined as string | undefined,
   scans: [] as { url: string; title?: string }[],
-      rentAmountEuro: (() => {
-        const raw = (rawValues.amountEUR as string) || "";
-        const n = Number(raw.replace(",", "."));
-        return Number.isFinite(n) && n > 0 ? n : undefined;
-      })(),
       exchangeRateRON: (() => {
         const raw = (rawValues.exchangeRateRON as string) || "";
         const n = Number(raw.replace(",", "."));
@@ -164,6 +161,24 @@ export async function createContractAction(
           }
         }
         return rows.length > 0 ? rows : undefined;
+      })(),
+      contractExtensions: (() => {
+        try {
+          const raw = String((rawValues as any).contractExtensions || "[]");
+          const arr = JSON.parse(raw) as Array<{ docDate?: string; document?: string; extendedUntil?: string }>;
+          const rows = Array.isArray(arr)
+            ? arr
+                .map((r) => ({
+                  docDate: (r.docDate || "").trim(),
+                  document: (r.document || "").trim(),
+                  extendedUntil: (r.extendedUntil || "").trim(),
+                }))
+                .filter((r) => r.docDate && r.document && r.extendedUntil)
+            : [];
+          return rows.length > 0 ? rows : undefined;
+        } catch {
+          return undefined;
+        }
       })(),
     };
 
@@ -241,7 +256,21 @@ export async function createContractAction(
     if (!data.scanUrl && data.scans.length > 0) data.scanUrl = data.scans[0].url;
 
   const fut = computeFutureIndexingDates(data as any);
-  const parsed = ContractSchema.safeParse({ ...(data as any), indexingDates: fut });
+  // Seed the first indexing entry with the amount from Suma EUR (if provided)
+  const initAmount = (() => {
+    const raw = (rawValues.amountEUR as string) || "";
+    const n = Number((raw || "").replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  })();
+  const initDate = (data.startDate as string) || (data.signedAt as string) || new Date().toISOString().slice(0, 10);
+  const init = typeof initAmount === "number"
+    ? [{ forecastDate: initDate, actualDate: initDate, newRentAmount: initAmount, done: true }]
+    : [];
+  // Deduplicate by forecastDate, prefer the init record
+  const byDate = new Map<string, any>();
+  for (const r of [...init, ...fut]) byDate.set(r.forecastDate, r);
+  const indexingDates = Array.from(byDate.values()).sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+  const parsed = ContractSchema.safeParse({ ...(data as any), indexingDates });
     if (!parsed.success) {
       return {
         ok: false,
@@ -296,7 +325,6 @@ export async function createContractAction(
         endDate: parsed.data.endDate,
   // legacy indexing fields removed
         scanUrl: parsed.data.scanUrl,
-        rentAmountEuro: (parsed.data as any).rentAmountEuro,
         exchangeRateRON: parsed.data.exchangeRateRON,
         tvaPercent: parsed.data.tvaPercent,
         correctionPercent: parsed.data.correctionPercent,
@@ -318,7 +346,7 @@ export async function createContractAction(
       try { return JSON.stringify(v); } catch { return String(v); }
     };
     const initialFields = [
-  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","extensionDate","paymentDueDays","rentAmountEuro","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices"
+  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","paymentDueDays","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices","contractExtensions"
     ] as const;
     const summary = initialFields
       .map((k) => `${k}: ${fmtVal((parsed.data as any)[k])}`)

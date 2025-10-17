@@ -1,4 +1,4 @@
-import { fetchContracts, effectiveEndDate } from "@/lib/contracts";
+import { fetchContracts, effectiveEndDate, currentRentAmount } from "@/lib/contracts";
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
@@ -101,8 +101,8 @@ export default async function HomePage() {
           continue; // suppressed by rules (no overlap, ends day 1/2, etc.)
         }
         if (fraction > 0 && fraction < 1) {
-          if (typeof (c as any).rentAmountEuro === "number") {
-            amountEUROverride = (c as any).rentAmountEuro * fraction;
+          if (typeof currentRentAmount(c as any) === "number") {
+            amountEUROverride = (currentRentAmount(c as any) as number) * fraction;
           }
         }
       }
@@ -137,12 +137,8 @@ export default async function HomePage() {
         typeof amountEURRaw === "string" ? Number(amountEURRaw) : undefined;
       const contract = contracts.find((c) => c.id === contractId);
       if (!contract) return;
-      if (
-        typeof (amountOverride ?? (contract as any).rentAmountEuro) !==
-          "number" ||
-        typeof contract.exchangeRateRON !== "number"
-      )
-        return;
+      const baseEur = amountOverride ?? currentRentAmount(contract as any);
+      if (typeof baseEur !== "number" || typeof contract.exchangeRateRON !== "number") return;
       // Prevent duplicates
       try {
         const dupe = await findInvoiceByContractAndDate(contractId, issuedAt);
@@ -216,9 +212,7 @@ export default async function HomePage() {
                   const amtEUR =
                     typeof d.amountEUR === "number"
                       ? d.amountEUR
-                      : typeof (d.contract as any).rentAmountEuro === "number"
-                      ? (d.contract as any).rentAmountEuro
-                      : undefined;
+                      : currentRentAmount(d.contract as any);
                   const rate =
                     typeof d.contract.exchangeRateRON === "number"
                       ? d.contract.exchangeRateRON

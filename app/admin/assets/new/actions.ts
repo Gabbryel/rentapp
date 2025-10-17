@@ -11,6 +11,8 @@ export type FormState = { ok: boolean; message?: string; values: Record<string, 
 export async function createAssetAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const name = (formData.get("name") as string) || "";
   const address = (formData.get("address") as string) || "";
+  const areaSqmStr = String(formData.get("areaSqm") ?? "");
+  const areaSqm = areaSqmStr.trim() === "" ? undefined : Number(areaSqmStr);
   const scanUrlsRaw = (formData.getAll("scanUrls") as string[]).filter(Boolean);
   const scanTitlesRaw = (formData.getAll("scanTitles") as string[]).filter(() => true);
   const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
@@ -41,7 +43,7 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
     // Enforce total payload limit of 2MB across all uploaded files
     const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
     if (totalSize > 2 * 1024 * 1024) {
-      return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: { id, name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
     }
     for (const f of files) {
       const okType = [
@@ -53,22 +55,22 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
         "image/svg+xml",
       ].includes(f.type);
       if (!okType) {
-        return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: { id, name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
       }
       if (f.size > 2 * 1024 * 1024) {
-        return { ok: false, message: `Fișierul "${f.name}" depășește limita de 2MB`, values: { id, name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: `Fișierul "${f.name}" depășește limita de 2MB`, values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
       }
       const res = await saveScanFile(f, `${id}-${f.name.replace(/\.[^.]+$/, "")}`, {});
       scans.push({ url: res.url, title: undefined });
     }
-  const payload = { id, name, address, scans };
+  const payload = { id, name, address, areaSqm, scans };
     const parsed = AssetSchema.safeParse(payload);
     if (!parsed.success) {
       const msg = parsed.error.issues.map((iss) => iss.message).join("; ");
-  return { ok: false, message: msg, values: { id, name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: msg, values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
     }
     if (!process.env.MONGODB_URI) {
-      return { ok: false, message: "MongoDB nu este configurat.", values: { id, name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: "MongoDB nu este configurat.", values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
     }
     await upsertAsset({ ...parsed.data, createdAt: new Date().toISOString().slice(0,10), updatedAt: new Date().toISOString().slice(0,10) });
     await logAction({ action: "asset.create", targetType: "asset", targetId: id, meta: { name, address, scans } });
@@ -78,6 +80,6 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
     return { ok: true, values: {}, redirectTo: `/admin/assets/${id}` };
   } catch (e) {
     const msg = e && typeof e === "object" && (e as any).message ? String((e as any).message) : String(e);
-    return { ok: false, message: msg, values: { name, address, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: msg, values: { name, address, areaSqm, scanUrls: scanUrlsRaw } };
   }
 }

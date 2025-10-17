@@ -30,6 +30,17 @@ export const AssetSchema = z
     id: z.string().min(1, "id obligatoriu"),
     name: z.string().min(1, "nume obligatoriu"),
     address: z.string().min(1, "adresă obligatorie"),
+    areaSqm: z
+      .preprocess((v) => {
+        if (v === "" || v === undefined || v === null) return undefined;
+        const n = typeof v === "string" ? Number(v) : v;
+        return typeof n === "number" && !isNaN(n) ? n : NaN;
+      }, z
+        .number()
+        .nonnegative("suprafața trebuie să fie >= 0")
+        .max(1000000, "suprafața este prea mare")
+      )
+      .optional(),
     scans: z.array(ScanItemSchema).default([]),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),

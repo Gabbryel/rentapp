@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchContractById } from "@/lib/contracts";
+import { fetchContractById, currentRentAmount } from "@/lib/contracts";
 import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/invoices";
 
 export async function POST(req: Request) {
@@ -12,8 +12,9 @@ export async function POST(req: Request) {
     }
     const contract = await fetchContractById(contractId);
     if (!contract) return NextResponse.json({ error: "Contract inexistent" }, { status: 404 });
-    if (typeof (contract as any).rentAmountEuro !== "number" || typeof contract.exchangeRateRON !== "number") {
-      return NextResponse.json({ error: "Contractul nu are sumă EUR și curs RON/EUR definite" }, { status: 400 });
+    const baseEur = currentRentAmount(contract as any);
+    if (typeof baseEur !== "number" || typeof contract.exchangeRateRON !== "number") {
+      return NextResponse.json({ error: "Contractul nu are sumă EUR sau curs RON/EUR definite" }, { status: 400 });
     }
     const inv = computeInvoiceFromContract({ contract, issuedAt, number: body.number });
     const saved = await issueInvoiceAndGeneratePdf(inv);

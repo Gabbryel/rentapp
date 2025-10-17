@@ -13,6 +13,12 @@ export const IndexingSchema = z.object({
   actualIndexingDate: ISODate.optional(),
   startDate: ISODate.optional(),
   amount: z.number().positive().optional(),
+  document: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
   // New: schedule definition kept alongside the indexing record
   indexingDay: z.number().int().min(1).max(31).optional(),
   indexingMonth: z.number().int().min(1).max(12).optional(),

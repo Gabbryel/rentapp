@@ -44,21 +44,21 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
     "signedAt",
     "startDate",
     "endDate",
-    "extensionDate",
-  "extendedAt",
+    "contractExtensions",
     "paymentDueDays",
     "scanUrl",
-  // indexing & schedule removed
-    "rentAmountEuro",
+    "scans",
     "exchangeRateRON",
     "tvaPercent",
     "correctionPercent",
     "rentType",
-  // Newly tracked so changes are visible in audit + messages
-  "invoiceMonthMode",
+    "invoiceMonthMode",
     "monthlyInvoiceDay",
     "yearlyInvoices",
-  // inflation tracking removed
+    "indexingDay",
+    "indexingMonth",
+    "howOftenIsIndexing",
+    "indexingDates",
   ];
   const changes: Array<{ field: string; from: unknown; to: unknown }> = [];
   for (const f of fields) {
@@ -73,8 +73,8 @@ export function computeDiffContract(prev: Partial<Contract> | null | undefined, 
     }
   }
   let scanChange: "none" | "added" | "removed" | "replaced" = "none";
-  const b = prev?.scanUrl ?? null;
-  const a = next.scanUrl ?? null;
+  const b = (prev as any)?.scanUrl ?? null;
+  const a = (next as any).scanUrl ?? null;
   if (!b && a) scanChange = "added";
   else if (b && !a) scanChange = "removed";
   else if (b && a && b !== a) scanChange = "replaced";

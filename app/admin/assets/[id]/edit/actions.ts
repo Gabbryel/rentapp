@@ -20,6 +20,8 @@ export async function updateAssetAction(
   const id = (formData.get("id") as string) || "";
   const name = (formData.get("name") as string) || "";
   const address = (formData.get("address") as string) || "";
+  const areaSqmStr = String(formData.get("areaSqm") ?? "");
+  const areaSqm = areaSqmStr.trim() === "" ? undefined : Number(areaSqmStr);
 
   if (!process.env.MONGODB_URI) {
     return {
@@ -115,6 +117,7 @@ export async function updateAssetAction(
     id,
     name,
     address,
+    areaSqm,
     scans: keptScans,
     createdAt: current.createdAt,
     updatedAt: new Date().toISOString().slice(0, 10),
@@ -134,6 +137,8 @@ export async function updateAssetAction(
     meta: {
       name,
       address,
+      areaBefore: current.areaSqm ?? null,
+      areaAfter: parsed.data.areaSqm ?? null,
       scansBefore: current.scans?.length ?? 0,
       scansAfter: parsed.data.scans?.length ?? 0,
       removed: removedUrls.length,

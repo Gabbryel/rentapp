@@ -38,12 +38,7 @@ export default async function EditPartnerPage({
       orcNumber: (formData.get("orcNumber") as string) || current.orcNumber,
       headquarters:
         (formData.get("headquarters") as string) || current.headquarters,
-      phone:
-        ((formData.get("phone") as string) || current.phone || "").trim() ||
-        undefined,
-      email:
-        ((formData.get("email") as string) || current.email || "").trim() ||
-        undefined,
+      isVatPayer: formData.get("isVatPayer") === "on",
       representatives: (() => {
         try {
           const raw = String(formData.get("representatives") || "[]");
@@ -51,19 +46,28 @@ export default async function EditPartnerPage({
             fullname?: string | null;
             phone?: string | null;
             email?: string | null;
+            primary?: boolean | null;
           }>;
-          return Array.isArray(arr)
-            ? arr
-                .map((r) => ({
-                  fullname: r.fullname?.toString().trim() || null,
-                  phone: r.phone?.toString().trim() || null,
-                  email: (() => {
-                    const e = r.email?.toString().trim() || "";
-                    return e && EMAIL_RE.test(e) ? e : null;
-                  })(),
-                }))
-                .filter((r) => r.fullname || r.phone || r.email)
-            : current.representatives ?? [];
+          if (!Array.isArray(arr)) return current.representatives ?? [];
+          const sanitized = arr
+            .map((r) => ({
+              fullname: r.fullname?.toString().trim() || null,
+              phone: r.phone?.toString().trim() || null,
+              email: (() => {
+                const e = r.email?.toString().trim() || "";
+                return e && EMAIL_RE.test(e) ? e : null;
+              })(),
+              primary: !!r.primary,
+            }))
+            .filter((r) => r.fullname || r.phone || r.email);
+          let seen = false;
+          return sanitized.map((r) => {
+            if (r.primary && !seen) {
+              seen = true;
+              return r;
+            }
+            return { ...r, primary: false };
+          });
         } catch {
           return current.representatives ?? [];
         }
@@ -78,8 +82,7 @@ export default async function EditPartnerPage({
         "vatNumber",
         "orcNumber",
         "headquarters",
-        "phone",
-        "email",
+        "isVatPayer",
         "representatives",
       ];
       const changes = fields
@@ -104,8 +107,7 @@ export default async function EditPartnerPage({
         { k: "vatNumber", label: "CUI" },
         { k: "orcNumber", label: "Nr. ORC" },
         { k: "headquarters", label: "Sediu" },
-        { k: "phone", label: "Telefon" },
-        { k: "email", label: "Email" },
+        { k: "isVatPayer", label: "Plătitor de TVA" },
       ] as const;
       const diffs = fields
         .map(({ k, label }) => ({
@@ -206,26 +208,17 @@ export default async function EditPartnerPage({
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">Telefon</label>
+        {/* Phone/Email removed; contact details managed via Representatives */}
+        <div>
+          <label className="inline-flex items-center gap-2 text-sm font-medium">
             <input
-              name="phone"
-              defaultValue={p.phone || ""}
-              placeholder="ex: +40 712 345 678"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              type="checkbox"
+              name="isVatPayer"
+              defaultChecked={p.isVatPayer === true}
+              className="rounded border-foreground/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Email</label>
-            <input
-              name="email"
-              type="email"
-              defaultValue={p.email || ""}
-              placeholder="ex: contact@exemplu.ro"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
+            Plătitor de TVA
+          </label>
         </div>
         <RepresentativesField initial={p.representatives} />
         <div className="pt-2 flex items-center gap-3">

@@ -69,11 +69,17 @@ export const ContractSchema = z
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
-  // (indexing related fields removed)
-    // Optional additional dates
-    extensionDate: ISODate.optional(),
-    // When the extension (addendum) took place
-    extendedAt: ISODate.optional(),
+    // Contract extensions: each row captures the addendum document, its date, and the new expiry date
+    contractExtensions: z
+      .array(
+        z.object({
+          docDate: ISODate, // date of the addendum document
+          document: z.string().trim().min(1, "document obligatoriu").max(200),
+          extendedUntil: ISODate, // new contract expiry date
+        })
+      )
+      .optional()
+      .default([]),
   // Payment term in days from invoice date
   paymentDueDays: z.number().int().min(0).max(120).optional(),
     // Indexing schedule fields on Contract
@@ -82,12 +88,19 @@ export const ContractSchema = z
     // - indexingDates: computed forecast dates between startDate and effective end date
     //   with mutable metadata for tracking actual application
     indexingDay: z.number().int().min(1).max(31).optional(),
+    indexingMonth: z.number().int().min(1).max(12).optional(),
     howOftenIsIndexing: z.number().int().min(1).max(12).optional(),
     indexingDates: z
       .array(
         z.object({
           forecastDate: ISODate,
           actualDate: ISODate.optional(),
+          document: z
+            .string()
+            .trim()
+            .max(200)
+            .optional()
+            .transform((v) => (v && v.length > 0 ? v : undefined)),
           newRentAmount: z.number().positive().optional(),
           done: z.boolean().default(false),
         })
@@ -111,26 +124,13 @@ export const ContractSchema = z
   scanUrl: ScanUrl.nullish(),
   // New: multiple scans
   scans: z.array(ContractScanItemSchema).default([]),
-  // Optional amounts: if one is provided, both must be provided and > 0
-  rentAmountEuro: z.number().positive().optional(),
+  // Optional EUR->RON exchange rate
   exchangeRateRON: z.number().positive().optional(),
   // TVA percent (0-100), integer
   tvaPercent: z.number().int().min(0).max(100).optional(),
   // Correction percent (0-100), can be decimal; applied to base amount before TVA
   correctionPercent: z.number().min(0).max(100).optional(),
-  // Historical rent changes. First entry should reflect the initial rentAmountEuro.
-  rentHistory: z
-    .array(
-      z.object({
-        changedAt: ISODate, // when the previous amount stopped being current
-        rentAmountEuro: z.number().positive(),
-        exchangeRateRON: z.number().positive().optional(),
-        correctionPercent: z.number().min(0).max(100).optional(),
-        tvaPercent: z.number().int().min(0).max(100).optional(),
-        note: z.string().max(300).optional(),
-      })
-    )
-    .default([]),
+  // rentHistory removed; amounts are tracked via indexingDates
   // inflation tracking removed
   })
   .superRefine((val, ctx) => {
@@ -152,51 +152,39 @@ export const ContractSchema = z
       });
     }
 
-    // If extensionDate provided, ensure it's after or equal to endDate
-    if (val.extensionDate) {
-      const ext = new Date(val.extensionDate);
-      if (ext < e) {
+    // Validate contractExtensions entries relative to start/end
+    const list = Array.isArray((val as any).contractExtensions)
+      ? ((val as any).contractExtensions as { docDate: string; document: string; extendedUntil: string }[])
+      : [];
+    list.forEach((row, idx) => {
+      const until = new Date(row.extendedUntil);
+      const docDate = new Date(row.docDate);
+      if (until < e) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["extensionDate"],
-          message: "extensionDate trebuie să fie după sau egal cu endDate",
+          path: ["contractExtensions", idx, "extendedUntil"],
+          message: "extendedUntil trebuie să fie după sau egal cu endDate",
         });
       }
-    }
-
-    // Basic sanity for extendedAt: must be a valid date (already enforced) and not before signedAt
-    if (val.extendedAt) {
-      const exAt = new Date(val.extendedAt);
-      if (exAt < s) {
+      if (docDate < s) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["extendedAt"],
-          message: "extendedAt trebuie să fie după sau egal cu signedAt",
+          path: ["contractExtensions", idx, "docDate"],
+          message: "docDate trebuie să fie după sau egal cu signedAt",
         });
       }
-      if (val.extensionDate) {
-        const ext = new Date(val.extensionDate);
-        if (exAt > ext) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["extendedAt"],
-            message: "extendedAt nu poate fi după extensionDate",
-          });
-        }
+      if (docDate > until) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contractExtensions", idx, "docDate"],
+          message: "docDate nu poate fi după extendedUntil",
+        });
       }
-    }
+    });
 
     // paymentDueDays has no cross-field dependency
 
-    const hasAmount = typeof (val as any).rentAmountEuro === "number";
-    const hasRate = typeof val.exchangeRateRON === "number";
-    if (hasAmount !== hasRate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: hasAmount ? ["exchangeRateRON"] : ["rentAmountEuro"],
-        message: "Dacă specifici suma în EUR, trebuie să specifici și cursul RON/EUR (și invers)",
-      });
-    }
+    // No cross-field requirement between amount and rate: amount is derived from rentHistory
 
     // Conditional requirements based on rent type
     if (val.rentType === "yearly") {
@@ -222,15 +210,24 @@ export const ContractSchema = z
       }
     }
 
-    // Validate indexing schedule only when BOTH fields are present.
-    // If one is missing or out-of-range in persistence, we ignore scheduling altogether
-    // instead of invalidating the whole contract.
-    if (
-      typeof (val as any).indexingDay !== "undefined" &&
-      typeof (val as any).howOftenIsIndexing !== "undefined"
-    ) {
+    // Validate indexing schedule coherence: either all three fields are present, or none.
+    const dayDefined = typeof (val as any).indexingDay !== "undefined";
+    const monthDefined = typeof (val as any).indexingMonth !== "undefined";
+    const freqDefined = typeof (val as any).howOftenIsIndexing !== "undefined";
+    const anyDefined = dayDefined || monthDefined || freqDefined;
+    if (anyDefined && !(dayDefined && monthDefined && freqDefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: !dayDefined
+          ? ["indexingDay"]
+          : !monthDefined
+          ? ["indexingMonth"]
+          : ["howOftenIsIndexing"],
+        message: "Completează ziua, luna și frecvența pentru indexare.",
+      });
+    }
+    if (dayDefined) {
       const d = (val as any).indexingDay;
-      const f = (val as any).howOftenIsIndexing;
       if (!(Number.isInteger(d) && d >= 1 && d <= 31)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -238,6 +235,19 @@ export const ContractSchema = z
           message: "indexingDay trebuie să fie un număr între 1 și 31",
         });
       }
+    }
+    if (monthDefined) {
+      const m = (val as any).indexingMonth;
+      if (!(Number.isInteger(m) && m >= 1 && m <= 12)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["indexingMonth"],
+          message: "indexingMonth trebuie să fie un număr între 1 și 12",
+        });
+      }
+    }
+    if (freqDefined) {
+      const f = (val as any).howOftenIsIndexing;
       if (!(Number.isInteger(f) && f >= 1 && f <= 12)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

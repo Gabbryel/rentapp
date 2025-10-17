@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { currentRentAmount } from "@/lib/contracts";
 import { notFound } from "next/navigation";
 import { fetchPartnerById } from "@/lib/partners";
 import { listPartnerDocs } from "@/lib/partner-docs";
@@ -117,8 +118,9 @@ export default async function PartnerPage({
           0
         );
         monthlyEur = sumYear > 0 ? sumYear / 12 : 0;
-      } else if (typeof (c as any).rentAmountEuro === "number") {
-        monthlyEur = (c as any).rentAmountEuro;
+      } else {
+        const amt = currentRentAmount(c as any);
+        monthlyEur = typeof amt === "number" ? amt : 0;
       }
       acc.eur += monthlyEur;
       if (monthlyEur > 0 && typeof c.exchangeRateRON === "number") {
@@ -142,8 +144,9 @@ export default async function PartnerPage({
           (s, r) => s + (r.amountEUR || 0),
           0
         );
-      } else if (typeof (c as any).rentAmountEuro === "number") {
-        yearlyEur = (c as any).rentAmountEuro * 12;
+      } else {
+        const amt = currentRentAmount(c as any);
+        yearlyEur = typeof amt === "number" ? amt * 12 : 0;
       }
       acc.eur += yearlyEur;
       if (yearlyEur > 0 && typeof c.exchangeRateRON === "number") {
@@ -227,6 +230,12 @@ export default async function PartnerPage({
             <div>
               <dt className="text-foreground/60">Nr. ORC</dt>
               <dd className="font-medium">{partner.orcNumber}</dd>
+            </div>
+            <div>
+              <dt className="text-foreground/60">Plătitor de TVA</dt>
+              <dd className="font-medium">
+                {String((partner as any).isVatPayer ? "Da" : "Nu")}
+              </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-foreground/60">Sediu</dt>

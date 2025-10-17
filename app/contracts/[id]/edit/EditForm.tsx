@@ -7,8 +7,24 @@ import PartnerSelect from "@/app/components/partner-select"; // legacy single se
 import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
+import ExtensionsField from "@/app/components/extensions-field";
 
 import type { Contract } from "@/lib/schemas/contract";
+
+const MONTH_OPTIONS = [
+  { value: 1, label: "Ianuarie" },
+  { value: 2, label: "Februarie" },
+  { value: 3, label: "Martie" },
+  { value: 4, label: "Aprilie" },
+  { value: 5, label: "Mai" },
+  { value: 6, label: "Iunie" },
+  { value: 7, label: "Iulie" },
+  { value: 8, label: "August" },
+  { value: 9, label: "Septembrie" },
+  { value: 10, label: "Octombrie" },
+  { value: 11, label: "Noiembrie" },
+  { value: 12, label: "Decembrie" },
+] as const;
 
 type Props = {
   contract: Contract;
@@ -32,6 +48,23 @@ export default function EditForm({
     ? contract.yearlyInvoices
     : [];
   // indexing dates removed
+  const indexingDayValue = String(
+    (state.values as any).indexingDay ??
+      (contract as any).indexingDay ??
+      indexingDefaults?.indexingDay ??
+      ""
+  );
+  const indexingMonthValue = String(
+    (state.values as any).indexingMonth ??
+      (contract as any).indexingMonth ??
+      indexingDefaults?.indexingMonth ??
+      ""
+  );
+  const indexingFreqValue = String(
+    (state.values as any).howOftenIsIndexing ??
+      (contract as any).howOftenIsIndexing ??
+      ""
+  );
 
   return (
     <form action={formAction} className="space-y-8 mt-6">
@@ -143,35 +176,24 @@ export default function EditForm({
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium">
-            Prelungire (opțional)
-          </label>
-          <input
-            type="date"
-            name="extensionDate"
-            defaultValue={String(
-              state.values.extensionDate ?? contract.extensionDate ?? ""
-            )}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">
-            Act prelungire (data)
-          </label>
-          <input
-            type="date"
-            name="extendedAt"
-            defaultValue={String(
-              (state.values as any).extendedAt ??
-                (contract as any).extendedAt ??
-                ""
-            )}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
+      <fieldset className="rounded-md border border-foreground/10 p-4 space-y-3">
+        <legend className="px-1 text-xs text-foreground/60">
+          Prelungiri multiple
+        </legend>
+        <ExtensionsField
+          name="contractExtensions"
+          initial={
+            Array.isArray((contract as any).contractExtensions)
+              ? ((contract as any).contractExtensions as any[]).map((r) => ({
+                  docDate: String(r.docDate || ""),
+                  document: String(r.document || ""),
+                  extendedUntil: String(r.extendedUntil || ""),
+                }))
+              : []
+          }
+        />
+      </fieldset>
+      <div className="grid grid-cols-1 gap-6">
         <div>
           <label className="block text-sm font-medium">
             Zile până la scadență
@@ -294,9 +316,31 @@ export default function EditForm({
               step="0.01"
               min={0}
               inputMode="decimal"
-              defaultValue={String(
-                state.values.amountEUR ?? (contract as any).amountEUR ?? ""
-              )}
+              defaultValue={(() => {
+                const fromState = (state.values as any).amountEUR;
+                if (typeof fromState === "string" && fromState.trim() !== "")
+                  return fromState;
+                const arr = Array.isArray((contract as any).indexingDates)
+                  ? ((contract as any).indexingDates as Array<{
+                      forecastDate?: string;
+                      actualDate?: string;
+                      newRentAmount?: number;
+                    }>)
+                  : [];
+                if (arr.length === 0) return String((contract as any).amountEUR ?? "");
+                const sorted = arr
+                  .slice()
+                  .map((r) => ({
+                    eff: String((r.actualDate || r.forecastDate) || ""),
+                    val: r.newRentAmount,
+                  }))
+                  .filter((r) => r.eff)
+                  .sort((a, b) => a.eff.localeCompare(b.eff));
+                const first = sorted[0];
+                return typeof first?.val === "number"
+                  ? String(first.val)
+                  : String((contract as any).amountEUR ?? "");
+              })()}
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               placeholder="ex: 1000"
             />
@@ -357,7 +401,12 @@ export default function EditForm({
       {/* Indexare - setări pe Contract */}
       <fieldset className="rounded-md border border-foreground/10 p-5 space-y-4">
         <legend className="px-1 text-xs text-foreground/60">Indexare</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <p className="text-xs text-foreground/60">
+          Configurează luna și ziua în care se aplică indexarea, precum și
+          frecvența (în luni). Datele exacte vor fi generate automat la salvare
+          până la expirarea contractului.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="block text-sm font-medium">Zi (1-31)</label>
             <input
@@ -366,13 +415,25 @@ export default function EditForm({
               min={1}
               max={31}
               inputMode="numeric"
-              defaultValue={String(
-                (state.values as any).indexingDay ??
-                  (contract as any).indexingDay ??
-                  ""
-              )}
+              defaultValue={indexingDayValue}
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              placeholder="ex: 10"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Luna</label>
+            <select
+              name="indexingMonth"
+              defaultValue={indexingMonthValue}
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            >
+              <option value="">Selectează luna</option>
+              {MONTH_OPTIONS.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium">
@@ -384,16 +445,14 @@ export default function EditForm({
               min={1}
               max={12}
               inputMode="numeric"
-              defaultValue={String(
-                (state.values as any).howOftenIsIndexing ??
-                  (contract as any).howOftenIsIndexing ??
-                  ""
-              )}
+              defaultValue={indexingFreqValue}
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              placeholder="ex: 12"
             />
           </div>
-          <div className="flex items-end text-[11px] text-foreground/60">
-            Datele viitoare vor fi calculate automat la salvare.
+          <div className="rounded-md border border-dashed border-foreground/20 p-3 text-[11px] text-foreground/60">
+            Indexările generate vor putea fi marcate drept aplicate din pagina
+            contractului, unde poți încărca documentul și valoarea actualizată.
           </div>
         </div>
       </fieldset>

@@ -40,6 +40,12 @@ export default async function AssetDetailPage({
           <div className="text-sm text-foreground/60">Adresă</div>
           <div className="mt-1">{asset.address}</div>
         </div>
+        {typeof (asset as any).areaSqm === "number" && (
+          <div className="rounded-md border border-foreground/10 p-4">
+            <div className="text-sm text-foreground/60">Suprafață</div>
+            <div className="mt-1">{(asset as any).areaSqm} mp</div>
+          </div>
+        )}
         {contracts.length > 0 && (
           <div className="rounded-md border border-foreground/10 p-4">
             <div className="text-sm text-foreground/60">

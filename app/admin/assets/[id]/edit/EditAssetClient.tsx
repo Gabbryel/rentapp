@@ -12,6 +12,7 @@ export default function EditAssetClient({
     name: string;
     address: string;
     scans: { url: string; title?: string }[];
+    areaSqm?: number;
   };
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(
@@ -58,6 +59,17 @@ export default function EditAssetClient({
               name="address"
               defaultValue={asset.address}
               required
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Suprafață (mp)</label>
+            <input
+              name="areaSqm"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue={asset.areaSqm ?? ""}
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>

@@ -6,6 +6,7 @@ type Rep = {
   fullname: string | null;
   phone: string | null;
   email: string | null;
+  primary: boolean;
 };
 
 const EMAIL_RE =
@@ -22,6 +23,7 @@ function normalizeRep(r: Partial<Rep>): Rep {
     fullname: fullname || null,
     phone: phone || null,
     email: email || null,
+    primary: Boolean(r.primary),
   };
 }
 
@@ -44,20 +46,28 @@ export default function RepresentativesField({
       .filter((r) => !isEmptyRep(r));
     return rows.length > 0
       ? rows
-      : [{ fullname: null, phone: null, email: null }];
+      : [{ fullname: null, phone: null, email: null, primary: false }];
   }, [initial]);
   const [rows, setRows] = useState<Rep[]>(initialRows);
   const hiddenRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const payload = rows
+    // sanitize rows and enforce at most one primary
+    const sanitized = rows
       .map(normalizeRep)
-      // If email looks invalid, drop it to avoid server-side schema errors
       .map((r) => ({
         ...r,
         email: r.email && !isValidEmail(r.email) ? null : r.email,
       }))
       .filter((r) => !isEmptyRep(r));
+    let seenPrimary = false;
+    const payload = sanitized.map((r) => {
+      if (r.primary && !seenPrimary) {
+        seenPrimary = true;
+        return r;
+      }
+      return { ...r, primary: seenPrimary ? false : r.primary };
+    });
     if (hiddenRef.current) hiddenRef.current.value = JSON.stringify(payload);
   }, [rows]);
 
@@ -65,20 +75,38 @@ export default function RepresentativesField({
     setRows((prev) => {
       const next = [...prev];
       const cur = { ...next[idx] };
-      const v = value.trim();
-      cur[field] = v.length > 0 ? v : null;
+      if (field === "primary") {
+        // ignore here; use setPrimary()
+      } else if (
+        field === "fullname" ||
+        field === "phone" ||
+        field === "email"
+      ) {
+        const v = value.trim();
+        (cur as any)[field] = v.length > 0 ? v : null;
+      }
       next[idx] = cur;
       return next;
     });
   };
   const addRow = () =>
-    setRows((prev) => [...prev, { fullname: null, phone: null, email: null }]);
+    setRows((prev) => [
+      ...prev,
+      { fullname: null, phone: null, email: null, primary: false },
+    ]);
   const removeRow = (idx: number) =>
+    setRows((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length <= 0
+        ? [{ fullname: null, phone: null, email: null, primary: false }]
+        : next;
+    });
+
+  const setPrimary = (idx: number, value: boolean) => {
     setRows((prev) =>
-      prev.length <= 1
-        ? [{ fullname: null, phone: null, email: null }]
-        : prev.filter((_, i) => i !== idx)
+      prev.map((r, i) => ({ ...r, primary: i === idx ? value : false }))
     );
+  };
 
   return (
     <div className="rounded-lg border border-foreground/15 p-3">
@@ -88,7 +116,7 @@ export default function RepresentativesField({
         {rows.map((r, idx) => (
           <div
             key={idx}
-            className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1.5fr_auto] gap-2 items-end"
+            className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1.5fr_auto_auto] gap-2 items-end"
           >
             <div>
               <label className="block text-xs text-foreground/70">
@@ -131,6 +159,17 @@ export default function RepresentativesField({
                   Email invalid – va fi ignorat la salvare.
                 </div>
               )}
+            </div>
+            <div>
+              <label className="block text-xs text-foreground/70">Primar</label>
+              <div className="mt-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-foreground/20"
+                  checked={!!r.primary}
+                  onChange={(e) => setPrimary(idx, e.target.checked)}
+                />
+              </div>
             </div>
             <div className="flex gap-2 pb-1">
               <button

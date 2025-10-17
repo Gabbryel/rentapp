@@ -2,6 +2,7 @@ import { upsertPartner } from "@/lib/partners";
 import { logAction } from "@/lib/audit";
 import type { Partner } from "@/lib/schemas/partner";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createMessage } from "@/lib/messages";
 import RepresentativesField from "@/app/components/representatives-field";
@@ -16,8 +17,8 @@ async function savePartner(formData: FormData) {
     vatNumber: (formData.get("vatNumber") as string) || "",
     orcNumber: (formData.get("orcNumber") as string) || "",
     headquarters: (formData.get("headquarters") as string) || "",
-    phone: ((formData.get("phone") as string) || "").trim() || undefined,
-    email: ((formData.get("email") as string) || "").trim() || undefined,
+    // Contact info now handled exclusively via representatives
+    isVatPayer: formData.get("isVatPayer") === "on",
     representatives: (() => {
       try {
         const raw = String(formData.get("representatives") || "[]");
@@ -25,19 +26,29 @@ async function savePartner(formData: FormData) {
           fullname?: string | null;
           phone?: string | null;
           email?: string | null;
+          primary?: boolean | null;
         }>;
-        return Array.isArray(arr)
-          ? arr
-              .map((r) => ({
-                fullname: r.fullname?.toString().trim() || null,
-                phone: r.phone?.toString().trim() || null,
-                email: (() => {
-                  const e = r.email?.toString().trim() || "";
-                  return e && EMAIL_RE.test(e) ? e : null;
-                })(),
-              }))
-              .filter((r) => r.fullname || r.phone || r.email)
-          : [];
+        if (!Array.isArray(arr)) return [];
+        const sanitized = arr
+          .map((r) => ({
+            fullname: r.fullname?.toString().trim() || null,
+            phone: r.phone?.toString().trim() || null,
+            email: (() => {
+              const e = r.email?.toString().trim() || "";
+              return e && EMAIL_RE.test(e) ? e : null;
+            })(),
+            primary: !!r.primary,
+          }))
+          .filter((r) => r.fullname || r.phone || r.email);
+        // enforce at most one primary (keep first true)
+        let seen = false;
+        return sanitized.map((r) => {
+          if (r.primary && !seen) {
+            seen = true;
+            return r;
+          }
+          return { ...r, primary: false };
+        });
       } catch {
         return [];
       }
@@ -60,6 +71,7 @@ async function savePartner(formData: FormData) {
     });
   } catch {}
   revalidatePath("/admin/partners");
+  redirect("/admin/partners");
 }
 
 export default function NewPartnerPage() {
@@ -116,24 +128,16 @@ export default function NewPartnerPage() {
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">Telefon</label>
+        {/* Phone/Email removed; use Representatives field below */}
+        <div>
+          <label className="inline-flex items-center gap-2 text-sm font-medium">
             <input
-              name="phone"
-              placeholder="ex: +40 712 345 678"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              type="checkbox"
+              name="isVatPayer"
+              className="rounded border-foreground/20"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Email</label>
-            <input
-              name="email"
-              type="email"
-              placeholder="ex: contact@exemplu.ro"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
+            Plătitor de TVA
+          </label>
         </div>
         <RepresentativesField />
         <div className="pt-2">

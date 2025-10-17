@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchContracts, effectiveEndDate } from "@/lib/contracts";
+import { fetchContracts, effectiveEndDate, currentRentAmount } from "@/lib/contracts";
 import { fetchInvoicesForYearFresh } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 
@@ -77,7 +77,7 @@ export async function GET() {
       const start = new Date(c.startDate);
       const end = new Date(effectiveEndDate(c));
   const rate = safeNum((c as any).exchangeRateRON);
-  const amountEURBase = safeNum((c as any).rentAmountEuro);
+  const amountEURBase = safeNum(currentRentAmount(c as any));
       const corrPct = safeNum((c as any).correctionPercent) ?? 0;
       const tvaPct = safeNum((c as any).tvaPercent) ?? 0;
       if (!rate || !amountEURBase) continue;

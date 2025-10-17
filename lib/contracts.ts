@@ -18,6 +18,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-12-15",
     startDate: "2025-01-01",
     endDate: "2025-12-31",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -25,7 +26,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 20,
-    rentHistory: [],
   },
   {
     id: "c2",
@@ -36,6 +36,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-02-10",
     startDate: "2025-03-01",
     endDate: "2026-02-28",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -43,7 +44,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 15,
-    rentHistory: [],
   },
   {
     id: "c3",
@@ -54,6 +54,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-05-05",
     startDate: "2025-05-15",
     endDate: "2025-11-15",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -61,7 +62,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 30,
-    rentHistory: [],
   },
   {
     id: "c4",
@@ -72,6 +72,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-01-20",
     startDate: "2025-02-01",
     endDate: "2025-08-01",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -79,7 +80,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 10,
-    rentHistory: [],
   },
   {
     id: "c5",
@@ -90,6 +90,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-06-30",
     startDate: "2025-07-01",
     endDate: "2025-09-30",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -97,7 +98,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 15,
-    rentHistory: [],
   },
   {
     id: "c6",
@@ -108,6 +108,7 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2024-11-01",
     startDate: "2024-11-15",
     endDate: "2025-11-14",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
@@ -115,7 +116,6 @@ const MOCK_CONTRACTS: ContractType[] = [
     scanUrl: "/contract-scan.svg",
     scans: [],
     paymentDueDays: 25,
-    rentHistory: [],
   },
   {
     id: "c7",
@@ -126,14 +126,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     signedAt: "2025-03-12",
     startDate: "2025-04-01",
     endDate: "2026-03-31",
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 7,
-    extensionDate: "2026-06-30",
     scans: [],
     paymentDueDays: 20,
-    rentHistory: [],
   },
   {
     id: "c8",
@@ -145,12 +144,12 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-04-15",
     endDate: "2025-10-15",
     paymentDueDays: 14,
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 3,
     scans: [],
-    rentHistory: [],
   },
   {
     id: "c9",
@@ -162,12 +161,12 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2024-09-15",
     endDate: "2025-09-14",
     paymentDueDays: 20,
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 9,
     scans: [],
-    rentHistory: [],
   },
   {
     id: "c10",
@@ -179,12 +178,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2024-12-01",
     endDate: "2025-03-01",
     paymentDueDays: 20,
+  contractExtensions: [],
   rentType: "monthly",
   indexingDates: [],
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 1,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c11",
@@ -197,12 +197,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-07-10",
     endDate: "2026-07-09",
   paymentDueDays: 15,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 11,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c12",
@@ -214,12 +215,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-01-15",
     endDate: "2026-01-14",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 14,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c13",
@@ -231,12 +233,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2024-08-01",
     endDate: "2025-07-31",
   paymentDueDays: 30,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 6,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c14",
@@ -248,12 +251,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-10-01",
     endDate: "2025-12-31",
   paymentDueDays: 10,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 4,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c15",
@@ -265,12 +269,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-06-01",
     endDate: "2026-05-31",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 16,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c16",
@@ -283,12 +288,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-05-01",
     endDate: "2025-09-01",
   paymentDueDays: 25,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 18,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c17",
@@ -301,12 +307,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-01-10",
     endDate: "2025-07-10",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 13,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c18",
@@ -319,12 +326,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2026-01-01",
     endDate: "2026-12-31",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 2,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c19",
@@ -336,12 +344,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-02-15",
     endDate: "2026-02-14",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 22,
     scans: [],
-    rentHistory: [],
+    
   },
   {
     id: "c20",
@@ -353,12 +362,13 @@ const MOCK_CONTRACTS: ContractType[] = [
     startDate: "2025-06-15",
     endDate: "2026-06-14",
   paymentDueDays: 20,
+  contractExtensions: [],
   indexingDates: [],
     rentType: "monthly",
     invoiceMonthMode: "current",
     monthlyInvoiceDay: 19,
     scans: [],
-    rentHistory: [],
+    
   },
 ];
 
@@ -417,8 +427,25 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     signedAt: toYmd(r.signedAt)!,
     startDate: toYmd(r.startDate)!,
     endDate: toYmd(r.endDate)!,
-    extensionDate: toYmd(r.extensionDate),
-  extendedAt: toYmd((r as any).extendedAt),
+    // Normalize contractExtensions
+    contractExtensions: ((): { docDate: string; document: string; extendedUntil: string }[] | undefined => {
+      const arr = Array.isArray((r as any).contractExtensions)
+        ? ((r as any).contractExtensions as unknown[])
+        : [];
+      const mapped = arr
+        .map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>;
+          const docDate = toYmd(o.docDate);
+          const document = typeof o.document === "string" ? o.document.trim() : undefined;
+          const extendedUntil = toYmd(o.extendedUntil);
+          if (docDate && document && extendedUntil) {
+            return { docDate, document, extendedUntil };
+          }
+          return null;
+        })
+        .filter(Boolean) as { docDate: string; document: string; extendedUntil: string }[];
+      return mapped.length > 0 ? mapped : undefined;
+    })(),
     paymentDueDays: ((): number | undefined => {
       const n = Number(r.paymentDueDays);
       return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
@@ -499,54 +526,14 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
     correctionPercent,
-  // inflation tracking removed
-    rentHistory: ((): any[] => {
-      const arr = Array.isArray((r as any).rentHistory) ? (r as any).rentHistory : [];
-      const mapped = arr
-        .map((it: any) => {
-          const o = (it ?? {}) as Record<string, unknown>;
-            const changedAt = toYmd(o.changedAt);
-            const rentAmountEuro = typeof (o as any).rentAmountEuro === "number"
-              ? (o as any).rentAmountEuro
-              : (typeof (o as any).amountEUR === "number" ? (o as any).amountEUR : Number((o as any).amountEUR));
-            const exchangeRateRON = typeof o.exchangeRateRON === "number" ? o.exchangeRateRON : Number(o.exchangeRateRON);
-            const correctionPercent = typeof o.correctionPercent === "number" ? o.correctionPercent : Number(o.correctionPercent);
-            const tvaPercent = typeof o.tvaPercent === "number" ? o.tvaPercent : Number(o.tvaPercent);
-            const note = typeof o.note === "string" && o.note.trim() ? o.note.trim() : undefined;
-            if (changedAt && Number.isFinite(rentAmountEuro) && (rentAmountEuro as number) > 0) {
-              return {
-                changedAt,
-                rentAmountEuro,
-                exchangeRateRON: Number.isFinite(exchangeRateRON) && exchangeRateRON > 0 ? exchangeRateRON : undefined,
-                correctionPercent: Number.isFinite(correctionPercent) && correctionPercent >= 0 ? correctionPercent : undefined,
-                tvaPercent: Number.isFinite(tvaPercent) && tvaPercent >= 0 ? Math.round(tvaPercent) : undefined,
-                note,
-              };
-            }
-            return null;
-        })
-        .filter(Boolean) as any[];
-      // Seed initial history entry if missing and rentAmountEuro exists
-      const currentAmount = Number((r as any).rentAmountEuro ?? (r as any).amountEUR);
-      if (mapped.length === 0 && Number.isFinite(currentAmount) && currentAmount > 0) {
-        const start = toYmd((r as any).startDate) ?? toYmd((r as any).signedAt) ?? new Date().toISOString().slice(0, 10);
-        mapped.push({
-          changedAt: start,
-          rentAmountEuro: currentAmount,
-          exchangeRateRON: Number((r as any).exchangeRateRON) || undefined,
-          correctionPercent: Number((r as any).correctionPercent) || undefined,
-          tvaPercent: Number((r as any).tvaPercent) || undefined,
-          note: "inițial",
-        });
-      }
-      // sort ascending
-      mapped.sort((a, b) => String(a.changedAt).localeCompare(String(b.changedAt)));
-      return mapped;
-    })(),
     // schedule fields
     indexingDay: ((): number | undefined => {
       const n = Number((r as any).indexingDay);
       return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
+    })(),
+    indexingMonth: ((): number | undefined => {
+      const n = Number((r as any).indexingMonth);
+      return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
     })(),
     howOftenIsIndexing: ((): number | undefined => {
       const n = Number((r as any).howOftenIsIndexing);
@@ -561,11 +548,15 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
           const forecastDate = toYmd(o.forecastDate);
           if (!forecastDate) return null;
           const actualDate = toYmd(o.actualDate);
+          const document =
+            typeof o.document === "string" && o.document.trim()
+              ? o.document.trim()
+              : undefined;
           const nra = Number(o.newRentAmount);
           const newRentAmount = Number.isFinite(nra) && nra > 0 ? nra : undefined;
           const done = Boolean(o.done);
-          return { forecastDate, actualDate, newRentAmount, done };
-        }).filter(Boolean) as { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[];
+          return { forecastDate, actualDate, document, newRentAmount, done };
+        }).filter(Boolean) as { forecastDate: string; actualDate?: string; document?: string; newRentAmount?: number; done: boolean }[];
         return arr;
       }
       // Else, build from legacy futureIndexingDates only when schedule is valid
@@ -576,7 +567,13 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       const legacyArr = Array.isArray((r as any).futureIndexingDates)
         ? ((r as any).futureIndexingDates as unknown[])
         : [];
-      const mapped: { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[] = [];
+      const mapped: {
+        forecastDate: string;
+        actualDate?: string;
+        document?: string;
+        newRentAmount?: number;
+        done: boolean;
+      }[] = [];
       for (const it of legacyArr) {
         if (typeof it === "string") {
           const d = toYmd(it);
@@ -584,7 +581,16 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         } else if (it && typeof it === "object") {
           const o = it as any;
           const d = toYmd(o.date);
-          if (d) mapped.push({ forecastDate: d, done: Boolean(o.saved) });
+          if (d)
+            mapped.push({
+              forecastDate: d,
+              actualDate: toYmd(o.actualDate),
+              document:
+                typeof o.document === "string" && o.document.trim()
+                  ? o.document.trim()
+                  : undefined,
+              done: Boolean(o.saved),
+            });
         }
       }
       return mapped;
@@ -683,53 +689,57 @@ export async function fetchContractsByAssetId(assetId: string, injectedDb?: any)
   return MOCK_CONTRACTS.filter((c) => (c as any).assetId === assetId);
 }
 
-// Effective end date: if an extension date exists, that becomes the new end date
+// Effective end date: latest extendedUntil from contractExtensions, otherwise endDate
 export function effectiveEndDate(c: ContractType): string {
-  return c.extensionDate ?? c.endDate;
+  const list = Array.isArray((c as any).contractExtensions)
+    ? (((c as any).contractExtensions as unknown[]) as { extendedUntil?: string }[])
+    : [];
+  const dates = list
+    .map((x) => (x && typeof x.extendedUntil === "string" ? x.extendedUntil : ""))
+    .filter(Boolean)
+    .sort();
+  const latest = dates.length > 0 ? dates[dates.length - 1] : undefined;
+  return latest ?? c.endDate;
 }
 
 // Compute future indexing dates within contract bounds
-export function computeFutureIndexingDates(c: ContractType): { forecastDate: string; done: boolean }[] {
+export function computeFutureIndexingDates(c: ContractType): { forecastDate: string; done: boolean; document?: string }[] {
   const dayRaw = (c as any).indexingDay as number | undefined;
+  const monthRaw = (c as any).indexingMonth as number | undefined;
   const freqRaw = (c as any).howOftenIsIndexing as number | undefined;
-  if (!Number.isInteger(dayRaw) || !Number.isInteger(freqRaw)) return [];
+  if (!Number.isInteger(dayRaw) || !Number.isInteger(monthRaw) || !Number.isInteger(freqRaw)) return [];
   const day = dayRaw as number;
+  const monthIndex = (monthRaw as number) - 1; // zero-based
   const freq = freqRaw as number;
   if (day < 1 || day > 31) return [];
+  if (monthIndex < 0 || monthIndex > 11) return [];
   if (freq < 1 || freq > 12) return [];
-  const start = new Date(c.startDate);
+  const anchor = new Date(c.signedAt);
   const end = new Date(effectiveEndDate(c));
-  // Determine first occurrence on/after start
-  let y = start.getFullYear();
-  let m = start.getMonth(); // 0-indexed
-  // Build the first candidate in start's month or later that hits the day
-  let candidate = new Date(y, m, Math.min(day, 28));
-  // If the month has >= day days, set; else, use the last valid day of that month
   const lastDayInMonth = (yy: number, mm: number) => new Date(yy, mm + 1, 0).getDate();
-  const setDay = (d: Date, targetDay: number) => {
-    const last = lastDayInMonth(d.getFullYear(), d.getMonth());
-    d.setDate(Math.min(targetDay, last));
+  const makeDate = (yy: number, mm: number) => {
+    const d = new Date(yy, mm, 1);
+    const last = lastDayInMonth(yy, mm);
+    d.setDate(Math.min(day, last));
     return d;
   };
-  candidate = setDay(new Date(y, m, 1), day);
-  if (candidate < start) {
-    // move forward by one month at a time until reaching/after start
-    while (candidate < start) {
-  m += 1;
-  candidate = setDay(new Date(y, m, 1), day);
-    }
+  let cur = makeDate(anchor.getFullYear(), monthIndex);
+  // Ensure the first date is on/after the anchor date (contract signed date)
+  let safety = 0;
+  while (cur < anchor && safety < 1200) {
+    const nextMonthIndex = cur.getMonth() + freq;
+    cur = makeDate(cur.getFullYear(), nextMonthIndex);
+    safety += 1;
   }
-  // Now generate every freq months until end
-  const out: { forecastDate: string; done: boolean }[] = [];
-  let cur = candidate;
-  while (cur <= end) {
+  if (safety >= 1200) return [];
+  const out: { forecastDate: string; done: boolean; document?: string }[] = [];
+  while (cur <= end && out.length < 600) {
     const yyyy = cur.getFullYear();
     const mm = String(cur.getMonth() + 1).padStart(2, "0");
     const dd = String(cur.getDate()).padStart(2, "0");
     out.push({ forecastDate: `${yyyy}-${mm}-${dd}`, done: false });
-    // advance by freq months safely
     const nextMonthIndex = cur.getMonth() + freq;
-    cur = setDay(new Date(cur.getFullYear(), nextMonthIndex, 1), day);
+    cur = makeDate(cur.getFullYear(), nextMonthIndex);
   }
   return out;
 }
@@ -740,12 +750,12 @@ export async function upsertContract(contract: ContractType) {
   if (process.env.MONGODB_URI) {
     const db = await getDb();
     const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
-    let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
     // Peek provided indexing metadata from incoming contract to determine effective date
-    const providedIdx = Array.isArray((contract as any).indexingDates)
+  const providedIdx = Array.isArray((contract as any).indexingDates)
       ? (((contract as any).indexingDates as unknown[]) as {
           forecastDate: string;
           actualDate?: string;
+          document?: string;
           newRentAmount?: number;
           done?: boolean;
         }[])
@@ -778,53 +788,71 @@ export async function upsertContract(contract: ContractType) {
           : match?.forecastDate
           ? `indexare ${match.forecastDate}`
           : undefined;
-        rentHistory.push({
-          changedAt: changedAtIso,
-          rentAmountEuro: typeof newAmount === "number" ? newAmount : prevAmount,
-          exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
-          correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
-          tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
-          ...(note ? { note } : {}),
-        });
+        // rent history removed
       }
     }
     // If this is a new contract (no existing) and no history provided, seed initial entry
     if (!existing) {
       const currentAmount = (contract as any).rentAmountEuro;
-      if (typeof currentAmount === "number" && currentAmount > 0 && rentHistory.length === 0) {
-        const start = contract.startDate || contract.signedAt;
-        rentHistory.push({
-          changedAt: start,
-          rentAmountEuro: currentAmount,
-          exchangeRateRON: contract.exchangeRateRON,
-          correctionPercent: contract.correctionPercent,
-          tvaPercent: contract.tvaPercent,
-          note: "inițial",
-        });
-      }
+      // no-op
     }
-    rentHistory = rentHistory.reduce((acc: any[], cur) => {
-      const key = `${cur.changedAt}|${cur.rentAmountEuro}`;
-      const idx = acc.findIndex((x) => `${x.changedAt}|${x.rentAmountEuro}` === key);
-      if (idx >= 0) acc[idx] = cur; else acc.push(cur);
-      return acc;
-    }, []);
-    rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    // rent history removed
   // Recompute indexingDates if schedule fields present and preserve provided metadata (actualDate/newRentAmount/done)
   const baseComputed = computeFutureIndexingDates(contract as any);
   const provided = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as { forecastDate: string; actualDate?: string; newRentAmount?: number; done?: boolean }[])
+    ? ((contract as any).indexingDates as {
+        forecastDate: string;
+        actualDate?: string;
+        document?: string;
+        newRentAmount?: number;
+        done?: boolean;
+      }[])
     : [];
+  const providedMap = new Map(
+    provided.map((p) => [p.forecastDate, p] as const)
+  );
   const merged = baseComputed.map((e) => {
-    const hit = provided.find((p) => p.forecastDate === e.forecastDate);
+    const hit = providedMap.get(e.forecastDate);
     return {
       forecastDate: e.forecastDate,
       actualDate: hit?.actualDate,
+      document: hit?.document,
       newRentAmount: hit?.newRentAmount,
       done: Boolean(hit?.done),
     };
   });
-  const toSave: ContractType = { ...(contract as any), rentHistory, indexingDates: merged } as any;
+  for (const p of provided) {
+    if (!baseComputed.some((e) => e.forecastDate === p.forecastDate)) {
+      merged.push({
+        forecastDate: p.forecastDate,
+        actualDate: p.actualDate,
+        document: p.document,
+        newRentAmount: p.newRentAmount,
+        done: Boolean(p.done),
+      });
+    }
+  }
+  merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
+  // If any indexingDates have an actualDate <= today with a numeric newRentAmount,
+  // force the contract's current EUR rent to the latest such amount.
+  const todayIso = (() => {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, "0");
+    const d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  })();
+  const applied = merged
+    .filter(
+      (x) =>
+        typeof (x as any).newRentAmount === "number" &&
+        x.actualDate &&
+        String(x.actualDate).slice(0, 10) <= todayIso
+    )
+    .sort((a, b) => String(a.actualDate || "").localeCompare(String(b.actualDate || "")));
+  const latestApplied = applied.length > 0 ? (applied[applied.length - 1] as any) : undefined;
+  const forcedRentAmount = latestApplied?.newRentAmount as number | undefined;
+  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as any;
     await db
       .collection<ContractType>("contracts")
       .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
@@ -834,89 +862,76 @@ export async function upsertContract(contract: ContractType) {
   try {
     const all = await readJson<ContractType[]>("contracts.json", []);
     const idx = all.findIndex((c) => c.id === contract.id);
-    let rentHistory = Array.isArray(contract.rentHistory) ? [...contract.rentHistory] : [];
+    // rent history removed
     const providedIdx = Array.isArray((contract as any).indexingDates)
       ? (((contract as any).indexingDates as unknown[]) as {
           forecastDate: string;
           actualDate?: string;
+          document?: string;
           newRentAmount?: number;
           done?: boolean;
         }[])
       : [];
-    if (idx >= 0) {
-      const prev = all[idx];
-      const prevAmount = (prev as any).rentAmountEuro ?? (prev as any).amountEUR;
-      const prevRate = (prev as any).exchangeRateRON;
-      const prevCorrection = (prev as any).correctionPercent;
-      const prevTva = (prev as any).tvaPercent;
-      const changed =
-        (typeof prevAmount === "number" || typeof (contract as any).rentAmountEuro === "number") &&
-        (prevAmount !== (contract as any).rentAmountEuro || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
-      if (changed && typeof prevAmount === "number" && prevAmount > 0) {
-        const newAmount = (contract as any).rentAmountEuro;
-        const match =
-          typeof newAmount === "number"
-            ? providedIdx.find(
-                (x) => x && x.done && typeof x.newRentAmount === "number" && x.newRentAmount === newAmount
-              )
-            : undefined;
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, "0");
-        const d = String(today.getDate()).padStart(2, "0");
-        const isoToday = `${y}-${m}-${d}`;
-        const changedAtIso = match?.actualDate || match?.forecastDate || isoToday;
-        const note = match?.actualDate
-          ? `indexare ${match.actualDate}`
-          : match?.forecastDate
-          ? `indexare ${match.forecastDate}`
-          : undefined;
-        rentHistory.push({
-          changedAt: changedAtIso,
-          rentAmountEuro: typeof newAmount === "number" ? newAmount : prevAmount,
-          exchangeRateRON: typeof prevRate === "number" ? prevRate : undefined,
-          correctionPercent: typeof prevCorrection === "number" ? prevCorrection : undefined,
-          tvaPercent: typeof prevTva === "number" ? prevTva : undefined,
-          ...(note ? { note } : {}),
-        });
-      }
-    }
+    // no-op: rent history removed; only indexingDates are maintained
     // If this is a new contract (no previous in local store) and history empty, seed initial entry
     if (idx < 0) {
       const currentAmount = (contract as any).rentAmountEuro;
-      if (typeof currentAmount === "number" && currentAmount > 0 && rentHistory.length === 0) {
-        const start = contract.startDate || contract.signedAt;
-        rentHistory.push({
-          changedAt: start,
-          rentAmountEuro: currentAmount,
-          exchangeRateRON: contract.exchangeRateRON,
-          correctionPercent: contract.correctionPercent,
-          tvaPercent: contract.tvaPercent,
-          note: "inițial",
-        });
-      }
+      // no-op
     }
-    rentHistory = rentHistory.reduce((acc: any[], cur) => {
-      const key = `${cur.changedAt}|${cur.rentAmountEuro}`;
-      const i = acc.findIndex((x) => `${x.changedAt}|${x.rentAmountEuro}` === key);
-      if (i >= 0) acc[i] = cur; else acc.push(cur);
-      return acc;
-    }, []);
-    rentHistory.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    // rent history removed
   const baseComputed = computeFutureIndexingDates(contract as any);
   const provided = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as { forecastDate: string; actualDate?: string; newRentAmount?: number; done?: boolean }[])
+    ? ((contract as any).indexingDates as {
+        forecastDate: string;
+        actualDate?: string;
+        document?: string;
+        newRentAmount?: number;
+        done?: boolean;
+      }[])
     : [];
+  const providedMap = new Map(
+    provided.map((p) => [p.forecastDate, p] as const)
+  );
   const merged = baseComputed.map((e) => {
-    const hit = provided.find((p) => p.forecastDate === e.forecastDate);
+    const hit = providedMap.get(e.forecastDate);
     return {
       forecastDate: e.forecastDate,
       actualDate: hit?.actualDate,
+      document: hit?.document,
       newRentAmount: hit?.newRentAmount,
       done: Boolean(hit?.done),
     };
   });
-  const toSave: ContractType = { ...(contract as any), rentHistory, indexingDates: merged } as any;
+  for (const p of provided) {
+    if (!baseComputed.some((e) => e.forecastDate === p.forecastDate)) {
+      merged.push({
+        forecastDate: p.forecastDate,
+        actualDate: p.actualDate,
+        document: p.document,
+        newRentAmount: p.newRentAmount,
+        done: Boolean(p.done),
+      });
+    }
+  }
+  merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
+  const todayIso2 = (() => {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, "0");
+    const d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  })();
+  const applied2 = merged
+    .filter(
+      (x) =>
+        typeof (x as any).newRentAmount === "number" &&
+        x.actualDate &&
+        String(x.actualDate).slice(0, 10) <= todayIso2
+    )
+    .sort((a, b) => String(a.actualDate || "").localeCompare(String(b.actualDate || "")));
+  const latestApplied2 = applied2.length > 0 ? (applied2[applied2.length - 1] as any) : undefined;
+  const forcedRentAmount2 = latestApplied2?.newRentAmount as number | undefined;
+  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as any;
     if (idx >= 0) all[idx] = toSave; else all.push(toSave);
     await writeJson("contracts.json", all);
   } catch (err) {
@@ -938,7 +953,7 @@ export function getMockContracts(): ContractType[] {
   return MOCK_CONTRACTS;
 }
 
-// Bulk update all active contracts (endDate or extensionDate >= today) with a new EUR->RON exchange rate.
+// Bulk update all active contracts (effective end date >= today) with a new EUR->RON exchange rate.
 // If onlyActive is true, filters to contracts whose effective end date is today or in future.
 // Returns the number of contracts updated. Requires MongoDB.
 export async function updateContractsExchangeRate(newRate: number, onlyActive = true): Promise<number> {
@@ -956,7 +971,28 @@ export async function updateContractsExchangeRate(newRate: number, onlyActive = 
     ? {
         $expr: {
           $gte: [
-            { $ifNull: ["$extensionDate", "$endDate"] },
+            {
+              $let: {
+                vars: {
+                  ext: {
+                    $cond: [
+                      { $gt: [{ $size: { $ifNull: ["$contractExtensions", []] } }, 0] },
+                      {
+                        $max: {
+                          $map: {
+                            input: "$contractExtensions",
+                            as: "ce",
+                            in: "$$ce.extendedUntil",
+                          },
+                        },
+                      },
+                      null,
+                    ],
+                  },
+                },
+                in: { $ifNull: ["$$ext", "$endDate"] },
+              },
+            },
             iso,
           ],
         },
@@ -1076,9 +1112,9 @@ export function computeInvoiceFromContract(opts: {
 }): Invoice {
   const c = opts.contract;
   const dueDays = typeof c.paymentDueDays === "number" ? c.paymentDueDays : 0;
-  // Back-compat: prefer rentAmountEuro; fallback to legacy amountEUR when present in older data
-  const baseAmount = (c as any).rentAmountEuro ?? (c as any).amountEUR;
-  const amountEUR = Number((opts.amountEUROverride ?? baseAmount) ?? 0);
+  // Determine EUR amount effective on invoice date from rent history
+  const amountFromHistory = rentAmountAtDate(c, opts.issuedAt);
+  const amountEUR = Number((opts.amountEUROverride ?? amountFromHistory) ?? 0);
   const rate = Number(c.exchangeRateRON ?? 0);
   const corrPct = Number(c.correctionPercent ?? 0);
   const tvaPct = Number(c.tvaPercent ?? 0);
@@ -1112,6 +1148,35 @@ export function computeInvoiceFromContract(opts: {
     updatedAt: nowIso,
   });
   return inv;
+}
+
+// Return the EUR rent amount effective on the given ISO date (YYYY-MM-DD)
+export function rentAmountAtDate(c: ContractType, isoDate: string): number | undefined {
+  const arr = Array.isArray((c as any).indexingDates)
+    ? ((c as any).indexingDates as Array<{
+        forecastDate: string;
+        actualDate?: string;
+        newRentAmount?: number;
+      }>)
+    : [];
+  const effectiveRows = arr
+    .filter((it) => typeof it.newRentAmount === "number")
+    .map((it) => ({
+      date: String((it.actualDate || it.forecastDate) || "").slice(0, 10),
+      value: it.newRentAmount as number,
+    }))
+    .filter((x) => x.date && x.date <= isoDate)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return effectiveRows.length > 0 ? effectiveRows[effectiveRows.length - 1].value : undefined;
+}
+
+// Convenience for "today"
+export function currentRentAmount(c: ContractType): number | undefined {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = String(t.getMonth() + 1).padStart(2, "0");
+  const d = String(t.getDate()).padStart(2, "0");
+  return rentAmountAtDate(c, `${y}-${m}-${d}`);
 }
 
 export async function renderInvoicePdf(inv: Invoice): Promise<Uint8Array> {

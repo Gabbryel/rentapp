@@ -28,51 +28,96 @@ export default async function AdminPartnersPage() {
         {partners.map((p) => (
           <Card key={p.id}>
             <div className="flex items-start justify-between gap-3">
-              <Link
-                href={`/partners/${p.id}`}
-                className="font-semibold hover:underline truncate"
-              >
-                {p.name}
-              </Link>
-              <Link
-                href={`/admin/partners/${p.id}`}
-                className="shrink-0 rounded border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
-              >
-                Editează
-              </Link>
-            </div>
-            <dl className="text-xs text-foreground/70 space-y-1">
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-foreground/60">CUI</dt>
-                <dd className="font-medium">{p.vatNumber}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-foreground/60">Nr. ORC</dt>
-                <dd className="font-medium">{p.orcNumber}</dd>
-              </div>
-              {(p.phone || p.email) && (
-                <div className="flex flex-col gap-0.5">
-                  {p.phone && (
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-foreground/60">Tel</dt>
-                      <dd className="font-medium truncate max-w-[10rem]">
-                        {p.phone}
-                      </dd>
-                    </div>
-                  )}
-                  {p.email && (
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-foreground/60">Email</dt>
-                      <dd className="font-medium truncate max-w-[10rem]">
-                        {p.email}
-                      </dd>
-                    </div>
-                  )}
+              <div className="min-w-0">
+                <Link
+                  href={`/partners/${p.id}`}
+                  className="font-semibold hover:underline truncate"
+                  title={p.name}
+                >
+                  {p.name}
+                </Link>
+                <div className="mt-1 text-[11px] text-foreground/60 font-mono">
+                  ID: {p.id}
                 </div>
-              )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] ${
+                    p.isVatPayer
+                      ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20"
+                      : "bg-foreground/10 text-foreground/70 border border-foreground/20"
+                  }`}
+                >
+                  TVA: {p.isVatPayer ? "Da" : "Nu"}
+                </span>
+                <Link
+                  href={`/admin/partners/${p.id}`}
+                  className="shrink-0 rounded border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
+                >
+                  Editează
+                </Link>
+              </div>
+            </div>
+            <dl className="mt-2 text-xs text-foreground/80 space-y-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-foreground/60">CUI</dt>
+                  <dd className="font-medium">{p.vatNumber}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-foreground/60">Nr. ORC</dt>
+                  <dd className="font-medium">{p.orcNumber}</dd>
+                </div>
+              </div>
               <div>
                 <dt className="text-foreground/60">Sediu</dt>
                 <dd className="font-medium break-words">{p.headquarters}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-foreground/60">Creat</div>
+                <div className="text-right font-medium">{p.createdAt}</div>
+                <div className="text-foreground/60">Actualizat</div>
+                <div className="text-right font-medium">{p.updatedAt}</div>
+              </div>
+              <div className="pt-1">
+                <dt className="text-foreground/60">Reprezentanți</dt>
+                {p.representatives?.length ? (
+                  <ul className="mt-1 space-y-1">
+                    {p.representatives.map((r, i) => (
+                      <li
+                        key={i}
+                        className="rounded border border-foreground/15 p-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium truncate">
+                            {r.fullname || "—"}
+                          </div>
+                          {r.primary && (
+                            <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-700">
+                              Primar
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 grid grid-cols-2 gap-2 text-foreground/70">
+                          <div
+                            className="truncate"
+                            title={r.phone ?? undefined}
+                          >
+                            Tel: {r.phone || "—"}
+                          </div>
+                          <div
+                            className="truncate"
+                            title={r.email ?? undefined}
+                          >
+                            Email: {r.email || "—"}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="mt-1 text-foreground/60">—</div>
+                )}
               </div>
             </dl>
           </Card>
@@ -87,51 +132,64 @@ export default async function AdminPartnersPage() {
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Nume</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">CUI</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Nr. ORC</th>
-              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Telefon</th>
-              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Email</th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Rep. Tel</th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">
+                Rep. Email
+              </th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Sediu</th>
               <th className="text-right px-3 py-2 sm:px-4 sm:py-3">Acțiuni</th>
             </tr>
           </thead>
           <tbody>
-            {partners.map((p) => (
-              <tr key={p.id} className="border-t border-foreground/10">
-                <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
-                  <Link href={`/partners/${p.id}`} className="hover:underline">
-                    {p.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
-                  {p.vatNumber}
-                </td>
-                <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
-                  {p.orcNumber}
-                </td>
-                <td
-                  className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[8rem] truncate"
-                  title={p.phone || ""}
-                >
-                  {p.phone || "—"}
-                </td>
-                <td
-                  className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[12rem] truncate"
-                  title={p.email || ""}
-                >
-                  {p.email || "—"}
-                </td>
-                <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[16rem]">
-                  {p.headquarters}
-                </td>
-                <td className="px-3 py-2 sm:px-4 sm:py-3 text-right">
-                  <Link
-                    href={`/admin/partners/${p.id}`}
-                    className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
+            {partners.map((p) => {
+              const primary = Array.isArray(p.representatives)
+                ? p.representatives.find((r) => (r as any).primary) ||
+                  p.representatives[0]
+                : undefined;
+              const pPhone = (primary as any)?.phone as string | undefined;
+              const pEmail = (primary as any)?.email as string | undefined;
+              return (
+                <tr key={p.id} className="border-t border-foreground/10">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
+                    <Link
+                      href={`/partners/${p.id}`}
+                      className="hover:underline"
+                    >
+                      {p.name}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
+                    {p.vatNumber}
+                  </td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
+                    {p.orcNumber}
+                  </td>
+                  <td
+                    className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[8rem] truncate"
+                    title={pPhone || ""}
                   >
-                    Editează
-                  </Link>
-                </td>
-              </tr>
-            ))}
+                    {pPhone || "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap max-w-[12rem] truncate"
+                    title={pEmail || ""}
+                  >
+                    {pEmail || "—"}
+                  </td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[16rem]">
+                    {p.headquarters}
+                  </td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right">
+                    <Link
+                      href={`/admin/partners/${p.id}`}
+                      className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
+                    >
+                      Editează
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
             {partners.length === 0 && (
               <tr>
                 <td

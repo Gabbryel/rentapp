@@ -1,4 +1,4 @@
-import { effectiveEndDate, fetchContracts } from "@/lib/contracts";
+import { effectiveEndDate, fetchContracts, currentRentAmount } from "@/lib/contracts";
 import type { Contract } from "@/lib/schemas/contract";
 import { unstable_noStore as noStore } from "next/cache";
 import SearchContracts from "@/app/components/search-contracts";
@@ -185,13 +185,8 @@ export default async function ContractsPage({
       {(() => {
         const eur =
           c.rentType === "yearly"
-            ? (c.yearlyInvoices ?? []).reduce(
-                (s, r) => s + (r.amountEUR || 0),
-                0
-              )
-            : typeof (c as any).rentAmountEuro === "number"
-            ? (c as any).rentAmountEuro
-            : undefined;
+            ? (c.yearlyInvoices ?? []).reduce((s, r) => s + (r.amountEUR || 0), 0)
+            : currentRentAmount(c);
         if (typeof eur !== "number") return null;
         const eurLabel =
           c.rentType === "yearly" ? "EUR (anual)" : "EUR (lunar)";
@@ -300,36 +295,34 @@ export default async function ContractsPage({
             </dd>
           </div>
         </div>
-        {c.extensionDate ? (
-          <div
-            id={`contract-card-${c.id}-date-extension`}
-            className="rounded-md bg-foreground/5 p-2"
-          >
-            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-              <dt className="text-xs text-foreground/60 shrink-0">
-                Prelungire până la
-              </dt>
-              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-                {fmt(String(c.extensionDate))}
-              </dd>
+        {(() => {
+          const arr = Array.isArray((c as any).contractExtensions)
+            ? (
+                (c as any).contractExtensions as Array<{
+                  extendedUntil?: string;
+                }>
+              )
+                .map((r) => String(r.extendedUntil || ""))
+                .filter(Boolean)
+                .sort()
+            : [];
+          const latest = arr.length > 0 ? arr[arr.length - 1] : undefined;
+          return latest ? (
+            <div
+              id={`contract-card-${c.id}-date-extension`}
+              className="rounded-md bg-foreground/5 p-2"
+            >
+              <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
+                <dt className="text-xs text-foreground/60 shrink-0">
+                  Prelungire până la
+                </dt>
+                <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
+                  {fmt(latest)}
+                </dd>
+              </div>
             </div>
-          </div>
-        ) : null}
-        {(c as any).extendedAt ? (
-          <div
-            id={`contract-card-${c.id}-date-extendedAt`}
-            className="rounded-md bg-foreground/5 p-2"
-          >
-            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-              <dt className="text-xs text-foreground/60 shrink-0">
-                Extins la data
-              </dt>
-              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-                {fmt(String((c as any).extendedAt))}
-              </dd>
-            </div>
-          </div>
-        ) : null}
+          ) : null;
+        })()}
         {/* Termen plată moved into the Facturare block below */}
         {c.rentType === "monthly" && typeof c.monthlyInvoiceDay === "number" ? (
           <div
@@ -378,20 +371,19 @@ export default async function ContractsPage({
             </dd>
           </div>
         ) : null}
-        {typeof (c as any).rentAmountEuro === "number" ||
-        typeof c.exchangeRateRON === "number" ? (
+        {typeof currentRentAmount(c) === "number" || typeof c.exchangeRateRON === "number" ? (
           <div
             id={`contract-card-${c.id}-finance-compact`}
             className="rounded-md bg-foreground/5 p-2"
           >
             <dt className="text-xs text-foreground/60">Financiar</dt>
             <dd className="font-medium text-sm mt-0.5 space-y-0.5">
-              {typeof (c as any).rentAmountEuro === "number" ? (
+              {typeof currentRentAmount(c) === "number" ? (
                 <div
                   id={`contract-card-${c.id}-finance-compact-eur`}
                   className="text-indigo-700 dark:text-indigo-400 leading-tight"
                 >
-                  EUR: {fmtEUR((c as any).rentAmountEuro as number)}
+                  EUR: {fmtEUR(currentRentAmount(c) as number)}
                 </div>
               ) : null}
               {typeof c.exchangeRateRON === "number" ? (

@@ -106,7 +106,7 @@ export default async function AdminContracts() {
                   <th className="px-4 py-3 font-medium">Semnat</th>
                   <th className="px-4 py-3 font-medium">Început</th>
                   <th className="px-4 py-3 font-medium">Expiră</th>
-                  <th className="px-4 py-3 font-medium">Extins la</th>
+                  <th className="px-4 py-3 font-medium">Prelungit până la</th>
                   <th className="px-4 py-3 font-medium text-right">Acțiuni</th>
                 </tr>
               </thead>
@@ -135,9 +135,24 @@ export default async function AdminContracts() {
                       {fmt(effectiveEndDate(c))}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {(c as any).extendedAt
-                        ? fmt(String((c as any).extendedAt))
-                        : "—"}
+                      {(() => {
+                        const arr = Array.isArray(
+                          (c as any).contractExtensions
+                        )
+                          ? ((c as any).contractExtensions as Array<{
+                              extendedUntil?: string;
+                            }>)
+                          : [];
+                        if (arr.length === 0) return "—";
+                        const latest = arr
+                          .map((item) =>
+                            String(item.extendedUntil || "").trim()
+                          )
+                          .filter(Boolean)
+                          .sort()
+                          .pop();
+                        return latest ? fmt(latest) : "—";
+                      })()}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <div className="inline-flex items-center gap-2">
