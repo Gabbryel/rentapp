@@ -540,7 +540,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
     })(),
     // Indexing dates: prefer persisted indexingDates when present; otherwise derive from legacy futureIndexingDates only if schedule is valid
-    indexingDates: ((): { forecastDate: string; actualDate?: string; newRentAmount?: number; done: boolean }[] => {
+    indexingDates: ((): { forecastDate: string; document: string | undefined; done: boolean; actualDate?: string; newRentAmount?: number }[] => {
       // If DB already has indexingDates, sanitize and keep them regardless of schedule fields
       if (Array.isArray((r as any).indexingDates)) {
         const arr = ((r as any).indexingDates as unknown[]).map((it) => {
@@ -556,7 +556,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
           const newRentAmount = Number.isFinite(nra) && nra > 0 ? nra : undefined;
           const done = Boolean(o.done);
           return { forecastDate, actualDate, document, newRentAmount, done };
-        }).filter(Boolean) as { forecastDate: string; actualDate?: string; document?: string; newRentAmount?: number; done: boolean }[];
+        }).filter(Boolean) as { forecastDate: string; document: string | undefined; done: boolean; actualDate?: string; newRentAmount?: number }[];
         return arr;
       }
       // Else, build from legacy futureIndexingDates only when schedule is valid
@@ -567,17 +567,11 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       const legacyArr = Array.isArray((r as any).futureIndexingDates)
         ? ((r as any).futureIndexingDates as unknown[])
         : [];
-      const mapped: {
-        forecastDate: string;
-        actualDate?: string;
-        document?: string;
-        newRentAmount?: number;
-        done: boolean;
-      }[] = [];
+      const mapped: { forecastDate: string; document: string | undefined; done: boolean; actualDate?: string; newRentAmount?: number }[] = [];
       for (const it of legacyArr) {
         if (typeof it === "string") {
           const d = toYmd(it);
-          if (d) mapped.push({ forecastDate: d, done: false });
+          if (d) mapped.push({ forecastDate: d, document: undefined, done: false });
         } else if (it && typeof it === "object") {
           const o = it as any;
           const d = toYmd(o.date);
@@ -585,10 +579,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
             mapped.push({
               forecastDate: d,
               actualDate: toYmd(o.actualDate),
-              document:
-                typeof o.document === "string" && o.document.trim()
-                  ? o.document.trim()
-                  : undefined,
+              document: typeof o.document === "string" && o.document.trim() ? o.document.trim() : undefined,
               done: Boolean(o.saved),
             });
         }

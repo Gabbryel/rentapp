@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getDb } from "../lib/mongodb";
 import type { Contract } from "../lib/schemas/contract";
+import { currentRentAmount } from "../lib/contracts";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(ROOT, "..");
@@ -19,8 +20,9 @@ async function main() {
     .find({}, { projection: { _id: 0 }, limit: 3 })
     .toArray();
   for (const d of docs) {
-  const { id, name, rentAmountEuro, exchangeRateRON, tvaPercent, scanUrl } = d;
-  console.log({ id, name, rentAmountEuro, exchangeRateRON, tvaPercent, scanUrl });
+    const { id, name, exchangeRateRON, tvaPercent, scanUrl } = d as any;
+    const amountEUR = currentRentAmount(d as any);
+    console.log({ id, name, amountEUR, exchangeRateRON, tvaPercent, scanUrl });
   }
 }
 
