@@ -10,9 +10,9 @@
   "markov-services-srl": {
     "id": "markov-services-srl",
     "series": "MS",
-    "nextNumber": 2,
+    "nextNumber": 4,
     "padWidth": 5,
     "includeYear": true,
-    "updatedAt": "2025-10-12T14:27:48.352Z"
+    "updatedAt": "2025-10-17T12:41:09.364Z"
   }
 }
