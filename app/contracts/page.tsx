@@ -146,11 +146,11 @@ export default async function ContractsPage({
 
       {(() => {
         if (c.rentType === "yearly") {
-          const total = (c.yearlyInvoices ?? []).reduce(
+          const total = (((c as any).irregularInvoices ?? []) as any[]).reduce(
             (s, r) => s + (r.amountEUR || 0),
             0
           );
-          const count = (c.yearlyInvoices ?? []).length;
+          const count = (((c as any).irregularInvoices ?? []) as any[]).length;
           if (count === 0) return null;
           return (
             <p
@@ -185,7 +185,7 @@ export default async function ContractsPage({
       {(() => {
         const eur =
           c.rentType === "yearly"
-            ? (c.yearlyInvoices ?? []).reduce((s, r) => s + (r.amountEUR || 0), 0)
+            ? (((c as any).irregularInvoices ?? []) as any[]).reduce((s, r) => s + (r.amountEUR || 0), 0)
             : currentRentAmount(c);
         if (typeof eur !== "number") return null;
         const eurLabel =
@@ -344,7 +344,7 @@ export default async function ContractsPage({
             </div>
           </div>
         ) : null}
-        {c.rentType === "yearly" && (c.yearlyInvoices?.length ?? 0) > 0 ? (
+        {c.rentType === "yearly" && (((c as any).irregularInvoices?.length) ?? 0) > 0 ? (
           <div
             id={`contract-card-${c.id}-yearly-invoices`}
             className="rounded-md bg-foreground/5 p-2"
@@ -355,7 +355,7 @@ export default async function ContractsPage({
                 id={`contract-card-${c.id}-yearly-invoices-list`}
                 className="space-y-0.5"
               >
-                {(c.yearlyInvoices || []).map((r, i) => (
+                {((((c as any).irregularInvoices) || []) as { month: number; day: number; amountEUR: number }[]).map((r, i) => (
                   <li id={`contract-card-${c.id}-yearly-invoice-${i}`} key={i}>
                     {`${String(r.day).padStart(2, "0")}/${String(
                       r.month

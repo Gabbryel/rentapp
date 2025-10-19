@@ -34,6 +34,8 @@ function normalize(raw: unknown): Partial<Asset> {
   return {
     id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
     name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
+    ownerId: typeof (r as any).ownerId === 'string' ? (r as any).ownerId : undefined,
+    owner: typeof (r as any).owner === 'string' ? (r as any).owner : undefined,
     address: typeof r.address === "string" ? r.address : (r.address as string | undefined),
     areaSqm: typeof (r as any).areaSqm === "number" ? ((r as any).areaSqm as number) : undefined,
     scans,

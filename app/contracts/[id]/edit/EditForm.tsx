@@ -44,8 +44,8 @@ export default function EditForm({
   const rentType = String(
     (state.values.rentType as string) ?? contract.rentType ?? "monthly"
   ) as "monthly" | "yearly";
-  const yearlyInvoices = Array.isArray(contract.yearlyInvoices)
-    ? contract.yearlyInvoices
+  const yearlyInvoices = Array.isArray((contract as any).irregularInvoices)
+    ? ((contract as any).irregularInvoices as any[])
     : [];
   // indexing dates removed
   const indexingDayValue = String(
@@ -281,19 +281,19 @@ export default function EditForm({
               {yearlyInvoices.map((yi, i) => (
                 <div key={i} className="grid grid-cols-3 gap-2">
                   <input
-                    name={`yearlyInvoices[${i}][month]`}
+                    name={`irregularInvoices[${i}][month]`}
                     defaultValue={String(yi.month)}
                     readOnly
                     className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
                   />
                   <input
-                    name={`yearlyInvoices[${i}][day]`}
+                    name={`irregularInvoices[${i}][day]`}
                     defaultValue={String(yi.day)}
                     readOnly
                     className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
                   />
                   <input
-                    name={`yearlyInvoices[${i}][amountEUR]`}
+                    name={`irregularInvoices[${i}][amountEUR]`}
                     defaultValue={String(yi.amountEUR)}
                     readOnly
                     className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"

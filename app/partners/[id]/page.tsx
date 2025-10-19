@@ -113,7 +113,7 @@ export default async function PartnerPage({
     (acc, c) => {
       let monthlyEur = 0;
       if (c.rentType === "yearly") {
-        const sumYear = (c.yearlyInvoices ?? []).reduce(
+        const sumYear = (((c as any).irregularInvoices ?? []) as any[]).reduce(
           (s, r) => s + (r.amountEUR || 0),
           0
         );
@@ -140,7 +140,7 @@ export default async function PartnerPage({
     (acc, c) => {
       let yearlyEur = 0;
       if (c.rentType === "yearly") {
-        yearlyEur = (c.yearlyInvoices ?? []).reduce(
+        yearlyEur = (((c as any).irregularInvoices ?? (c as any).yearlyInvoices ?? []) as any[]).reduce(
           (s, r) => s + (r.amountEUR || 0),
           0
         );

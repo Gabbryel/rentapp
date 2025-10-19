@@ -591,12 +591,37 @@ export default function Navbar() {
           <>
             {/* Backdrop to block content and close on click */}
             <div
-              className="sm:hidden fixed inset-0 z-40 bg-background"
+              className="sm:hidden fixed inset-0 z-40 bg-white dark:bg-neutral-950"
               onClick={() => setOpen(false)}
               aria-hidden="true"
             />
             {/* Slide-down panel from under the navbar */}
-            <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-background border-t border-foreground/10 shadow-md max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-white dark:bg-neutral-900 border-t border-foreground/10 shadow-md max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+              {/* Panel header with visible close button */}
+              <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-foreground/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 supports-[backdrop-filter]:dark:bg-neutral-900/80">
+                <span className="text-sm font-medium text-foreground/80">Meniu</span>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5 text-foreground"
+                  aria-label="Închide meniul"
+                  title="Închide"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                  <span>Închide</span>
+                </button>
+              </div>
               <div className="pb-3">
                 <div className="flex flex-col gap-1">
                   {/* DB status indicator (mobile) */}
@@ -696,7 +721,7 @@ export default function Navbar() {
                         Curs BNR
                       </span>
                       <span
-                        className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
+                        className="inline-flex items-center gap-1 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-[11px] text-foreground/70 shadow-sm"
                         title={
                           bnrRate != null
                             ? `BNR ${bnrDate ?? ""}${
@@ -725,7 +750,7 @@ export default function Navbar() {
                         Curs BT
                       </span>
                       <span
-                        className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
+                        className="inline-flex items-center gap-1 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-[11px] text-foreground/70 shadow-sm"
                         title={
                           btRate != null
                             ? `BT ${btDate ?? ""}${
@@ -747,7 +772,7 @@ export default function Navbar() {
                       </span>
                     </div>
                     <span
-                      className="inline-flex items-center gap-2 rounded-md border border-foreground/10 px-2 py-1 text-xs text-foreground/70"
+                      className="inline-flex items-center gap-2 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-xs text-foreground/70 shadow-sm"
                       title={
                         dbConnected === null
                           ? "Verific conexiunea la baza de date..."

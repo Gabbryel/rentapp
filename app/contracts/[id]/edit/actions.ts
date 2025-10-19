@@ -56,17 +56,17 @@ export async function updateContractAction(
   indexingMonth: (formData.get("indexingMonth") as string) || "",
   howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
   contractExtensions: (formData.get("contractExtensions") as string) || "[]",
-    // yearly invoices rows
+    // irregular invoices rows
     ...(() => {
       const out: Record<string, string> = {};
       for (let i = 0; i < 24; i++) {
-        const m = (formData.get(`yearlyInvoices[${i}][month]`) as string) || "";
-        const d = (formData.get(`yearlyInvoices[${i}][day]`) as string) || "";
-        const a = (formData.get(`yearlyInvoices[${i}][amountEUR]`) as string) || "";
+        const m = (formData.get(`irregularInvoices[${i}][month]`) as string) || "";
+        const d = (formData.get(`irregularInvoices[${i}][day]`) as string) || "";
+        const a = (formData.get(`irregularInvoices[${i}][amountEUR]`) as string) || "";
         if (m || d || a) {
-          out[`yearlyInvoices[${i}][month]`] = m;
-          out[`yearlyInvoices[${i}][day]`] = d;
-          out[`yearlyInvoices[${i}][amountEUR]`] = a;
+          out[`irregularInvoices[${i}][month]`] = m;
+          out[`irregularInvoices[${i}][day]`] = d;
+          out[`irregularInvoices[${i}][amountEUR]`] = a;
         }
       }
       return out;
@@ -172,7 +172,7 @@ export async function updateContractAction(
       if (u) nextScans.push({ url: u, title: (titles[i] || "").trim() || undefined });
     });
 
-    const base = {
+  const base = {
       id,
       name: rawValues.name,
       assetId: rawValues.assetId || undefined,
@@ -231,12 +231,12 @@ export async function updateContractAction(
         const n = Number(String(rawValues.monthlyInvoiceDay));
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
-      yearlyInvoices: (() => {
+      irregularInvoices: (() => {
         const rows: { month: number; day: number; amountEUR: number }[] = [];
         for (let i = 0; i < 24; i++) {
-          const m = Number(String(formData.get(`yearlyInvoices[${i}][month]`) ?? ""));
-          const d = Number(String(formData.get(`yearlyInvoices[${i}][day]`) ?? ""));
-          const a = Number(String(formData.get(`yearlyInvoices[${i}][amountEUR]`) ?? ""));
+          const m = Number(String(formData.get(`irregularInvoices[${i}][month]`) ?? ""));
+          const d = Number(String(formData.get(`irregularInvoices[${i}][day]`) ?? ""));
+          const a = Number(String(formData.get(`irregularInvoices[${i}][amountEUR]`) ?? ""));
           if (
             Number.isInteger(m) && m >= 1 && m <= 12 &&
             Number.isInteger(d) && d >= 1 && d <= 31 &&
@@ -279,7 +279,7 @@ export async function updateContractAction(
 
   // (indexing schedule feature removed)
 
-    const parsed = ContractSchema.safeParse(base);
+  const parsed = ContractSchema.safeParse(base);
 
     if (!parsed.success) {
       return {
@@ -289,7 +289,19 @@ export async function updateContractAction(
       };
     }
 
-    if (!parsed.data.ownerId || !parsed.data.owner) {
+    // Auto-fill owner from asset if not provided
+    let parsedData: any = parsed.success ? parsed.data : base;
+    if ((!parsedData.ownerId || !parsedData.owner) && parsedData.assetId) {
+      try {
+        const { getAssetById } = await import("@/lib/assets");
+        const asset = await getAssetById(String(parsedData.assetId));
+        if (asset && (asset as any).owner && (asset as any).ownerId) {
+          parsedData.owner = (asset as any).owner;
+          parsedData.ownerId = (asset as any).ownerId;
+        }
+      } catch {}
+    }
+    if (!parsedData.ownerId || !parsedData.owner) {
       return { ok: false, message: "Selectează proprietarul din listă.", values: rawValues };
     }
 
@@ -301,19 +313,29 @@ export async function updateContractAction(
       return { ok: false, message: "MongoDB nu este configurat.", values: rawValues };
     }
 
-    const { changes, scanChange } = computeDiffContract(prev, parsed.data);
+    const { changes, scanChange } = computeDiffContract(prev, parsedData);
 
-  // Recompute futureIndexingDates and ensure the first entry has the Suma EUR value
-  const fut = computeFutureIndexingDates(parsed.data as any);
-  const initAmount = parsedAmountEUR;
-  const initDate = parsed.data.startDate || parsed.data.signedAt;
-  const init = typeof initAmount === "number"
-    ? [{ forecastDate: initDate, actualDate: initDate, newRentAmount: initAmount, done: true }]
-    : [];
-  const byDate = new Map<string, any>();
-  for (const r of [...init, ...fut]) byDate.set(r.forecastDate, r);
-  const indexingDates = Array.from(byDate.values()).sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
-  await upsertContract({ ...(parsed.data as any), indexingDates } as any);
+  // Recompute futureIndexingDates and ensure the first (earliest) entry receives Suma EUR if provided
+  const fut = computeFutureIndexingDates(parsedData as any);
+  let indexingDates: { forecastDate: string; done: boolean; actualDate?: string; newRentAmount?: number; document?: string }[] =
+    [...(fut as any[])]
+      .map((r: any) => ({
+        forecastDate: String(r.forecastDate),
+        done: Boolean(r.done),
+        actualDate: r.actualDate ? String(r.actualDate) : undefined,
+        document: typeof r.document === "string" ? r.document : undefined,
+        newRentAmount: typeof r.newRentAmount === "number" ? r.newRentAmount : undefined,
+      }))
+      .sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+  if (typeof parsedAmountEUR === "number") {
+    if (indexingDates.length > 0) {
+      indexingDates[0] = { ...indexingDates[0], newRentAmount: parsedAmountEUR };
+    } else {
+      const initDate = parsed.data.startDate || parsed.data.signedAt;
+      indexingDates = [{ forecastDate: initDate, actualDate: initDate, newRentAmount: parsedAmountEUR, done: false }];
+    }
+  }
+  await upsertContract({ ...(parsedData as any), indexingDates } as any);
   // Indexing model upsert removed; schedule is kept on Contract
     await logAction({
       action: "contract.update",
@@ -326,12 +348,12 @@ export async function updateContractAction(
         changes,
   scanChange,
   scansCount: parsed.data.scans?.length ?? 0,
-    owner: parsed.data.owner,
-    ownerId: (parsed.data as any).ownerId,
+    owner: parsedData.owner,
+    ownerId: (parsedData as any).ownerId,
   // schedule fields removed
-        rentType: parsed.data.rentType,
-        monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
-        yearlyInvoices: parsed.data.yearlyInvoices,
+        rentType: parsedData.rentType,
+        monthlyInvoiceDay: parsedData.monthlyInvoiceDay,
+        irregularInvoices: (parsedData as any).irregularInvoices,
       },
     });
     // No Indexing model writes here (model changed)

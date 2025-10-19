@@ -115,7 +115,7 @@ export default function AdminSidebar() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] bg-background border-r border-foreground/10 shadow-xl p-4">
+          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] bg-background border-r border-foreground/10 shadow-xl p-4 bg-black">
             <div className="flex items-center justify-between">
               <div className="text-base font-semibold">Admin</div>
               <button

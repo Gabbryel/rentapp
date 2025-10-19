@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminAssetsPage() {
   const assets = await listAssets();
+  // Sort assets alphabetically by name
+  const assetsSorted = assets.slice().sort((a, b) => a.name.localeCompare(b.name));
   // For each asset, fetch associated contracts (counts and a primary item for meta)
   const assetsWithContracts = await Promise.all(
-    assets.map(async (a) => {
+    assetsSorted.map(async (a) => {
       const cs = await fetchContractsByAssetId(a.id);
       return { asset: a, contracts: cs };
     })
@@ -30,31 +32,42 @@ export default async function AdminAssetsPage() {
             <p className="p-4 text-sm text-foreground/60">Niciun asset.</p>
           ) : (
             assetsWithContracts.map(({ asset: a, contracts }) => (
-              <Link
+              <div
                 key={a.id}
-                href={`/admin/assets/${a.id}`}
                 className="flex items-center justify-between px-4 py-3 hover:bg-foreground/5"
               >
-                <div>
-                  <div className="font-medium">{a.name}</div>
-                  <div className="text-xs text-foreground/60">{a.address}</div>
-                </div>
-                <div className="text-xs text-foreground/60 flex items-center gap-4">
+                <Link href={`/admin/assets/${a.id}`} className="min-w-0 flex-1">
+                  <div>
+                    <div className="font-medium truncate">{a.name}</div>
+                    <div className="text-xs text-foreground/60 truncate">{a.address}</div>
+                    {(a as any).owner && (
+                      <div className="text-xs text-foreground/60 mt-0.5 truncate">Proprietar: {(a as any).owner}</div>
+                    )}
+                  </div>
+                </Link>
+                <div className="text-xs text-foreground/60 flex items-center gap-4 pl-4">
                   <div>{a.scans.length} fișiere</div>
                   {typeof (a as any).areaSqm === "number" && (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-foreground/15">
                       <span className="text-foreground/60">Suprafață</span>
-                      <span className="font-medium">
-                        {(a as any).areaSqm} mp
-                      </span>
+                      <span className="font-medium">{(a as any).areaSqm} mp</span>
                     </div>
                   )}
                   <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-foreground/5">
                     <span className="font-medium">{contracts.length}</span>
                     <span className="text-foreground/60">contracte</span>
                   </div>
+                  {(a as any).owner && (
+                    <Link
+                      href={`/owners/${encodeURIComponent((a as any).ownerId || (a as any).owner)}`}
+                      className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full border border-foreground/15 hover:bg-foreground/5"
+                    >
+                      <span className="text-foreground/60">Owner</span>
+                      <span className="font-medium">{(a as any).owner}</span>
+                    </Link>
+                  )}
                 </div>
-              </Link>
+              </div>
             ))
           )}
         </div>

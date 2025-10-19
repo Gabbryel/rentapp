@@ -53,21 +53,21 @@ export async function createContractAction(
     invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
   contractExtensions: (formData.get("contractExtensions") as string) || "[]",
-    // collect yearlyInvoices flat fields
-    ...(() => {
-      const out: Record<string, string> = {};
-      for (let i = 0; i < 24; i++) {
-        const m = (formData.get(`yearlyInvoices[${i}][month]`) as string) || "";
-        const d = (formData.get(`yearlyInvoices[${i}][day]`) as string) || "";
-        const a = (formData.get(`yearlyInvoices[${i}][amountEUR]`) as string) || "";
+  // collect irregularInvoices flat fields
+  ...(() => {
+    const out: Record<string, string> = {};
+    for (let i = 0; i < 24; i++) {
+        const m = (formData.get(`irregularInvoices[${i}][month]`) as string) || "";
+        const d = (formData.get(`irregularInvoices[${i}][day]`) as string) || "";
+        const a = (formData.get(`irregularInvoices[${i}][amountEUR]`) as string) || "";
         if (m || d || a) {
-          out[`yearlyInvoices[${i}][month]`] = m;
-          out[`yearlyInvoices[${i}][day]`] = d;
-          out[`yearlyInvoices[${i}][amountEUR]`] = a;
+          out[`irregularInvoices[${i}][month]`] = m;
+          out[`irregularInvoices[${i}][day]`] = d;
+          out[`irregularInvoices[${i}][amountEUR]`] = a;
         }
-      }
-      return out;
-    })(),
+    }
+    return out;
+  })(),
   };
 
   try {
@@ -146,12 +146,12 @@ export async function createContractAction(
         const n = Number(rawValues.monthlyInvoiceDay as string);
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
-      yearlyInvoices: (() => {
+      irregularInvoices: (() => {
         const rows: { month: number; day: number; amountEUR: number }[] = [];
         for (let i = 0; i < 24; i++) {
-          const m = Number(String(rawValues[`yearlyInvoices[${i}][month]`] ?? ""));
-          const d = Number(String(rawValues[`yearlyInvoices[${i}][day]`] ?? ""));
-          const a = Number(String(rawValues[`yearlyInvoices[${i}][amountEUR]`] ?? ""));
+          const m = Number(String(rawValues[`irregularInvoices[${i}][month]`] ?? ""));
+          const d = Number(String(rawValues[`irregularInvoices[${i}][day]`] ?? ""));
+          const a = Number(String(rawValues[`irregularInvoices[${i}][amountEUR]`] ?? ""));
           if (
             Number.isInteger(m) && m >= 1 && m <= 12 &&
             Number.isInteger(d) && d >= 1 && d <= 31 &&
@@ -255,21 +255,43 @@ export async function createContractAction(
     // Back-compat single scanUrl: set to first scan if available
     if (!data.scanUrl && data.scans.length > 0) data.scanUrl = data.scans[0].url;
 
+  // Auto-fill owner from asset if not provided
+  if (data.assetId && (!data.ownerId || !data.owner)) {
+    try {
+      const { getAssetById } = await import("@/lib/assets");
+      const asset = await getAssetById(String(data.assetId));
+      if (asset && (asset as any).owner && (asset as any).ownerId) {
+        data.owner = (asset as any).owner;
+        data.ownerId = (asset as any).ownerId;
+      }
+    } catch {}
+  }
+
   const fut = computeFutureIndexingDates(data as any);
-  // Seed the first indexing entry with the amount from Suma EUR (if provided)
+  // Always set the first (earliest) entry's amount to the form value if provided
   const initAmount = (() => {
     const raw = (rawValues.amountEUR as string) || "";
     const n = Number((raw || "").replace(",", "."));
     return Number.isFinite(n) && n > 0 ? n : undefined;
   })();
-  const initDate = (data.startDate as string) || (data.signedAt as string) || new Date().toISOString().slice(0, 10);
-  const init = typeof initAmount === "number"
-    ? [{ forecastDate: initDate, actualDate: initDate, newRentAmount: initAmount, done: true }]
-    : [];
-  // Deduplicate by forecastDate, prefer the init record
-  const byDate = new Map<string, any>();
-  for (const r of [...init, ...fut]) byDate.set(r.forecastDate, r);
-  const indexingDates = Array.from(byDate.values()).sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+  let indexingDates: { forecastDate: string; done: boolean; actualDate?: string; newRentAmount?: number; document?: string }[] =
+    [...(fut as any[])]
+      .map((r: any) => ({
+        forecastDate: String(r.forecastDate),
+        done: Boolean(r.done),
+        actualDate: r.actualDate ? String(r.actualDate) : undefined,
+        document: typeof r.document === "string" ? r.document : undefined,
+        newRentAmount: typeof r.newRentAmount === "number" ? r.newRentAmount : undefined,
+      }))
+      .sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+  if (typeof initAmount === "number") {
+    if (indexingDates.length > 0) {
+      indexingDates[0] = { ...indexingDates[0], newRentAmount: initAmount };
+    } else {
+      const initDate = (data.startDate as string) || (data.signedAt as string) || new Date().toISOString().slice(0, 10);
+      indexingDates = [{ forecastDate: initDate, actualDate: initDate, newRentAmount: initAmount, done: false }];
+    }
+  }
   const parsed = ContractSchema.safeParse({ ...(data as any), indexingDates });
     if (!parsed.success) {
       return {
@@ -282,7 +304,7 @@ export async function createContractAction(
     }
 
     // Enforce owner presence from selection
-    if (!parsed.data.ownerId || !parsed.data.owner) {
+    if (!(data.ownerId) || !(data.owner)) {
       return {
         ok: false,
         message: "Selectează proprietarul din listă.",
@@ -330,7 +352,7 @@ export async function createContractAction(
         correctionPercent: parsed.data.correctionPercent,
         rentType: parsed.data.rentType,
         monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
-        yearlyInvoices: parsed.data.yearlyInvoices,
+        irregularInvoices: (parsed.data as any).irregularInvoices,
       },
     });
   // Notify subscribers
@@ -346,7 +368,7 @@ export async function createContractAction(
       try { return JSON.stringify(v); } catch { return String(v); }
     };
     const initialFields = [
-  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","paymentDueDays","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","yearlyInvoices","contractExtensions"
+  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","paymentDueDays","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","irregularInvoices","contractExtensions"
     ] as const;
     const summary = initialFields
       .map((k) => `${k}: ${fmtVal((parsed.data as any)[k])}`)

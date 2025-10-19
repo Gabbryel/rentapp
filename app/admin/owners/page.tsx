@@ -28,7 +28,11 @@ export default async function AdminOwnersPage() {
         {owners.map((o) => (
           <Card key={o.id}>
             <div className="flex items-start justify-between gap-3">
-              <div className="font-semibold truncate">{o.name}</div>
+              <div className="font-semibold truncate">
+                <Link href={`/owners/${encodeURIComponent(o.id)}`} className="hover:underline">
+                  {o.name}
+                </Link>
+              </div>
               <Link
                 href={`/admin/owners/${o.id}`}
                 className="shrink-0 rounded border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
@@ -70,7 +74,9 @@ export default async function AdminOwnersPage() {
             {owners.map((o) => (
               <tr key={o.id} className="border-t border-foreground/10">
                 <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
-                  {o.name}
+                  <Link href={`/owners/${encodeURIComponent(o.id)}`} className="hover:underline">
+                    {o.name}
+                  </Link>
                 </td>
                 <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                   {o.vatNumber}

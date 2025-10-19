@@ -6,6 +6,7 @@ import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
 import ConfirmSubmit from "@/app/components/confirm-submit";
+import ActionButton from "@/app/components/action-button";
 import {
   effectiveEndDate,
   fetchContractById,
@@ -79,22 +80,35 @@ async function saveIndexing(formData: FormData) {
   const existing = await fetchContractById(contractId);
   if (!existing) return;
   const documentNormalized = document.trim();
-  const idxs = Array.isArray((existing as any).indexingDates)
-    ? ((existing as any).indexingDates as any[]).map((it) =>
-        it && it.forecastDate === forecastDate
-          ? {
-              ...it,
-              actualDate: actualDate || undefined,
-              document:
-                documentNormalized.length > 0
-                  ? documentNormalized
-                  : undefined,
-              newRentAmount,
-              done: done || it.done,
-            }
-          : it
-      )
+  const current = Array.isArray((existing as any).indexingDates)
+    ? ((existing as any).indexingDates as any[])
     : [];
+  let found = false;
+  const idxs = current.map((it) => {
+    if (it && it.forecastDate === forecastDate) {
+      found = true;
+      return {
+        ...it,
+        actualDate: actualDate || it.actualDate || undefined,
+        document:
+          documentNormalized.length > 0
+            ? documentNormalized
+            : it.document,
+        newRentAmount: typeof newRentAmount === "number" ? newRentAmount : it.newRentAmount,
+        done: done || it.done,
+      };
+    }
+    return it;
+  });
+  if (!found && forecastDate) {
+    idxs.push({
+      forecastDate,
+      actualDate: actualDate || undefined,
+      document: documentNormalized.length > 0 ? documentNormalized : undefined,
+      newRentAmount,
+      done,
+    });
+  }
   let patch: any = { indexingDates: idxs };
   // rent amount is now derived from rentHistory; do not write rentAmountEuro on Contract
   await upsertContract({ ...(existing as any), ...patch } as any);
@@ -105,19 +119,55 @@ async function issueInvoice(formData: FormData) {
   "use server";
   const contractId = formData.get("contractId") as string;
   if (!contractId) return;
-  const issuedAt =
-    (formData.get("issuedAt") as string) ||
-    new Date().toISOString().slice(0, 10);
+  // Support various inputs: direct issuedAt, or year/month/day, or dateKey = MM-DD
+  let issuedAt = (formData.get("issuedAt") as string) || "";
+  if (!issuedAt) {
+    const dateKey = (formData.get("dateKey") as string) || ""; // format MM-DD
+    let year = Number(String(formData.get("year") || ""));
+    let month = Number(String(formData.get("month") || ""));
+    let day = Number(String(formData.get("day") || ""));
+    if (dateKey && (!month || !day)) {
+      const m = dateKey.match(/^(\d{1,2})-(\d{1,2})$/);
+      if (m) {
+        month = Number(m[1]);
+        day = Number(m[2]);
+      }
+    }
+    if (!year || !Number.isInteger(year)) {
+      const t = new Date();
+      year = t.getFullYear();
+    }
+    if (Number.isInteger(month) && Number.isInteger(day) && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const y = String(year).padStart(4, "0");
+      const m = String(month).padStart(2, "0");
+      const d = String(day).padStart(2, "0");
+      issuedAt = `${y}-${m}-${d}`;
+    }
+  }
+  if (!issuedAt) issuedAt = new Date().toISOString().slice(0, 10);
   const contract = await fetchContractById(contractId);
   if (!contract) return;
-  const invoiceData = computeInvoiceFromContract({ contract, issuedAt });
-  const savedInvoice = await issueInvoiceAndGeneratePdf(invoiceData);
+  try {
+    const amountOverride = (() => {
+      const raw = formData.get("amountEUR");
+      if (typeof raw === "string" && raw.trim() !== "") {
+        const n = Number(raw);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      }
+      return undefined;
+    })();
+    const invoiceData = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: amountOverride });
+    const savedInvoice = await issueInvoiceAndGeneratePdf(invoiceData);
   await logAction({
     action: "invoice.issue",
     targetType: "contract",
     targetId: contractId,
     meta: { issuedAt, invoiceId: savedInvoice.id },
   });
+  } catch (err: any) {
+    const msg = (err && (err.message || err.toString())) || "Eroare la emiterea facturii";
+    publishToast(String(msg), "error");
+  }
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -193,6 +243,37 @@ async function toggleDepositAction(formData: FormData) {
   const contractId = String(formData.get("contractId") || "");
   if (!depositId) return;
   await toggleDepositDeposited(depositId);
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+// Update correctionPercent directly from the contract page (quick edit)
+async function updateCorrectionPercentAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "");
+  if (!contractId) return;
+  const raw = String(formData.get("correctionPercent") || "").trim();
+  let value: number | undefined = undefined;
+  if (raw !== "") {
+    const n = Number(raw.replace(",", "."));
+    if (Number.isFinite(n)) value = Math.max(0, Math.min(100, n));
+  }
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+  try {
+    const patch: any = { ...(existing as any) };
+    if (typeof value === "number") patch.correctionPercent = value; else delete patch.correctionPercent;
+    await upsertContract(patch);
+    await logAction({
+      action: "contract.correction.update",
+      targetType: "contract",
+      targetId: contractId,
+      meta: { correctionPercent: value },
+    });
+    publishToast("Corecția a fost actualizată", "success");
+  } catch (e: any) {
+    const msg = (e && (e.message || String(e))) || "Eroare la actualizarea corecției";
+    publishToast(String(msg), "error");
+  }
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -626,6 +707,12 @@ export default async function ContractPage({
               Editează
             </Link>
           ) : null}
+          <Link
+            href={`/contracts/${contract.id}/pdf`}
+            className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+          >
+            Exportă PDF
+          </Link>
           <span
             className={`shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ${
               isExpired
@@ -771,13 +858,13 @@ export default async function ContractPage({
                       TVA {contract.tvaPercent}%
                     </span>
                   )}
-                  {Array.isArray(contract.yearlyInvoices) &&
-                    contract.yearlyInvoices.length > 0 && (
+                  {Array.isArray((contract as any).irregularInvoices) &&
+                    (contract as any).irregularInvoices.length > 0 && (
                       <span
                         className="rounded bg-foreground/5 px-2 py-1"
                         title="Intrări facturi anuale"
                       >
-                        {contract.yearlyInvoices.length} facturi/an
+                        {(contract as any).irregularInvoices.length} facturi/an
                       </span>
                     )}
                 </div>
@@ -1198,8 +1285,44 @@ export default async function ContractPage({
               (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : [])
             }
             mongoConfigured={Boolean(process.env.MONGODB_URI)}
+            rentType={contract.rentType}
+            irregularInvoices={(contract as any).irregularInvoices || []}
           >
             {/* Gestionează contract (mutat în manage-contract-section) */}
+            {contract.rentType === "yearly" ? (
+              <div className="rounded-md border border-foreground/10 p-3 space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                  Facturi anuale – date suplimentare
+                </div>
+                <div className="text-xs text-foreground/60">
+                  Adaugă sau editează zilele/lunile pentru facturile anuale ale contractului.
+                </div>
+                {((((contract as any).irregularInvoices)?.length) ?? 0) > 0 ? (
+                  <ul className="space-y-2 text-sm">
+                    {((((contract as any).irregularInvoices) || []) as any[])
+                      .slice()
+                      .sort((a, b) => a.month - b.month || a.day - b.day)
+                      .map((r, i) => (
+                        <li
+                          key={`${r.month}-${r.day}-${i}`}
+                          className="flex items-center justify-between rounded bg-foreground/5 px-2 py-1"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="rounded bg-foreground/10 px-2 py-0.5 text-xs">
+                              {String(r.day).padStart(2, "0")}/{String(r.month).padStart(2, "0")}
+                            </span>
+                            <span className="text-foreground/70 text-xs">
+                              {typeof r.amountEUR === "number" ? `${r.amountEUR.toFixed(2)} EUR` : "—"}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <div className="text-xs text-foreground/60">Nu există date definite.</div>
+                )}
+              </div>
+            ) : null}
             {(() => {
               const arr = Array.isArray((contract as any).contractExtensions)
                 ? ((contract as any).contractExtensions as Array<{
@@ -1210,11 +1333,11 @@ export default async function ContractPage({
                 : [];
               if (arr.length === 0) return null;
               return (
-                <div className="md:col-span-3 w-full border border-foreground/10 rounded-md p-3 space-y-2">
-                  <div className="text-[11px] uppercase tracking-wide text-foreground/50">
-                    Prelungiri existente
-                  </div>
-                  <ul className="space-y-2">
+                <details className="md:col-span-3 w-full border border-foreground/10 rounded-md p-3 space-y-2">
+                  <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-foreground/50">
+                    Afișează prelungiri existente
+                  </summary>
+                  <ul className="mt-2 space-y-2">
                     {arr
                       .slice()
                       .sort((a, b) =>
@@ -1289,7 +1412,7 @@ export default async function ContractPage({
                         );
                       })}
                   </ul>
-                </div>
+                </details>
               );
             })()}
             <form
@@ -1347,6 +1470,63 @@ export default async function ContractPage({
               <h4 className="text-[11px] font-semibold mb-2">
                 Indexări programate
               </h4>
+              <form
+                action={saveIndexing}
+                className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-5 sm:items-end text-[11px]"
+              >
+                <input type="hidden" name="contractId" value={contract.id} />
+                <div className="space-y-1">
+                  <label className="block text-foreground/60">Dată programată</label>
+                  <input
+                    required
+                    name="forecastDate"
+                    type="date"
+                    min={String(contract.signedAt)}
+                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-foreground/60">Dată efectivă</label>
+                  <input
+                    name="actualDate"
+                    type="date"
+                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-foreground/60">Document</label>
+                  <input
+                    name="document"
+                    type="text"
+                    maxLength={200}
+                    placeholder="ex: Decizie indexare"
+                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-foreground/60">Chirie nouă (EUR)</label>
+                  <input
+                    name="newRentAmount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-1 text-foreground/60">
+                    <input type="checkbox" name="done" value="1" className="rounded border-foreground/30" />
+                    <span>Marchează ca aplicată</span>
+                  </label>
+                  <button
+                    type="submit"
+                    className="ml-auto rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+                    title="Adaugă indexare"
+                  >
+                    Adaugă indexare
+                  </button>
+                </div>
+              </form>
               {Array.isArray((contract as any).indexingDates) &&
               ((contract as any).indexingDates as any[]).filter(
                 (x: any) => !x.done
@@ -1355,116 +1535,192 @@ export default async function ContractPage({
                   Nicio indexare viitoare programată.
                 </div>
               ) : (
-                <ul className="space-y-3 text-[11px]">
-                  {(
-                    (Array.isArray((contract as any).indexingDates)
-                      ? ((contract as any).indexingDates as any[]).filter(
-                          (it: any) => !it.done
-                        )
-                      : []) as {
-                      forecastDate: string;
-                      actualDate?: string;
-                      document?: string;
-                      newRentAmount?: number;
-                      done?: boolean;
-                    }[]
-                  ).map((it) => (
-                    <li
-                      key={contract.id + it.forecastDate}
-                      className="rounded-lg border border-foreground/15 bg-background/40 p-3"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-1">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
-                            Indexare programată
-                          </div>
-                          <div className="text-sm font-medium text-foreground">
-                            {fmt(it.forecastDate)}
-                          </div>
-                          {it.document ? (
-                            <div className="text-xs text-foreground/60">
-                              Document:{" "}
-                              <span className="font-medium text-foreground/80">
-                                {it.document}
-                              </span>
+                (() => {
+                  const upcoming = (
+                    Array.isArray((contract as any).indexingDates)
+                      ? ((contract as any).indexingDates as any[]).filter((it: any) => !it.done)
+                      : []
+                  ) as {
+                    forecastDate: string;
+                    actualDate?: string;
+                    document?: string;
+                    newRentAmount?: number;
+                    done?: boolean;
+                  }[];
+                  if (upcoming.length === 0) return null;
+                  const sorted = upcoming
+                    .slice()
+                    .sort((a, b) => String(a.forecastDate).localeCompare(String(b.forecastDate)));
+                  const nextIt =
+                    sorted.find((x) => String(x.forecastDate) >= todayISOForLists) || sorted[0];
+                  const it = nextIt;
+                  return (
+                    <ul className="space-y-3 text-[11px]">
+                      <li
+                        key={contract.id + it.forecastDate}
+                        className="rounded-lg border border-foreground/15 bg-background/40 p-3"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="space-y-1">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                              Indexare programată
                             </div>
-                          ) : null}
+                            <div className="text-sm font-medium text-foreground">
+                              {fmt(it.forecastDate)}
+                            </div>
+                            {it.document ? (
+                              <div className="text-xs text-foreground/60">
+                                Document:{" "}
+                                <span className="font-medium text-foreground/80">{it.document}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                          <form action={saveIndexing} className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-end">
+                            <input type="hidden" name="contractId" value={contract.id} />
+                            <input type="hidden" name="forecastDate" value={it.forecastDate} />
+                            <input type="hidden" name="done" value="1" />
+                            <div className="space-y-1">
+                              <label className="block text-foreground/60 text-[11px]">Data efectivă</label>
+                              <input
+                                name="actualDate"
+                                type="date"
+                                defaultValue={it.actualDate ?? ""}
+                                className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-foreground/60 text-[11px]">Document</label>
+                              <input
+                                name="document"
+                                type="text"
+                                maxLength={200}
+                                defaultValue={it.document ?? ""}
+                                placeholder="ex: Decizie indexare"
+                                className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-foreground/60 text-[11px]">Chirie nouă (EUR)</label>
+                              <input
+                                name="newRentAmount"
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                defaultValue={typeof it.newRentAmount === "number" ? it.newRentAmount : ("" as any)}
+                                className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <div className="sm:justify-self-end">
+                              <button
+                                type="submit"
+                                className={`w-full whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold border ${
+                                  it.done
+                                    ? "border-emerald-400 bg-emerald-500/10 text-emerald-700"
+                                    : "border-foreground/20 hover:bg-foreground/5"
+                                }`}
+                                title="Marchează ca validat și actualizează chiria"
+                              >
+                                {it.done ? "Validat" : "Marchează"}
+                              </button>
+                            </div>
+                          </form>
                         </div>
-                        <form
-                          action={saveIndexing}
-                          className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-end"
-                        >
-                          <input
-                            type="hidden"
-                            name="contractId"
-                            value={contract.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="forecastDate"
-                            value={it.forecastDate}
-                          />
-                          <input type="hidden" name="done" value="1" />
-                          <div className="space-y-1">
-                            <label className="block text-foreground/60 text-[11px]">
-                              Data efectivă
-                            </label>
-                            <input
-                              name="actualDate"
-                              type="date"
-                              defaultValue={it.actualDate ?? ""}
-                              className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-foreground/60 text-[11px]">
-                              Document
-                            </label>
-                            <input
-                              name="document"
-                              type="text"
-                              maxLength={200}
-                              defaultValue={it.document ?? ""}
-                              placeholder="ex: Decizie indexare"
-                              className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-foreground/60 text-[11px]">
-                              Chirie nouă (EUR)
-                            </label>
-                            <input
-                              name="newRentAmount"
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              defaultValue={
-                                typeof it.newRentAmount === "number"
-                                  ? it.newRentAmount
-                                  : ("" as any)
-                              }
-                              className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
-                            />
-                          </div>
-                          <div className="sm:justify-self-end">
-                            <button
-                              type="submit"
-                              className={`w-full whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold border ${
-                                it.done
-                                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-700"
-                                  : "border-foreground/20 hover:bg-foreground/5"
-                              }`}
-                              title="Marchează ca validat și actualizează chiria"
-                            >
-                              {it.done ? "Validat" : "Marchează"}
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                      </li>
+                    </ul>
+                  );
+                })()
               )}
+
+              {(() => {
+                const validated: {
+                  forecastDate: string;
+                  actualDate?: string;
+                  document?: string;
+                  newRentAmount?: number;
+                  done?: boolean;
+                }[] = Array.isArray((contract as any).indexingDates)
+                  ? ((contract as any).indexingDates as any[]).filter((it: any) => it && it.done)
+                  : [];
+                if (validated.length === 0) return null;
+                return (
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                      Afișează indexări validate
+                    </summary>
+                    <ul className="mt-3 space-y-3 text-[11px]">
+                      {validated
+                        .slice()
+                        .sort((a, b) => String(b.actualDate || b.forecastDate).localeCompare(String(a.actualDate || a.forecastDate)))
+                        .map((it) => (
+                          <li key={contract.id + it.forecastDate} className="rounded-lg border border-foreground/15 bg-background/40 p-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="space-y-1">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                                  Indexare validată
+                                </div>
+                                <div className="text-sm font-medium text-foreground">
+                                  {fmt(it.forecastDate)}
+                                  {it.actualDate ? (
+                                    <span className="ml-2 text-foreground/60 text-xs">(aplicată {fmt(it.actualDate)})</span>
+                                  ) : null}
+                                </div>
+                                {it.document ? (
+                                  <div className="text-xs text-foreground/60">
+                                    Document: <span className="font-medium text-foreground/80">{it.document}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                              <form action={saveIndexing} className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-end">
+                                <input type="hidden" name="contractId" value={contract.id} />
+                                <input type="hidden" name="forecastDate" value={it.forecastDate} />
+                                <div className="space-y-1">
+                                  <label className="block text-foreground/60 text-[11px]">Data efectivă</label>
+                                  <input
+                                    name="actualDate"
+                                    type="date"
+                                    defaultValue={it.actualDate ?? ""}
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-foreground/60 text-[11px]">Document</label>
+                                  <input
+                                    name="document"
+                                    type="text"
+                                    maxLength={200}
+                                    defaultValue={it.document ?? ""}
+                                    placeholder="ex: Decizie indexare"
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-foreground/60 text-[11px]">Chirie nouă (EUR)</label>
+                                  <input
+                                    name="newRentAmount"
+                                    type="number"
+                                    step="0.01"
+                                    min={0}
+                                    defaultValue={typeof it.newRentAmount === "number" ? it.newRentAmount : ("" as any)}
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs"
+                                  />
+                                </div>
+                                <div className="sm:justify-self-end">
+                                  <button
+                                    type="submit"
+                                    className="w-full whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold border border-foreground/20 hover:bg-foreground/5"
+                                    title="Salvează modificările"
+                                  >
+                                    Salvează
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  </details>
+                );
+              })()}
 
               <div id="contract-deposits-list" className="mt-4">
                 <div className="text-sm font-semibold mb-2">Depozite</div>
@@ -1727,6 +1983,30 @@ export default async function ContractPage({
                       Adaugă
                     </button>
                   </form>
+                  <div className="mt-6 pt-4 border-t border-foreground/10">
+                    <div className="text-sm font-semibold mb-2">Corecție contract</div>
+                    <form action={updateCorrectionPercentAction} className="flex flex-wrap items-end gap-3 text-[11px]">
+                      <input type="hidden" name="contractId" value={contract.id} />
+                      <div>
+                        <label className="block text-foreground/60 mb-1">Corecție %</label>
+                        <input
+                          name="correctionPercent"
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          max={100}
+                          defaultValue={typeof contract.correctionPercent === "number" ? contract.correctionPercent : ("" as any)}
+                          className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-3 py-2 font-semibold hover:bg-foreground/5"
+                      >
+                        Salvează corecția
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1735,12 +2015,111 @@ export default async function ContractPage({
       </section>
 
       {contract.rentType === "yearly" &&
-        (contract.yearlyInvoices?.length ?? 0) > 0 && (
+        (((contract as any).irregularInvoices?.length) ?? 0) > 0 && (
           <section id="contract-yearly-invoices" className="mt-8">
             <div className="rounded-lg border border-foreground/15 p-4">
               <h2 className="text-base font-semibold">Facturi anuale</h2>
-              <div className="mt-3 grid grid-cols-1 gap-4">
-                {contract.yearlyInvoices!.map((inv, idx) => {
+              {(() => {
+                const totalEUR = ((((contract as any).irregularInvoices) || []) as any[]).reduce(
+                  (sum, r) => sum + (typeof r.amountEUR === "number" ? r.amountEUR : 0),
+                  0
+                );
+                const monthlyEq = totalEUR / 12;
+                const rate = typeof contract.exchangeRateRON === "number" ? contract.exchangeRateRON : undefined;
+                const corrPct = typeof contract.correctionPercent === "number" ? contract.correctionPercent : 0;
+                const tvaPct = typeof contract.tvaPercent === "number" ? contract.tvaPercent : 0;
+                const correctedEUR = totalEUR * (1 + corrPct / 100);
+                const netRON = typeof rate === "number" ? correctedEUR * rate : undefined;
+                const totalRON =
+                  typeof netRON === "number" ? netRON * (1 + tvaPct / 100) : undefined;
+                const fmtEURLocal = (v: number) =>
+                  new Intl.NumberFormat("ro-RO", {
+                    style: "currency",
+                    currency: "EUR",
+                  }).format(v);
+                const fmtRONLocal = (v: number) =>
+                  new Intl.NumberFormat("ro-RO", {
+                    style: "currency",
+                    currency: "RON",
+                  }).format(v);
+                return (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-md bg-foreground/5 p-3">
+                      <div className="text-foreground/60 text-xs">Venit anual</div>
+                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-400">
+                        {fmtEURLocal(correctedEUR)}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-foreground/5 p-3">
+                      <div className="text-foreground/60 text-xs">Echivalent lunar</div>
+                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-400">
+                        {fmtEURLocal(monthlyEq)}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-foreground/5 p-3">
+                      <div className="text-foreground/60 text-xs">Total RON estimat</div>
+                      <div className="text-base font-semibold text-emerald-700 dark:text-emerald-400">
+                        {typeof totalRON === "number" ? fmtRONLocal(totalRON) : "–"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* Issue form for yearly entries */}
+              <div className="mt-4 rounded-md bg-foreground/5 p-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">Emitere factură după grafic</div>
+                <form action={issueInvoice} className="grid grid-cols-1 gap-2 sm:grid-cols-5 sm:items-end text-sm">
+                  <input type="hidden" name="contractId" value={contract.id} />
+                  <div>
+                    <label className="block text-foreground/60 mb-1">An</label>
+                    <input
+                      type="number"
+                      name="year"
+                      min={2000}
+                      max={9999}
+                      defaultValue={new Date().getFullYear()}
+                      className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-foreground/60 mb-1">Data din grafic</label>
+                    <select name="dateKey" className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1">
+                      {((((contract as any).irregularInvoices) || []) as any[])
+                        .slice()
+                        .sort((a, b) => a.month - b.month || a.day - b.day)
+                        .map((r, i) => (
+                          <option key={`${r.month}-${r.day}-${i}`} value={`${r.month}-${r.day}`}>
+                            {String(r.day).padStart(2, "0")}/{String(r.month).padStart(2, "0")} – {new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(r.amountEUR)}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-foreground/60 mb-1">Suprascrie EUR (opțional)</label>
+                    <input
+                      name="amountEUR"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="ex: 100.00"
+                      className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
+                    />
+                  </div>
+                  <div className="sm:justify-self-end">
+                    <ActionButton
+                      className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+                      title="Emite factura pentru data selectată"
+                      successMessage="Factura a fost emisă"
+                      triggerStatsRefresh
+                    >
+                      Emite
+                    </ActionButton>
+                  </div>
+                </form>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4">
+                {(((contract as any).irregularInvoices) as { month:number; day:number; amountEUR:number }[]).map((inv, idx) => {
                   const eur = inv.amountEUR;
                   const rate =
                     typeof contract.exchangeRateRON === "number"
@@ -1775,6 +2154,10 @@ export default async function ContractPage({
                       : undefined;
                   const monthStr = String(inv.month).padStart(2, "0");
                   const dayStr = String(inv.day).padStart(2, "0");
+                  const currentYear = new Date().getFullYear();
+                  const issuedDate = new Date(currentYear, inv.month - 1, inv.day);
+                  const issuedIso = issuedDate.toISOString().slice(0, 10);
+                  const existingInvoice = invoices.find((it) => it.issuedAt === issuedIso);
                   return (
                     <div
                       key={`${idx}-${inv.month}-${inv.day}`}
@@ -1870,6 +2253,53 @@ export default async function ContractPage({
                               : "Indisponibil"}
                           </span>
                         </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {existingInvoice ? (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <svg
+                              className="h-4 w-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M9 12l2 2 4-4" />
+                              <circle cx="12" cy="12" r="9" />
+                            </svg>
+                            Emisă ({existingInvoice.number || existingInvoice.id})
+                          </span>
+                        ) : (
+                          <form action={issueInvoice} className="inline-flex items-center gap-2">
+                            <input type="hidden" name="contractId" value={contract.id} />
+                            <input type="hidden" name="issuedAt" value={issuedIso} />
+                            <ActionButton
+                              className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-medium hover:bg-foreground/5"
+                              title="Emite factura anuală"
+                              successMessage="Factura a fost emisă"
+                              triggerStatsRefresh
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                                <circle cx="12" cy="12" r="9" />
+                              </svg>
+                              Emite
+                            </ActionButton>
+                          </form>
+                        )}
                       </div>
                     </div>
                   );

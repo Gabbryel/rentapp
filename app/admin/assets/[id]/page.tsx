@@ -40,6 +40,16 @@ export default async function AssetDetailPage({
           <div className="text-sm text-foreground/60">Adresă</div>
           <div className="mt-1">{asset.address}</div>
         </div>
+        {(asset as any).owner && (
+          <div className="rounded-md border border-foreground/10 p-4">
+            <div className="text-sm text-foreground/60">Proprietar</div>
+            <div className="mt-1">
+              <Link href={`/owners/${encodeURIComponent((asset as any).ownerId || (asset as any).owner)}`} className="hover:underline">
+                {(asset as any).owner}
+              </Link>
+            </div>
+          </div>
+        )}
         {typeof (asset as any).areaSqm === "number" && (
           <div className="rounded-md border border-foreground/10 p-4">
             <div className="text-sm text-foreground/60">Suprafață</div>

@@ -8,11 +8,14 @@ import {
   deleteScanAction,
   type ScanActionState,
 } from "./actions";
+import YearlyInvoicesCard from "../yearly/YearlyInvoicesCard";
 
 type Props = {
   id: string;
   scans: { url: string; title?: string }[];
   mongoConfigured: boolean;
+  rentType?: "monthly" | "yearly";
+  irregularInvoices?: { month: number; day: number; amountEUR: number }[];
   children?: React.ReactNode;
 };
 
@@ -20,6 +23,8 @@ export default function ManageContractScans({
   id,
   scans,
   mongoConfigured,
+  rentType,
+  irregularInvoices,
   children,
 }: Props) {
   const [addState, addAction] = useActionState<ScanActionState, FormData>(
@@ -81,6 +86,14 @@ export default function ManageContractScans({
             id="manage-contract-section"
             className="px-5 pb-6 pt-3 space-y-6"
           >
+            {/* Card: yearly invoices editor (if applicable) */}
+            {rentType === "yearly" ? (
+              <YearlyInvoicesCard
+                id={id}
+                entries={irregularInvoices || []}
+                mongoConfigured={mongoConfigured}
+              />
+            ) : null}
             {/* Card: fișiere existente */}
             <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
               <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">

@@ -12,6 +12,8 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
   const name = (formData.get("name") as string) || "";
   const address = (formData.get("address") as string) || "";
   const areaSqmStr = String(formData.get("areaSqm") ?? "");
+  const ownerId = (formData.get("ownerId") as string) || "";
+  const owner = (formData.get("owner") as string) || "";
   const areaSqm = areaSqmStr.trim() === "" ? undefined : Number(areaSqmStr);
   const scanUrlsRaw = (formData.getAll("scanUrls") as string[]).filter(Boolean);
   const scanTitlesRaw = (formData.getAll("scanTitles") as string[]).filter(() => true);
@@ -63,11 +65,11 @@ export async function createAssetAction(_prev: FormState, formData: FormData): P
       const res = await saveScanFile(f, `${id}-${f.name.replace(/\.[^.]+$/, "")}`, {});
       scans.push({ url: res.url, title: undefined });
     }
-  const payload = { id, name, address, areaSqm, scans };
+  const payload = { id, name, address, areaSqm, ownerId: ownerId || undefined, owner: owner || undefined, scans };
     const parsed = AssetSchema.safeParse(payload);
     if (!parsed.success) {
       const msg = parsed.error.issues.map((iss) => iss.message).join("; ");
-  return { ok: false, message: msg, values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };
+  return { ok: false, message: msg, values: { id, name, address, ownerId, owner, areaSqm, scanUrls: scanUrlsRaw } };
     }
     if (!process.env.MONGODB_URI) {
   return { ok: false, message: "MongoDB nu este configurat.", values: { id, name, address, areaSqm, scanUrls: scanUrlsRaw } };

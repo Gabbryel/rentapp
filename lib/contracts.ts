@@ -3,10 +3,62 @@ import { getDb } from "@/lib/mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
 // Invoices: moved under contract model
 import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
+import type { Deposit } from "@/lib/schemas/deposit";
 import { saveBufferAsUpload } from "@/lib/storage";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { Buffer } from "buffer";
 import { createMessage } from "@/lib/messages";
 import { allocateInvoiceNumberForOwner } from "@/lib/invoice-settings";
+
+const PDF_FONT_REGULAR_PATH = "public/fonts/NotoSans-Regular.ttf";
+const PDF_FONT_BOLD_PATH = "public/fonts/NotoSans-SemiBold.ttf";
+
+const pdfFontByteCache = new Map<string, Uint8Array>();
+
+async function readFontBytes(relativePath: string): Promise<Uint8Array> {
+  const cached = pdfFontByteCache.get(relativePath);
+  if (cached) return cached;
+  const [{ readFile }, path] = await Promise.all([
+    import("fs/promises"),
+    import("path"),
+  ]);
+  const absolutePath = path.join(process.cwd(), relativePath);
+  const fileData = (await readFile(absolutePath)) as unknown as Uint8Array | string | ArrayBuffer;
+  let bytes: Uint8Array;
+  if (fileData instanceof Uint8Array) {
+    // Covers Node Buffer as well
+    bytes = new Uint8Array(fileData);
+  } else if (typeof fileData === "string") {
+    bytes = new Uint8Array(Buffer.from(fileData, "utf8"));
+  } else {
+    bytes = new Uint8Array(fileData as ArrayBuffer);
+  }
+  pdfFontByteCache.set(relativePath, bytes);
+  return bytes;
+}
+
+async function loadPdfFonts(
+  pdfDoc: PDFDocument
+): Promise<{ font: import("pdf-lib").PDFFont; fontBold: import("pdf-lib").PDFFont }> {
+  try {
+    const fontkitModule = await import("@pdf-lib/fontkit");
+    const fontkit = (fontkitModule as any).default ?? fontkitModule;
+    if (typeof pdfDoc.registerFontkit === "function") {
+      pdfDoc.registerFontkit(fontkit);
+    }
+    const [regularBytes, boldBytes] = await Promise.all([
+      readFontBytes(PDF_FONT_REGULAR_PATH),
+      readFontBytes(PDF_FONT_BOLD_PATH),
+    ]);
+    const baseFont = await pdfDoc.embedFont(regularBytes, { subset: true });
+    const boldFont = await pdfDoc.embedFont(boldBytes, { subset: true });
+    return { font: baseFont, fontBold: boldFont };
+  } catch {
+    const fallbackFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fallbackBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    return { font: fallbackFont, fontBold: fallbackBold };
+  }
+}
 
 const MOCK_CONTRACTS: ContractType[] = [
   {
@@ -474,9 +526,13 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       // final fallback for legacy data
       return 1;
     })(),
-    yearlyInvoices: ((): { month: number; day: number; amountEUR: number }[] | undefined => {
-      const rawY = (r as Record<string, unknown>).yearlyInvoices as unknown;
-      const arr: unknown[] = Array.isArray(rawY) ? rawY : [];
+    irregularInvoices: ((): { month: number; day: number; amountEUR: number }[] | undefined => {
+      const rawY = (r as Record<string, unknown>).irregularInvoices as unknown;
+      const arr: unknown[] = Array.isArray(rawY)
+        ? rawY as unknown[]
+        : Array.isArray((r as any).yearlyInvoices)
+        ? ((r as any).yearlyInvoices as unknown[])
+        : [];
       const mapped = arr
         .map((it) => {
           const rec = (it ?? {}) as Record<string, unknown>;
@@ -1103,10 +1159,29 @@ export function computeInvoiceFromContract(opts: {
 }): Invoice {
   const c = opts.contract;
   const dueDays = typeof c.paymentDueDays === "number" ? c.paymentDueDays : 0;
-  // Determine EUR amount effective on invoice date from rent history
-  const amountFromHistory = rentAmountAtDate(c, opts.issuedAt);
-  const amountEUR = Number((opts.amountEUROverride ?? amountFromHistory) ?? 0);
+  // Determine EUR amount
+  const parseMD = (iso: string) => {
+    const d = new Date(iso);
+    return { m: d.getMonth() + 1, day: d.getDate() };
+  };
+  let amountEUR: number | undefined = undefined;
+  if (typeof opts.amountEUROverride === "number") {
+    amountEUR = opts.amountEUROverride;
+  } else if (c.rentType === "yearly") {
+    const { m, day } = parseMD(opts.issuedAt);
+    const list = (((c as any).irregularInvoices || (c as any).yearlyInvoices) || []) as any[];
+    const yi = list.find((r) => r.month === m && r.day === day);
+    amountEUR = yi?.amountEUR ?? rentAmountAtDate(c, opts.issuedAt);
+  } else {
+    amountEUR = rentAmountAtDate(c, opts.issuedAt);
+  }
+  if (!(typeof amountEUR === "number" && amountEUR > 0)) {
+    throw new Error("Nu se poate calcula suma EUR pentru data emiterii");
+  }
   const rate = Number(c.exchangeRateRON ?? 0);
+  if (!(rate > 0)) {
+    throw new Error("Contract fără curs RON/EUR valid");
+  }
   const corrPct = Number(c.correctionPercent ?? 0);
   const tvaPct = Number(c.tvaPercent ?? 0);
   const correctedAmountEUR = amountEUR * (1 + corrPct / 100);
@@ -1143,26 +1218,46 @@ export function computeInvoiceFromContract(opts: {
 
 // Return the EUR rent amount effective on the given ISO date (YYYY-MM-DD)
 export function rentAmountAtDate(c: ContractType, isoDate: string): number | undefined {
-  const arr = Array.isArray((c as any).indexingDates)
-    ? ((c as any).indexingDates as Array<{
-        forecastDate: string;
-        actualDate?: string;
-        newRentAmount?: number;
-      }>)
-    : [];
-  const effectiveRows = arr
-    .filter((it) => typeof it.newRentAmount === "number")
-    .map((it) => ({
-      date: String((it.actualDate || it.forecastDate) || "").slice(0, 10),
-      value: it.newRentAmount as number,
-    }))
-    .filter((x) => x.date && x.date <= isoDate)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  return effectiveRows.length > 0 ? effectiveRows[effectiveRows.length - 1].value : undefined;
+    const rows: Array<{ date: string; value: number }> = [];
+  if (c.rentType === "yearly" && Array.isArray((c as any).irregularInvoices)) {
+    const target = new Date(isoDate);
+    const month = target.getMonth() + 1;
+    const day = target.getDate();
+    const match = (c as any).irregularInvoices.find(
+      (r: any) => Number(r.month) === month && Number(r.day) === day
+    );
+    if (match && typeof match.amountEUR === "number") {
+      rows.push({ date: isoDate.slice(0, 10), value: Number(match.amountEUR) });
+    }
+  }
+  if (Array.isArray((c as any).indexingDates)) {
+    ((c as any).indexingDates as Array<{
+      forecastDate: string;
+      actualDate?: string;
+      newRentAmount?: number;
+    }>)
+      .filter((it) => typeof it.newRentAmount === "number")
+      .forEach((it) => {
+        const eff = String((it.actualDate || it.forecastDate) || "").slice(0, 10);
+        if (eff) rows.push({ date: eff, value: it.newRentAmount as number });
+      });
+  }
+  if (rows.length === 0) return undefined;
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  const candidate = rows.filter((r) => r.date <= isoDate).pop();
+  return candidate?.value;
 }
 
 // Convenience for "today"
 export function currentRentAmount(c: ContractType): number | undefined {
+  if (c.rentType === "yearly") {
+    const list = (((c as any).irregularInvoices || (c as any).yearlyInvoices) || []) as any[];
+    const total = list.reduce(
+      (sum, item) => (typeof item.amountEUR === "number" ? sum + item.amountEUR : sum),
+      0
+    );
+    return total > 0 ? total : undefined;
+  }
   const t = new Date();
   const y = t.getFullYear();
   const m = String(t.getMonth() + 1).padStart(2, "0");
@@ -1173,8 +1268,7 @@ export function currentRentAmount(c: ContractType): number | undefined {
 export async function renderInvoicePdf(inv: Invoice): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595.28, 841.89]); // A4 portrait in points
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const { font, fontBold } = await loadPdfFonts(pdfDoc);
   const margin = 40;
   let y = 800;
 
@@ -1200,6 +1294,423 @@ export async function renderInvoicePdf(inv: Invoice): Promise<Uint8Array> {
   text(`Bază RON: ${inv.netRON.toFixed(2)}`);
   text(`TVA (${inv.tvaPercent}%): ${inv.vatRON.toFixed(2)} RON`);
   text(`Total de plată: ${inv.totalRON.toFixed(2)} RON`, { bold: true });
+
+  return await pdfDoc.save();
+}
+
+export async function renderContractPdf(
+  contract: ContractType,
+  extras?: { invoices?: Invoice[]; deposits?: Deposit[] }
+): Promise<Uint8Array> {
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const margin = 40;
+  const maxWidth = pageWidth - margin * 2;
+
+  const pdfDoc = await PDFDocument.create();
+  let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  const { font, fontBold } = await loadPdfFonts(pdfDoc);
+  let y = pageHeight - margin;
+
+  const ensureSpace = (needed: number) => {
+    if (y - needed < margin) {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
+      currentPage.drawText("(continuare)", {
+        x: margin,
+        y,
+        size: 10,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      y -= 16;
+    }
+  };
+
+  const drawLine = (
+    text: string,
+    opts?: { size?: number; bold?: boolean; color?: { r: number; g: number; b: number }; leading?: number }
+  ) => {
+    const size = opts?.size ?? 12;
+    const leading = opts?.leading ?? size + 6;
+    const f = opts?.bold ? fontBold : font;
+    const color = opts?.color ? rgb(opts.color.r, opts.color.g, opts.color.b) : rgb(0, 0, 0);
+    ensureSpace(leading);
+    currentPage.drawText(text, { x: margin, y, size, font: f, color });
+    y -= leading;
+  };
+
+  const addSpacer = (gap = 10) => {
+    ensureSpace(gap);
+    y -= gap;
+  };
+
+  const addWrapped = (
+    text: string,
+    opts?: { size?: number; bold?: boolean; color?: { r: number; g: number; b: number }; leading?: number }
+  ) => {
+    if (!text) {
+      addSpacer(opts?.leading ?? (opts?.size ? opts.size / 2 : 6));
+      return;
+    }
+    const size = opts?.size ?? 12;
+    const f = opts?.bold ? fontBold : font;
+    const words = String(text).split(/\s+/).filter((w) => w.length > 0);
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      const width = f.widthOfTextAtSize(candidate, size);
+      if (width > maxWidth && line) {
+        drawLine(line, opts);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) {
+      drawLine(line, opts);
+    }
+  };
+
+  const addHeading = (label: string) => {
+    addSpacer(8);
+    addWrapped(label, { size: 14, bold: true });
+    addSpacer(2);
+  };
+
+  const fmtDate = (iso?: string | null) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10) || "—";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const fmtCurrency = (value: number | null | undefined, currency: "EUR" | "RON" = "EUR") => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    return `${value.toFixed(2)} ${currency}`;
+  };
+
+  const contractName = contract.name || contract.id;
+  addWrapped("Fișă contract", { size: 20, bold: true });
+  addWrapped(`ID: ${contract.id}`);
+  addWrapped(`Denumire: ${contractName}`, { bold: true });
+
+  const ownerName = (contract as any).owner || "—";
+  const partnerNames = Array.isArray(contract.partners)
+    ? contract.partners.map((p) => p?.name).filter(Boolean)
+    : [];
+  const primaryPartner =
+    partnerNames.length > 0 ? partnerNames[0] : contract.partner || "—";
+
+  addHeading("Detalii generale");
+  addWrapped(`Proprietar: ${ownerName}`);
+  if (partnerNames.length > 1) {
+    addWrapped(`Parteneri: ${partnerNames.join(", ")}`);
+  } else {
+    addWrapped(`Partener: ${primaryPartner}`);
+  }
+  if ((contract as any).asset) {
+    addWrapped(`Asset: ${(contract as any).asset}`);
+  }
+  addWrapped(`Semnat la: ${fmtDate(contract.signedAt)}`);
+  const effectiveEnd = effectiveEndDate(contract);
+  addWrapped(
+    `Perioadă: ${fmtDate(contract.startDate)} → ${fmtDate(String(effectiveEnd))}`
+  );
+  const isExpired = new Date(String(effectiveEnd)) < new Date();
+  addWrapped(`Status: ${isExpired ? "Expirat" : "Activ"}`);
+
+  if (
+    Array.isArray((contract as any).contractExtensions) &&
+    (contract as any).contractExtensions.length
+  ) {
+    addHeading("Prelungiri contract");
+    ((contract as any).contractExtensions as Array<{
+      docDate?: string;
+      document?: string;
+      extendedUntil?: string;
+    }>)
+      .slice()
+      .sort((a, b) => String(a.extendedUntil || "").localeCompare(String(b.extendedUntil || "")))
+      .forEach((ext, index) => {
+        const label = `${index + 1}. ${ext.document || "Act"} – doc ${fmtDate(
+          ext.docDate
+        )} → până la ${fmtDate(ext.extendedUntil)}`;
+        addWrapped(label, { size: 11 });
+      });
+  }
+
+  addHeading("Facturare");
+  addWrapped(`Tip chirie: ${contract.rentType === "yearly" ? "Anuală" : "Lunară"}`);
+  const invoiceMode =
+    contract.invoiceMonthMode === "next"
+      ? "În avans (luna următoare)"
+      : "Luna curentă";
+  addWrapped(`Mod facturare: ${invoiceMode}`);
+  if (contract.rentType === "monthly" && typeof contract.monthlyInvoiceDay === "number") {
+    addWrapped(`Zi facturare: ${contract.monthlyInvoiceDay}`);
+  }
+  if (typeof contract.paymentDueDays === "number") {
+    addWrapped(`Termen plată: ${contract.paymentDueDays} zile`);
+  }
+  if (typeof contract.correctionPercent === "number") {
+    addWrapped(`Corecție chirie: ${contract.correctionPercent}%`);
+  }
+  if (typeof contract.tvaPercent === "number") {
+    addWrapped(`TVA: ${contract.tvaPercent}%`);
+  }
+  if (typeof contract.exchangeRateRON === "number") {
+    addWrapped(`Curs RON/EUR: ${contract.exchangeRateRON.toFixed(4)}`);
+  }
+
+  if (Array.isArray((contract as any).irregularInvoices) && (contract as any).irregularInvoices.length) {
+    const totalEUR = ((contract as any).irregularInvoices as any[]).reduce(
+      (sum, r) => sum + (typeof r.amountEUR === "number" ? r.amountEUR : 0),
+      0
+    );
+    const monthlyEq = totalEUR / 12;
+    addWrapped(
+      `Total anual facturat: ${fmtCurrency(totalEUR, "EUR")} (echivalent lunar ${monthlyEq.toFixed(
+        2
+      )} EUR)`,
+      { size: 11 }
+    );
+    ((contract as any).irregularInvoices as any[])
+      .slice()
+      .sort((a, b) => a.month - b.month || a.day - b.day)
+      .forEach((inv, idx) => {
+        addWrapped(
+          `${idx + 1}. ${String(inv.day).padStart(2, "0")}/${String(inv.month).padStart(2, "0")} — ${fmtCurrency(
+            inv.amountEUR,
+            "EUR"
+          )}`,
+          { size: 11 }
+        );
+      });
+  } else {
+    const rentAmount = currentRentAmount(contract);
+    if (typeof rentAmount === "number") {
+      addWrapped(`Sumă curentă: ${fmtCurrency(rentAmount, "EUR")}`);
+      if (typeof contract.exchangeRateRON === "number") {
+        const baseRon = rentAmount * contract.exchangeRateRON;
+        addWrapped(`Bază RON: ${fmtCurrency(baseRon, "RON")}`, { size: 11 });
+        if (typeof contract.correctionPercent === "number") {
+          const corrected = baseRon * (1 + contract.correctionPercent / 100);
+          addWrapped(`După corecție: ${fmtCurrency(corrected, "RON")}`, { size: 11 });
+          if (typeof contract.tvaPercent === "number" && contract.tvaPercent > 0) {
+            const totalWithVat = corrected * (1 + contract.tvaPercent / 100);
+            addWrapped(
+              `Cu TVA: ${fmtCurrency(totalWithVat, "RON")} (TVA ${fmtCurrency(
+                totalWithVat - corrected,
+                "RON"
+              )})`,
+              { size: 11 }
+            );
+          }
+        }
+      }
+    }
+  }
+
+  addHeading("Indexări");
+  if (typeof contract.indexingDay === "number") {
+    addWrapped(`Zi indexare: ${contract.indexingDay}`, { size: 11 });
+  }
+  if (typeof contract.howOftenIsIndexing === "number") {
+    addWrapped(`Recurență indexare: la fiecare ${contract.howOftenIsIndexing} luni`, {
+      size: 11,
+    });
+  }
+  if (typeof (contract as any).indexingMonth === "number") {
+    addWrapped(`Lună indexare: ${(contract as any).indexingMonth}`, { size: 11 });
+  }
+  const indexingDates: Array<{
+    forecastDate: string;
+    actualDate?: string;
+    document?: string;
+    newRentAmount?: number;
+    done?: boolean;
+  }> = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as any[])
+    : [];
+
+  if (indexingDates.length) {
+    indexingDates
+      .slice()
+      .sort((a, b) => a.forecastDate.localeCompare(b.forecastDate))
+      .forEach((row, idx) => {
+        const status = row.done ? "aplicată" : "planificată";
+        const amountLabel =
+          typeof row.newRentAmount === "number"
+            ? fmtCurrency(row.newRentAmount, "EUR")
+            : "—";
+        const docLabel = row.document ? ` • ${row.document}` : "";
+        const actual = row.actualDate ? ` (executată ${fmtDate(row.actualDate)})` : "";
+        addWrapped(
+          `${idx + 1}. ${fmtDate(row.forecastDate)}${actual} — ${status} — ${amountLabel}${docLabel}`,
+          { size: 11 }
+        );
+      });
+  } else {
+    addWrapped("Nu există indexări definite.", { size: 11 });
+  }
+
+  const deposits = Array.isArray(extras?.deposits) ? extras?.deposits ?? [] : [];
+  addHeading("Depozite");
+  if (deposits.length === 0) {
+    addWrapped("Nu există depozite înregistrate.", { size: 11 });
+  } else {
+    const depositSummary = deposits.reduce(
+      (acc, d) => {
+        const eur = typeof d.amountEUR === "number" ? d.amountEUR : 0;
+        const ron = typeof (d as any).amountRON === "number" ? (d as any).amountRON : 0;
+        acc.count += 1;
+        acc.totalEUR += eur;
+        acc.totalRON += ron;
+        if (d.isDeposited) {
+          acc.depositedEUR += eur;
+          acc.depositedRON += ron;
+        } else {
+          acc.pendingEUR += eur;
+          acc.pendingRON += ron;
+        }
+        if (d.returned) acc.returned += 1;
+        return acc;
+      },
+      {
+        count: 0,
+        totalEUR: 0,
+        totalRON: 0,
+        depositedEUR: 0,
+        depositedRON: 0,
+        pendingEUR: 0,
+        pendingRON: 0,
+        returned: 0,
+      }
+    );
+    addWrapped(
+      `Total depozite: ${depositSummary.count} — ${fmtCurrency(depositSummary.totalEUR, "EUR")} / ${fmtCurrency(
+        depositSummary.totalRON,
+        "RON"
+      )}`,
+      { size: 11 }
+    );
+    addWrapped(
+      `Depuse: ${fmtCurrency(depositSummary.depositedEUR, "EUR")} / ${fmtCurrency(
+        depositSummary.depositedRON,
+        "RON"
+      )} • În custodie: ${fmtCurrency(depositSummary.pendingEUR, "EUR")} / ${fmtCurrency(
+        depositSummary.pendingRON,
+        "RON"
+      )}`,
+      { size: 11 }
+    );
+    addWrapped(`Depozite returnate: ${depositSummary.returned}`, { size: 11 });
+
+    const typeLabels: Record<string, string> = {
+      bank_transfer: "Transfer bancar",
+      check: "Cec",
+      promissory_note: "Cambie",
+    };
+
+    deposits
+      .slice()
+      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
+      .forEach((d, idx) => {
+        addWrapped(`${idx + 1}. ${typeLabels[d.type] || d.type}`, { bold: true, size: 12 });
+        const amounts: string[] = [];
+        if (typeof d.amountEUR === "number") {
+          amounts.push(fmtCurrency(d.amountEUR, "EUR"));
+        }
+        if (typeof (d as any).amountRON === "number") {
+          amounts.push(fmtCurrency((d as any).amountRON, "RON"));
+        }
+        if (amounts.length) {
+          addWrapped(`  - Sume: ${amounts.join(" / ")}`, { size: 11 });
+        }
+        addWrapped(
+          `  - Depus: ${d.isDeposited ? "Da" : "Nu"} • Returnat: ${d.returned ? "Da" : "Nu"}`,
+          { size: 11 }
+        );
+        addWrapped(
+          `  - Creat: ${fmtDate(d.createdAt)} • Actualizat: ${fmtDate(d.updatedAt)}`,
+          { size: 11 }
+        );
+        if (d.note) {
+          addWrapped(`  - Notă: ${d.note}`, { size: 11 });
+        }
+      });
+  }
+
+  const invoices = Array.isArray(extras?.invoices) ? extras?.invoices ?? [] : [];
+  addHeading("Facturi emise");
+  if (invoices.length === 0) {
+    addWrapped("Nu există facturi emise pentru acest contract.", { size: 11 });
+  } else {
+    const invoiceSummary = invoices.reduce(
+      (acc, inv) => {
+        acc.totalRON += typeof inv.totalRON === "number" ? inv.totalRON : 0;
+        acc.totalEUR += typeof inv.correctedAmountEUR === "number" ? inv.correctedAmountEUR : 0;
+        acc.vatRON += typeof inv.vatRON === "number" ? inv.vatRON : 0;
+        return acc;
+      },
+      { totalRON: 0, totalEUR: 0, vatRON: 0 }
+    );
+    addWrapped(
+      `Total facturi: ${invoices.length} — ${fmtCurrency(invoiceSummary.totalEUR, "EUR")} / ${fmtCurrency(
+        invoiceSummary.totalRON,
+        "RON"
+      )}`,
+      { size: 11 }
+    );
+    addWrapped(`TVA cumulat: ${fmtCurrency(invoiceSummary.vatRON, "RON")}`, { size: 11 });
+
+    invoices
+      .slice()
+      .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
+      .forEach((inv, idx) => {
+        const numberLabel = inv.number || inv.id;
+        addWrapped(
+          `${idx + 1}. ${fmtDate(inv.issuedAt)} — #${numberLabel} — ${fmtCurrency(
+            inv.totalRON,
+            "RON"
+          )} (${fmtCurrency(inv.correctedAmountEUR, "EUR")})`,
+          { size: 11 }
+        );
+        addWrapped(
+          `  - Termen plată: ${inv.dueDays} zile • TVA ${inv.tvaPercent}% (${fmtCurrency(
+            inv.vatRON,
+            "RON"
+          )})`,
+          { size: 11 }
+        );
+        addWrapped(
+          `  - PDF generat: ${inv.pdfUrl ? "Da" : "Nu"} • Curs: ${inv.exchangeRateRON.toFixed(4)} RON/EUR`,
+          { size: 11 }
+        );
+      });
+  }
+
+  const scans: Array<{ url: string; title?: string }> = Array.isArray((contract as any).scans)
+    ? ((contract as any).scans as Array<{ url: string; title?: string }>)
+    : [];
+  const legacyScan: Array<{ url: string; title?: string }> = contract.scanUrl
+    ? [{ url: String(contract.scanUrl) }]
+    : [];
+  const combinedScans: Array<{ url: string; title?: string }> = scans.length > 0 ? scans : legacyScan;
+
+  addHeading("Fișiere atașate");
+  if (combinedScans.length === 0) {
+    addWrapped("Nu există fișiere atașate.", { size: 11 });
+  } else {
+    combinedScans.forEach((scan, idx) => {
+      const title = scan.title ? `${scan.title} — ` : "";
+      addWrapped(`${idx + 1}. ${title}${scan.url}`, { size: 11 });
+    });
+  }
 
   return await pdfDoc.save();
 }

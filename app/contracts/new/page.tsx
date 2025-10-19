@@ -203,7 +203,7 @@ export default function NewContractPage() {
               <div className="sm:col-span-3">
                 <div className="grid grid-cols-3 gap-2">
                   <input
-                    name={`yearlyInvoices[0][month]`}
+                    name={`irregularInvoices[0][month]`}
                     placeholder="Luna (1-12)"
                     inputMode="numeric"
                     min={1}
@@ -211,11 +211,11 @@ export default function NewContractPage() {
                     type="number"
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
-                      (state.values[`yearlyInvoices[0][month]`] as string) ?? ""
+                      (state.values[`irregularInvoices[0][month]`] as string) ?? ""
                     )}
                   />
                   <input
-                    name={`yearlyInvoices[0][day]`}
+                    name={`irregularInvoices[0][day]`}
                     placeholder="Zi (1-31)"
                     inputMode="numeric"
                     min={1}
@@ -223,11 +223,11 @@ export default function NewContractPage() {
                     type="number"
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
-                      (state.values[`yearlyInvoices[0][day]`] as string) ?? ""
+                      (state.values[`irregularInvoices[0][day]`] as string) ?? ""
                     )}
                   />
                   <input
-                    name={`yearlyInvoices[0][amountEUR]`}
+                    name={`irregularInvoices[0][amountEUR]`}
                     placeholder="Suma EUR"
                     inputMode="decimal"
                     step="0.01"
@@ -235,7 +235,7 @@ export default function NewContractPage() {
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
                       (state.values[
-                        `yearlyInvoices[0][amountEUR]`
+                        `irregularInvoices[0][amountEUR]`
                       ] as string) ?? ""
                     )}
                   />

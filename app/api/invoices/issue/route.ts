@@ -12,10 +12,7 @@ export async function POST(req: Request) {
     }
     const contract = await fetchContractById(contractId);
     if (!contract) return NextResponse.json({ error: "Contract inexistent" }, { status: 404 });
-    const baseEur = currentRentAmount(contract as any);
-    if (typeof baseEur !== "number" || typeof contract.exchangeRateRON !== "number") {
-      return NextResponse.json({ error: "Contractul nu are sumă EUR sau curs RON/EUR definite" }, { status: 400 });
-    }
+    // computeInvoiceFromContract will validate amount/rate; call directly
     const inv = computeInvoiceFromContract({ contract, issuedAt, number: body.number });
     const saved = await issueInvoiceAndGeneratePdf(inv);
     return NextResponse.json(saved, { status: 201 });

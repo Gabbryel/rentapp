@@ -62,7 +62,7 @@ const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 // Using a unified delay for consistent UX & animation parity.
 const FORCE_REFRESH_DELAY = 500; // ms
 
-export default function StatsCards() {
+export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId?: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const prevStatsRef = useRef<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
@@ -243,7 +243,11 @@ export default function StatsCards() {
       try {
         pendingLoadRef.current = true;
         setError(null); // clear previous error on new attempt
-        const res = await fetch("/api/stats", { cache: "no-store" });
+        const qsParts: string[] = [];
+        if (ownerId && ownerId.trim()) qsParts.push(`ownerId=${encodeURIComponent(ownerId.trim())}`);
+        if (owner && owner.trim()) qsParts.push(`owner=${encodeURIComponent(owner.trim())}`);
+        const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
+        const res = await fetch(`/api/stats${qs}`, { cache: "no-store" });
         if (!res.ok) throw new Error("Eșec încărcare statistici");
         const data = (await res.json()) as Stats;
         if (!cancelled) {

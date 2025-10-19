@@ -1,4 +1,9 @@
-import { fetchContracts, effectiveEndDate, currentRentAmount } from "@/lib/contracts";
+import {
+  fetchContracts,
+  effectiveEndDate,
+  currentRentAmount,
+  rentAmountAtDate,
+} from "@/lib/contracts";
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
@@ -101,15 +106,18 @@ export default async function HomePage() {
           continue; // suppressed by rules (no overlap, ends day 1/2, etc.)
         }
         if (fraction > 0 && fraction < 1) {
-          if (typeof currentRentAmount(c as any) === "number") {
-            amountEUROverride = (currentRentAmount(c as any) as number) * fraction;
+          const nextMonthDate = new Date(year, month, 1);
+          const nextIso = nextMonthDate.toISOString().slice(0, 10);
+          const base = rentAmountAtDate(c as any, nextIso);
+          if (typeof base === "number") {
+            amountEUROverride = base * fraction;
           }
         }
       }
 
       due.push({ contract: c, issuedAt, amountEUR: amountEUROverride });
     } else if (c.rentType === "yearly") {
-      const entries = (c as any).yearlyInvoices as
+      const entries = (c as any).irregularInvoices as
         | { month: number; day: number; amountEUR: number }[]
         | undefined;
       if (!entries) continue;
@@ -138,7 +146,11 @@ export default async function HomePage() {
       const contract = contracts.find((c) => c.id === contractId);
       if (!contract) return;
       const baseEur = amountOverride ?? currentRentAmount(contract as any);
-      if (typeof baseEur !== "number" || typeof contract.exchangeRateRON !== "number") return;
+      if (
+        typeof baseEur !== "number" ||
+        typeof contract.exchangeRateRON !== "number"
+      )
+        return;
       // Prevent duplicates
       try {
         const dupe = await findInvoiceByContractAndDate(contractId, issuedAt);
@@ -191,28 +203,80 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-12">
       <div className="mx-auto max-w-screen-2xl">
-        <section className="mb-10">
+        <section id="statistics" className="mb-10">
           <h2 className="text-2xl font-semibold tracking-tight mb-4">
-            Statistici
+            Statistici pe proprietar
           </h2>
-          <StatsCards />
+          {(() => {
+            const ownerMap = new Map<string, { id?: string; name: string }>();
+            for (const c of contracts) {
+              const name = (String((c as any).owner || "").trim()) || "—";
+              const id = (c as any).ownerId ? String((c as any).ownerId) : undefined;
+              const key = id || name;
+              if (!ownerMap.has(key)) ownerMap.set(key, { id, name });
+            }
+            const owners = Array.from(ownerMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+            if (owners.length === 0) {
+              return (
+                <div className="rounded-xl border border-foreground/10 bg-background/60 p-6 text-center text-foreground/60">
+                  Nu există contracte pentru a calcula statistici.
+                </div>
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 gap-4">
+                {owners.map((o) => (
+                  <div
+                    key={(o.id || o.name)}
+                    className="rounded-xl border border-foreground/10 bg-background/70 p-4"
+                  >
+                    <div className="mb-3 text-sm font-semibold" title={o.name}>
+                      <Link href={`/owners/${encodeURIComponent(o.id || o.name)}`} className="hover:underline">
+                        {o.name}
+                      </Link>
+                    </div>
+                    <StatsCards owner={o.name} ownerId={o.id} />
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </section>
         <h1 className="text-fluid-4xl font-semibold tracking-tight mb-8">
           Facturi de emis luna aceasta
         </h1>
-        {due.length === 0 ? null : (
-          <section className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5">
-            <h2 className="text-lg font-semibold mb-3">Lista</h2>
-            <ul className="space-y-4">
-              {due
-                .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
-                .map((d) => {
+        {(() => {
+          if (due.length === 0) return null;
+          const groups = new Map<string, typeof due>();
+          for (const d of due) {
+            const owner = (d.contract as any).owner || "—";
+            const arr = groups.get(owner) || [];
+            arr.push(d);
+            groups.set(owner, arr);
+          }
+          const owners = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+          return owners.map((owner) => (
+            <section
+              key={owner}
+              className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5"
+            >
+              <h2 className="text-lg font-semibold mb-3">
+                <Link href={`/owners/${encodeURIComponent(owner)}`} className="hover:underline">
+                  {owner}
+                </Link>
+              </h2>
+              <ul className="space-y-4">
+                {groups
+                  .get(owner)!
+                  .slice()
+                  .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
+                  .map((d) => {
                   const key = `${d.contract.id}|${d.issuedAt}`;
                   const already = issuedByContractAndDate.has(key);
                   const amtEUR =
                     typeof d.amountEUR === "number"
                       ? d.amountEUR
-                      : currentRentAmount(d.contract as any);
+                      : rentAmountAtDate(d.contract as any, d.issuedAt);
                   const rate =
                     typeof d.contract.exchangeRateRON === "number"
                       ? d.contract.exchangeRateRON
@@ -242,22 +306,14 @@ export default async function HomePage() {
                       ? netRON + (vatRON ?? 0)
                       : undefined;
 
-                  return (
-                    <li
-                      key={key}
-                      className="group rounded-lg border border-foreground/10 bg-background/60 hover:bg-background/70 transition-colors shadow-sm p-4"
-                    >
+                    return (
+                      <li
+                        key={key}
+                        className="group rounded-lg border border-foreground/10 bg-background/60 hover:bg-background/70 transition-colors shadow-sm p-4"
+                      >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Link
-                              href={`/contracts/${d.contract.id}`}
-                              className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
-                            >
-                              <h3 className="text-sm font-semibold tracking-tight leading-tight">
-                                {d.contract.name}
-                              </h3>
-                            </Link>
                             <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
                               <Link
                                 href={`/partners/${d.contract.partnerId}`}
@@ -266,6 +322,15 @@ export default async function HomePage() {
                                 {d.contract.partner}
                               </Link>
                             </span>
+                            <Link
+                              href={`/contracts/${d.contract.id}`}
+                              className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
+                            >
+                              <h3 className="text-sm font-semibold tracking-tight leading-tight">
+                                {d.contract.name}
+                              </h3>
+                            </Link>
+
                             {(d.contract as any).invoiceMonthMode === "next" &&
                             d.contract.rentType === "monthly" ? (
                               <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
@@ -516,12 +581,13 @@ export default async function HomePage() {
                           </div>
                         </div>
                       </div>
-                    </li>
-                  );
-                })}
-            </ul>
-          </section>
-        )}
+                      </li>
+                    );
+                  })}
+              </ul>
+            </section>
+          ));
+        })()}
       </div>
     </main>
   );

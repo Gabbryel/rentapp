@@ -111,6 +111,16 @@ export const ContractSchema = z
   // Whether monthly invoice corresponds to the current month (default) or is issued in advance for the next month
   invoiceMonthMode: z.enum(["current", "next"]).default("current"),
     monthlyInvoiceDay: z.number().int().min(1).max(31).optional(),
+    irregularInvoices: z
+      .array(
+        z.object({
+          month: z.number().int().min(1).max(12),
+          day: z.number().int().min(1).max(31),
+          amountEUR: z.number().positive(),
+        })
+      )
+      .optional(),
+    // Deprecated alias for backward compatibility in parsing (not used in code)
     yearlyInvoices: z
       .array(
         z.object({
@@ -188,11 +198,15 @@ export const ContractSchema = z
 
     // Conditional requirements based on rent type
     if (val.rentType === "yearly") {
-      const list = Array.isArray(val.yearlyInvoices) ? val.yearlyInvoices : [];
+      const list = Array.isArray((val as any).irregularInvoices)
+        ? ((val as any).irregularInvoices as any[])
+        : Array.isArray((val as any).yearlyInvoices)
+        ? ((val as any).yearlyInvoices as any[])
+        : [];
       if (list.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["yearlyInvoices"],
+          path: ["irregularInvoices"],
           message: "Pentru chirie anuală, adaugă cel puțin o factură cu sumă",
         });
       }

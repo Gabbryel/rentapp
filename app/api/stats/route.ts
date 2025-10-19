@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchContracts, effectiveEndDate, currentRentAmount } from "@/lib/contracts";
+import { fetchContracts, effectiveEndDate, currentRentAmount, rentAmountAtDate } from "@/lib/contracts";
 import { fetchInvoicesForYearFresh } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 
@@ -29,12 +29,26 @@ function safeNum(v: unknown): number | undefined {
   return typeof v === "number" && isFinite(v) ? v : undefined;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1-12
-    const contracts = await fetchContracts();
+    const url = new URL(req.url);
+    const ownerFilterRaw = url.searchParams.get("owner");
+    const ownerIdFilter = url.searchParams.get("ownerId");
+    const ownerFilter = ownerFilterRaw ? ownerFilterRaw.trim() : null;
+    const all = await fetchContracts();
+    const contracts = ownerFilter || ownerIdFilter
+      ? all.filter((c) => {
+          const name = String(((c as any).owner || "")).trim();
+          const id = String(((c as any).ownerId || ""));
+          return (
+            (ownerFilter && name === ownerFilter) ||
+            (ownerIdFilter && id === ownerIdFilter)
+          );
+        })
+      : all;
     const contractsCount = contracts.length;
     // Actual invoices data
   // Always fetch fresh to avoid serving stale cached totals after issuance/deletion.
@@ -47,7 +61,9 @@ export async function GET() {
     let actualAnnualRON = 0; // cu TVA
     let actualAnnualEUR = 0; // EUR net (corectat)
     let actualAnnualNetRON = 0; // fără TVA
+    const contractIdSet = new Set(contracts.map((c) => c.id));
     for (const inv of invoicesYear) {
+      if (!contractIdSet.has((inv as any).contractId)) continue;
       const totalRON = safeNum((inv as any).totalRON) ?? 0;
       const correctedEUR = safeNum((inv as any).correctedAmountEUR) ?? 0;
       const netRON = safeNum((inv as any).netRON) ?? 0;
@@ -76,18 +92,19 @@ export async function GET() {
     for (const c of contracts) {
       const start = new Date(c.startDate);
       const end = new Date(effectiveEndDate(c));
-  const rate = safeNum((c as any).exchangeRateRON);
-  const amountEURBase = safeNum(currentRentAmount(c as any));
+      const rate = safeNum((c as any).exchangeRateRON);
+      const amountEURBase = safeNum(currentRentAmount(c as any));
       const corrPct = safeNum((c as any).correctionPercent) ?? 0;
       const tvaPct = safeNum((c as any).tvaPercent) ?? 0;
-      if (!rate || !amountEURBase) continue;
-      // Per occurrence values
-  const correctedEUR = amountEURBase * (1 + corrPct / 100); // EUR net
-  const netRON = correctedEUR * rate; // RON fără TVA
-  const vatRON = netRON * (tvaPct / 100);
-  const totalRON = netRON + vatRON; // RON cu TVA
 
       if (c.rentType === "monthly") {
+        // Skip if no base amount
+        if (!amountEURBase) continue;
+        // Per-occurrence values (monthly)
+        const correctedEUR = amountEURBase * (1 + corrPct / 100); // EUR net
+        const netRON = typeof rate === 'number' ? correctedEUR * rate : undefined; // RON fără TVA
+        const vatRON = typeof netRON === 'number' ? netRON * (tvaPct / 100) : undefined;
+        const totalRON = typeof netRON === 'number' ? netRON + (vatRON ?? 0) : undefined; // RON cu TVA
         const mode = (c as any).invoiceMonthMode === "next" ? "next" : "current";
         for (let mIdx = 1; mIdx <= 12; mIdx++) {
           const mStart = new Date(year, mIdx - 1, 1);
@@ -102,12 +119,12 @@ export async function GET() {
             if (include && fraction > 0 && fraction < 1) {
               // Scale the amounts for partial coverage
               const fCorrectedEUR = correctedEUR * fraction;
-              const fNetRON = netRON * fraction;
-              const fVatRON = fNetRON * (tvaPct / 100);
-              const fTotalRON = fNetRON + fVatRON;
-              prognosisAnnualRON += fTotalRON;
+              const fNetRON = typeof netRON === 'number' ? netRON * fraction : undefined;
+              const fVatRON = typeof fNetRON === 'number' ? fNetRON * (tvaPct / 100) : undefined;
+              const fTotalRON = typeof fNetRON === 'number' ? fNetRON + (fVatRON ?? 0) : undefined;
+              if (typeof fTotalRON === 'number') prognosisAnnualRON += fTotalRON;
               prognosisAnnualEUR += fCorrectedEUR;
-              prognosisAnnualNetRON += fNetRON;
+              if (typeof fNetRON === 'number') prognosisAnnualNetRON += fNetRON;
               // Skip default add below
               if (mIdx !== month) continue; // monthly prognosis handled separately
             } else if (!include) {
@@ -116,40 +133,65 @@ export async function GET() {
           }
           
           if (includeInAnnual && mode !== "next") {
-            prognosisAnnualRON += totalRON;
+            if (typeof totalRON === 'number') prognosisAnnualRON += totalRON;
             prognosisAnnualEUR += correctedEUR;
-            prognosisAnnualNetRON += netRON;
+            if (typeof netRON === 'number') prognosisAnnualNetRON += netRON;
           }
           if (mIdx === month) {
             if (!(end < currentMonthStart || start > currentMonthEnd)) {
               // Mode current: invoice reflects current active month
               if (mode === "current") {
-                prognosisMonthRON += totalRON;
+                if (typeof totalRON === 'number') prognosisMonthRON += totalRON;
                 prognosisMonthEUR += correctedEUR;
-                prognosisMonthNetRON += netRON;
+                if (typeof netRON === 'number') prognosisMonthNetRON += netRON;
               } else {
                 const { include, fraction } = computeNextMonthProration(c as any, year, month);
                 if (include) {
                   if (fraction > 0 && fraction < 1) {
                     const fCorrectedEUR = correctedEUR * fraction;
-                    const fNetRON = netRON * fraction;
-                    const fVatRON = fNetRON * (tvaPct / 100);
-                    const fTotalRON = fNetRON + fVatRON;
-                    prognosisMonthRON += fTotalRON;
+                    const fNetRON = typeof netRON === 'number' ? netRON * fraction : undefined;
+                    const fVatRON = typeof fNetRON === 'number' ? fNetRON * (tvaPct / 100) : undefined;
+                    const fTotalRON = typeof fNetRON === 'number' ? fNetRON + (fVatRON ?? 0) : undefined;
+                    if (typeof fTotalRON === 'number') prognosisMonthRON += fTotalRON;
                     prognosisMonthEUR += fCorrectedEUR;
-                    prognosisMonthNetRON += fNetRON;
+                    if (typeof fNetRON === 'number') prognosisMonthNetRON += fNetRON;
                   } else {
-                    prognosisMonthRON += totalRON;
+                    if (typeof totalRON === 'number') prognosisMonthRON += totalRON;
                     prognosisMonthEUR += correctedEUR;
-                    prognosisMonthNetRON += netRON;
+                    if (typeof netRON === 'number') prognosisMonthNetRON += netRON;
                   }
                 }
               }
             }
           }
         }
+        // Also include any additional irregularInvoices entries defined on a monthly contract
+        const extras = (c as any).irregularInvoices as { month: number; day: number; amountEUR: number }[] | undefined
+          || ((c as any).yearlyInvoices as { month: number; day: number; amountEUR: number }[] | undefined);
+        if (extras) {
+          for (const yi of extras) {
+            if (yi.month < 1 || yi.month > 12) continue;
+            const yDate = new Date(year, yi.month - 1, Math.min(yi.day, daysInMonth(year, yi.month)));
+            if (yDate < start || yDate > end) continue;
+            const yearlyAmt = safeNum(yi.amountEUR);
+            if (!yearlyAmt) continue;
+            const yCorrected = yearlyAmt * (1 + corrPct / 100);
+            const yNet = typeof rate === 'number' ? yCorrected * rate : undefined; // fără TVA
+            const yVat = typeof yNet === 'number' ? yNet * (tvaPct / 100) : undefined;
+            const yTotal = typeof yNet === 'number' ? yNet + (yVat ?? 0) : undefined; // cu TVA
+            if (typeof yTotal === 'number') prognosisAnnualRON += yTotal;
+            prognosisAnnualEUR += yCorrected;
+            if (typeof yNet === 'number') prognosisAnnualNetRON += yNet;
+            if (yi.month === month && yDate >= currentMonthStart && yDate <= currentMonthEnd) {
+              if (typeof yTotal === 'number') prognosisMonthRON += yTotal;
+              prognosisMonthEUR += yCorrected;
+              if (typeof yNet === 'number') prognosisMonthNetRON += yNet;
+            }
+          }
+        }
       } else if (c.rentType === "yearly") {
-        const entries = (c as any).yearlyInvoices as { month: number; day: number; amountEUR: number }[] | undefined;
+        const entries = (c as any).irregularInvoices as { month: number; day: number; amountEUR: number }[] | undefined
+          || ((c as any).yearlyInvoices as { month: number; day: number; amountEUR: number }[] | undefined);
         if (entries) {
           for (const yi of entries) {
             if (yi.month < 1 || yi.month > 12) continue;
@@ -158,16 +200,43 @@ export async function GET() {
             const yearlyAmt = safeNum(yi.amountEUR);
             if (!yearlyAmt) continue;
             const yCorrected = yearlyAmt * (1 + corrPct / 100);
-            const yNet = yCorrected * rate; // fără TVA
-            const yVat = yNet * (tvaPct / 100);
-            const yTotal = yNet + yVat; // cu TVA
-            prognosisAnnualRON += yTotal;
+            const yNet = typeof rate === 'number' ? yCorrected * rate : undefined; // fără TVA
+            const yVat = typeof yNet === 'number' ? yNet * (tvaPct / 100) : undefined;
+            const yTotal = typeof yNet === 'number' ? yNet + (yVat ?? 0) : undefined; // cu TVA
+            if (typeof yTotal === 'number') prognosisAnnualRON += yTotal;
             prognosisAnnualEUR += yCorrected;
-            prognosisAnnualNetRON += yNet;
+            if (typeof yNet === 'number') prognosisAnnualNetRON += yNet;
             if (yi.month === month && yDate >= currentMonthStart && yDate <= currentMonthEnd) {
-              prognosisMonthRON += yTotal;
+              if (typeof yTotal === 'number') prognosisMonthRON += yTotal;
               prognosisMonthEUR += yCorrected;
-              prognosisMonthNetRON += yNet;
+              if (typeof yNet === 'number') prognosisMonthNetRON += yNet;
+            }
+          }
+        }
+      } else if ((c as any).rentType === "chosenDates") {
+        const entries = (c as any).chosenDatesInvoicesDates as { date: string }[] | undefined;
+        if (Array.isArray(entries) && entries.length > 0) {
+          for (const row of entries) {
+            const iso = String((row && row.date) || "").slice(0, 10);
+            if (!iso) continue;
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) continue;
+            if (d < start || d > end) continue;
+            if (d.getFullYear() !== year) continue;
+            const baseEUR = rentAmountAtDate(c as any, iso);
+            if (typeof baseEUR !== 'number') continue;
+            const correctedEUR = baseEUR * (1 + (corrPct ?? 0) / 100);
+            const netRON = typeof rate === 'number' ? correctedEUR * rate : undefined;
+            const vatRON = typeof netRON === 'number' ? netRON * (tvaPct / 100) : undefined;
+            const totalRON = typeof netRON === 'number' ? netRON + (vatRON ?? 0) : undefined;
+            if (typeof totalRON === 'number') prognosisAnnualRON += totalRON;
+            prognosisAnnualEUR += correctedEUR;
+            if (typeof netRON === 'number') prognosisAnnualNetRON += netRON;
+            // Current month bucket
+            if (d.getMonth() + 1 === month) {
+              if (typeof totalRON === 'number') prognosisMonthRON += totalRON;
+              prognosisMonthEUR += correctedEUR;
+              if (typeof netRON === 'number') prognosisMonthNetRON += netRON;
             }
           }
         }

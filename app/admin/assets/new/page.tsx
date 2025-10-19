@@ -2,6 +2,7 @@
 import { useActionState } from "react";
 import { createAssetAction, type FormState } from "./actions";
 import Link from "next/link";
+import OwnerSelect from "@/app/components/owner-select";
 
 export default function NewAssetPage() {
   const [state, formAction] = useActionState<FormState, FormData>(
@@ -69,6 +70,10 @@ export default function NewAssetPage() {
               defaultValue={String(state.values.areaSqm ?? "")}
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Proprietar</label>
+            <OwnerSelect idName="ownerId" nameName="owner" required />
           </div>
           <fieldset className="rounded-md border border-foreground/10 p-3">
             <legend className="px-1 text-xs text-foreground/60">

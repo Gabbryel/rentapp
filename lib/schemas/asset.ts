@@ -29,6 +29,9 @@ export const AssetSchema = z
   .object({
     id: z.string().min(1, "id obligatoriu"),
     name: z.string().min(1, "nume obligatoriu"),
+    // Owner linkage
+    ownerId: z.string().optional(),
+    owner: z.string().optional(),
     address: z.string().min(1, "adresă obligatorie"),
     areaSqm: z
       .preprocess((v) => {
@@ -47,6 +50,9 @@ export const AssetSchema = z
   })
   .superRefine((val, ctx) => {
     // no cross-field constraints for now
+    if ((val.ownerId && !val.owner) || (!val.ownerId && val.owner)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["owner"], message: "owner și ownerId trebuie împerecheate" });
+    }
   });
 
 export type Asset = z.infer<typeof AssetSchema>;
