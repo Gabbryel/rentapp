@@ -1178,7 +1178,8 @@ export async function updateInvoiceNumber(id: string, number: string): Promise<b
   const newDoc = { ...(doc as any), id: number, number, updatedAt: nowIso };
   await db.collection<Invoice>("invoices").deleteOne({ id });
   const res = await db.collection<Invoice>("invoices").updateOne({ id: number }, { $set: newDoc }, { upsert: true });
-  return Boolean(res.acknowledged && res.matchedCount === 1);
+  // Consider upsert acknowledged a success; matchedCount can be 0 on upsert
+  return Boolean(res.acknowledged);
 }
 
 export async function deleteInvoiceById(id: string): Promise<boolean> {

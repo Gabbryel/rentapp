@@ -10,10 +10,10 @@
   "markov-services-srl": {
     "id": "markov-services-srl",
     "series": "MS",
-    "nextNumber": 10,
+    "nextNumber": 21,
     "padWidth": 5,
     "includeYear": true,
-    "updatedAt": "2025-10-20T07:50:23.951Z"
+    "updatedAt": "2025-10-20T17:47:14.485Z"
   },
   "mks-properties-srl": {
     "id": "mks-properties-srl",

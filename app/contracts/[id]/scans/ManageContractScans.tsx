@@ -17,6 +17,7 @@ type Props = {
   rentType?: "monthly" | "yearly";
   irregularInvoices?: { month: number; day: number; amountEUR: number }[];
   children?: React.ReactNode;
+  wrapChildrenInCard?: boolean;
 };
 
 export default function ManageContractScans({
@@ -26,6 +27,7 @@ export default function ManageContractScans({
   rentType,
   irregularInvoices,
   children,
+  wrapChildrenInCard = true,
 }: Props) {
   const [addState, addAction] = useActionState<ScanActionState, FormData>(
     addScanAction,
@@ -214,15 +216,21 @@ export default function ManageContractScans({
               </form>
             </div>
 
-            {/* Card: acțiuni suplimentare (children) */}
-            {children ? (
-              <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
-                <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
-                  Acțiuni contract
-                </div>
-                <div className="mt-1">{children}</div>
-              </div>
-            ) : null}
+            {/* Card sau conținut direct: acțiuni suplimentare (children) */}
+            {children
+              ? wrapChildrenInCard
+                ? (
+                    <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
+                      <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
+                        Acțiuni contract
+                      </div>
+                      <div className="mt-1">{children}</div>
+                    </div>
+                  )
+                : (
+                    <>{children}</>
+                  )
+              : null}
           </div>
         </>
       )}

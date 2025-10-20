@@ -1225,6 +1225,63 @@ export default async function ContractPage({
                             strokeWidth={2}
                             filter="url(#glow)"
                           />
+                          {/* Indexing date markers: circles for applied, crosses for scheduled */}
+                          {(() => {
+                            // Only mark indexations that change the rent amount (value differs from previous)
+                            const rows = (Array.isArray((contract as any).indexingDates)
+                              ? ((contract as any).indexingDates as any[])
+                              : [])
+                              .filter((it) => it && typeof it.newRentAmount === 'number')
+                              .map((it) => ({
+                                eff: String((it.actualDate || it.forecastDate) || '').slice(0, 10),
+                                v: Number(it.newRentAmount),
+                                done: Boolean(it.done),
+                              }))
+                              .filter((r) => r.eff)
+                              .sort((a, b) => a.eff.localeCompare(b.eff));
+                            const items: { eff: string; v: number; done: boolean }[] = [];
+                            for (let i = 1; i < rows.length; i++) {
+                              const prev = rows[i - 1];
+                              const cur = rows[i];
+                              if (Number.isFinite(cur.v) && Number.isFinite(prev.v) && cur.v !== prev.v) {
+                                items.push(cur);
+                              }
+                            }
+                            if (items.length === 0) return null;
+                            return (
+                              <g id="indexing-markers">
+                                {items.map((m, i) => {
+                                  const cx = x(new Date(m.eff).getTime());
+                                  const cy = y(m.v);
+                                  if (m.done) {
+                                    // Applied: small circle
+                                    return (
+                                      <circle
+                                        key={`idxc-${i}`}
+                                        cx={cx}
+                                        cy={cy}
+                                        r={3}
+                                        fill="rgb(59 130 246)" /* blue-500 */
+                                        stroke="white"
+                                        strokeWidth={1}
+                                      >
+                                        <title>{`Indexare aplicată • ${m.eff}`}</title>
+                                      </circle>
+                                    );
+                                  }
+                                  // Scheduled: small cross
+                                  const s = 3.5;
+                                  return (
+                                    <g key={`idxx-${i}`} stroke="rgb(245 158 11)" strokeWidth={1.5}>
+                                      <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} />
+                                      <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} />
+                                      <title>{`Indexare programată • ${m.eff}`}</title>
+                                    </g>
+                                  );
+                                })}
+                              </g>
+                            );
+                          })()}
                         </svg>
                       </div>
                     );
@@ -1358,16 +1415,17 @@ export default async function ContractPage({
             mongoConfigured={Boolean(process.env.MONGODB_URI)}
             rentType={contract.rentType}
             irregularInvoices={(contract as any).irregularInvoices || []}
+            wrapChildrenInCard={false}
           >
             {/* Gestionează contract (mutat în manage-contract-section) */}
-            {Array.isArray((contract as any).partners) && (contract as any).partners.length > 0 ? (
-              <div className="rounded-md border border-foreground/10 p-3 space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">Procentaje parteneri</div>
+            {Array.isArray((contract as any).partners) && (contract as any).partners.length > 1 ? (
+              <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-wide text-white/60">Procentaje parteneri</div>
                 <form action={updatePartnerSharesAction} className="space-y-2">
                   <input type="hidden" name="contractId" value={contract.id} />
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                     {(((contract as any).partners as any[]) || []).map((p: any, i: number) => (
-                      <div key={(p?.id || p?.name || i) + "-share"} className="rounded bg-foreground/5 px-2 py-2 flex items-end gap-2">
+                      <div key={(p?.id || p?.name || i) + "-share"} className="rounded bg-white/5 px-2 py-2 flex items-end gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate" title={String(p?.name || "")}>
                             {String(p?.name || "")}
@@ -1376,7 +1434,7 @@ export default async function ContractPage({
                           <input type="hidden" name="partnerName" value={p?.name || ""} />
                         </div>
                         <div className="shrink-0">
-                          <label className="block text-foreground/60 text-[11px]">%</label>
+                          <label className="block text-white/60 text-[11px]">%</label>
                           <input
                             name="sharePercent"
                             type="number"
@@ -1384,14 +1442,14 @@ export default async function ContractPage({
                             min={0}
                             max={100}
                             defaultValue={typeof p?.sharePercent === 'number' ? p.sharePercent : ("" as any)}
-                            className="rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs w-32 min-w-[7rem]"
+                            className="rounded-md border border-white/20 bg-transparent px-2 py-1 text-xs w-32 min-w-[7rem]"
                           />
                         </div>
                       </div>
                     ))}
                   </div>
                   <div className="pt-1">
-                    <button type="submit" className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5">
+                    <button type="submit" className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10">
                       Salvează procentele
                     </button>
                   </div>
@@ -1399,11 +1457,11 @@ export default async function ContractPage({
               </div>
             ) : null}
             {contract.rentType === "yearly" ? (
-              <div className="rounded-md border border-foreground/10 p-3 space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+              <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-wide text-white/60">
                   Facturi anuale – date suplimentare
                 </div>
-                <div className="text-xs text-foreground/60">
+                <div className="text-xs text-white/70">
                   Adaugă sau editează zilele/lunile pentru facturile anuale ale contractului.
                 </div>
                 {((((contract as any).irregularInvoices)?.length) ?? 0) > 0 ? (
@@ -1414,7 +1472,7 @@ export default async function ContractPage({
                       .map((r, i) => (
                         <li
                           key={`${r.month}-${r.day}-${i}`}
-                          className="flex items-center justify-between rounded bg-foreground/5 px-2 py-1"
+                          className="flex items-center justify-between rounded bg-white/5 px-2 py-1"
                         >
                           <div className="flex items-center gap-3">
                             <span className="rounded bg-foreground/10 px-2 py-0.5 text-xs">
@@ -1428,7 +1486,7 @@ export default async function ContractPage({
                       ))}
                   </ul>
                 ) : (
-                  <div className="text-xs text-foreground/60">Nu există date definite.</div>
+                  <div className="text-xs text-white/70">Nu există date definite.</div>
                 )}
               </div>
             ) : null}
@@ -1442,10 +1500,12 @@ export default async function ContractPage({
                 : [];
               if (arr.length === 0) return null;
               return (
-                <details className="md:col-span-3 w-full border border-foreground/10 rounded-md p-3 space-y-2">
-                  <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-foreground/50">
-                    Afișează prelungiri existente
-                  </summary>
+                <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-2">
+                  <div className="text-[11px] uppercase tracking-wide text-white/60">Prelungiri existente</div>
+                  <details className="md:col-span-3 w-full border border-white/12 rounded-md p-3 space-y-2">
+                    <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-white/70">
+                      Afișează toate prelungirile
+                    </summary>
                   <ul className="mt-2 space-y-2">
                     {arr
                       .slice()
@@ -1521,16 +1581,16 @@ export default async function ContractPage({
                         );
                       })}
                   </ul>
-                </details>
-              );
+                  </details>
+                </div>
+                );
             })()}
-            <form
-              action={addExtension}
-              className="md:col-span-3 flex flex-wrap items-end gap-3 text-sm"
-            >
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 mt-4">
+              <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">Adaugă prelungire</div>
+            <form action={addExtension} className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end text-sm">
               <input type="hidden" name="contractId" value={contract.id} />
               <div>
-                <label className="block text-foreground/60 mb-1">
+                <label className="block text-white/60 mb-1">
                   Data document
                 </label>
                 <input
@@ -1538,109 +1598,77 @@ export default async function ContractPage({
                   type="date"
                   min={String(contract.signedAt)}
                   max={String(effectiveEndDate(contract))}
-                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
                   required
                 />
               </div>
               <div>
-                <label className="block text-foreground/60 mb-1">
+                <label className="block text-white/60 mb-1">
                   Document
                 </label>
                 <input
                   name="document"
                   type="text"
                   placeholder="Act adițional"
-                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
                 />
               </div>
               <div>
-                <label className="block text-foreground/60 mb-1">
+                <label className="block text-white/60 mb-1">
                   Prelungire până la
                 </label>
                 <input
                   name="extendedUntil"
                   type="date"
                   min={String(effectiveEndDate(contract))}
-                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                  className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="rounded-md border border-foreground/20 px-3 py-2 text-xs font-semibold hover:bg-foreground/5"
+                className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
               >
                 Adaugă prelungire
               </button>
             </form>
-            <div
-              id="contract-indexari-programate"
-              className="mt-4 border-t border-foreground/10 pt-3 text-sm"
-            >
-              <h4 className="text-[11px] font-semibold mb-2">
-                Indexări programate
-              </h4>
+            </div>
+            <div id="contract-indexari-programate" className="rounded-xl border border-white/12 bg-white/[0.04] p-4 text-sm mt-4">
+              <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">Indexări programate</div>
               <form
                 action={saveIndexing}
                 className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-5 sm:items-end text-[11px]"
               >
                 <input type="hidden" name="contractId" value={contract.id} />
                 <div className="space-y-1">
-                  <label className="block text-foreground/60">Dată programată</label>
-                  <input
-                    required
-                    name="forecastDate"
-                    type="date"
-                    min={String(contract.signedAt)}
-                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
+                  <label className="block text-white/60">Dată programată</label>
+                  <input required name="forecastDate" type="date" min={String(contract.signedAt)} className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-foreground/60">Dată efectivă</label>
-                  <input
-                    name="actualDate"
-                    type="date"
-                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
+                  <label className="block text-white/60">Dată efectivă</label>
+                  <input name="actualDate" type="date" className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-foreground/60">Document</label>
-                  <input
-                    name="document"
-                    type="text"
-                    maxLength={200}
-                    placeholder="ex: Decizie indexare"
-                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
+                  <label className="block text-white/60">Document</label>
+                  <input name="document" type="text" maxLength={200} placeholder="ex: Decizie indexare" className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-foreground/60">Chirie nouă (EUR)</label>
-                  <input
-                    name="newRentAmount"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
-                  />
+                  <label className="block text-white/60">Chirie nouă (EUR)</label>
+                  <input name="newRentAmount" type="number" step="0.01" min={0} className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="inline-flex items-center gap-1 text-foreground/60">
-                    <input type="checkbox" name="done" value="1" className="rounded border-foreground/30" />
+                  <label className="inline-flex items-center gap-1 text-white/60">
+                    <input type="checkbox" name="done" value="1" className="rounded border-white/30" />
                     <span>Marchează ca aplicată</span>
                   </label>
-                  <button
-                    type="submit"
-                    className="ml-auto rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
-                    title="Adaugă indexare"
-                  >
-                    Adaugă indexare
-                  </button>
+                  <button type="submit" className="ml-auto rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10" title="Adaugă indexare">Adaugă indexare</button>
                 </div>
               </form>
               {Array.isArray((contract as any).indexingDates) &&
               ((contract as any).indexingDates as any[]).filter(
                 (x: any) => !x.done
               ).length === 0 ? (
-                <div className="text-foreground/60 text-xs italic">
+                <div className="text-white/70 text-xs italic">
                   Nicio indexare viitoare programată.
                 </div>
               ) : (
@@ -1665,10 +1693,7 @@ export default async function ContractPage({
                   const it = nextIt;
                   return (
                     <ul className="space-y-3 text-[11px]">
-                      <li
-                        key={contract.id + it.forecastDate}
-                        className="rounded-lg border border-foreground/15 bg-background/40 p-3"
-                      >
+                      <li key={contract.id + it.forecastDate} className="rounded-lg border border-white/15 bg-white/5 p-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="space-y-1">
                             <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
@@ -1814,13 +1839,9 @@ export default async function ContractPage({
                                   />
                                 </div>
                                 <div className="sm:justify-self-end">
-                                  <button
-                                    type="submit"
-                                    className="w-full whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold border border-foreground/20 hover:bg-foreground/5"
-                                    title="Salvează modificările"
-                                  >
-                                    Salvează
-                                  </button>
+                              <button type="submit" className="w-full whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold border border-white/20 hover:bg-white/10" title="Salvează modificările">
+                                Salvează
+                              </button>
                                 </div>
                               </form>
                             </div>
@@ -1831,10 +1852,10 @@ export default async function ContractPage({
                 );
               })()}
 
-              <div id="contract-deposits-list" className="mt-4">
-                <div className="text-sm font-semibold mb-2">Depozite</div>
+              <div id="contract-deposits-list" className="rounded-xl border border-white/12 bg-white/[0.04] p-4 mt-4">
+                <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">Depozite</div>
                 {deposits.length === 0 ? (
-                  <div className="text-foreground/60 text-xs">
+                  <div className="text-white/70 text-xs">
                     Niciun depozit.
                   </div>
                 ) : (
@@ -1842,23 +1863,17 @@ export default async function ContractPage({
                     {deposits.map((d) => (
                       <div
                         key={`${d.id}-${d.updatedAt ?? ""}`}
-                        className="rounded bg-foreground/5 px-2 py-1"
+                        className="rounded bg-white/5 px-2 py-1"
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm font-medium">
                               {String(d.type).replace("_", " ")}
-                              <span
-                                className={`ml-2 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                                  (d as any).returned
-                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                    : "bg-foreground/10 text-foreground/70"
-                                }`}
-                              >
+                              <span className={`ml-2 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold ${(d as any).returned ? "bg-emerald-500/10 text-emerald-300" : "bg-white/10 text-white/70"}`}>
                                 {(d as any).returned ? "returnat" : "custodie"}
                               </span>
                             </div>
-                            <div className="text-foreground/60 text-xs">
+                            <div className="text-white/70 text-xs">
                               {(() => {
                                 const parts: string[] = [];
                                 if (
@@ -1883,7 +1898,7 @@ export default async function ContractPage({
                                 return withNote;
                               })()}
                             </div>
-                            <div className="text-foreground/50 text-[10px] mt-1">
+                            <div className="text-white/50 text-[10px] mt-1">
                               Creat: {d.createdAt ?? "—"} • Actualizat:{" "}
                               {d.updatedAt ?? "—"}
                             </div>
@@ -1900,14 +1915,7 @@ export default async function ContractPage({
                                 name="contractId"
                                 value={contract.id}
                               />
-                              <button
-                                type="submit"
-                                className={`rounded px-2 py-1 text-xs ${
-                                  d.isDeposited
-                                    ? "bg-emerald-500/10 text-emerald-600"
-                                    : "bg-foreground/5 text-foreground/70"
-                                }`}
-                              >
+                              <button type="submit" className={`rounded px-2 py-1 text-xs ${d.isDeposited ? "bg-emerald-500/10 text-emerald-300" : "bg-white/10 text-white/70"}`}>
                                 {d.isDeposited ? "Depus" : "Marchează ca depus"}
                               </button>
                             </form>
@@ -1932,7 +1940,7 @@ export default async function ContractPage({
                                 <select
                                   name="type"
                                   defaultValue={d.type}
-                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                                 >
                                   <option value="bank_transfer">
                                     Transfer bancar
@@ -1951,7 +1959,7 @@ export default async function ContractPage({
                                       ? d.amountEUR
                                       : ("" as any)
                                   }
-                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                                 />
                                 <input
                                   name="amountRON"
@@ -1962,7 +1970,7 @@ export default async function ContractPage({
                                       ? (d as any).amountRON
                                       : ("" as any)
                                   }
-                                  className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                                className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                                 />
                                 <input
                                   name="note"
@@ -1989,7 +1997,7 @@ export default async function ContractPage({
                                 </label>
                                 <button
                                   type="submit"
-                                  className="rounded-md border border-foreground/20 px-2 py-1 text-sm"
+                                  className="rounded-md border border-white/20 px-2 py-1 text-sm hover:bg-white/10"
                                 >
                                   Salvează
                                 </button>
@@ -2007,7 +2015,7 @@ export default async function ContractPage({
                                 value={contract.id}
                               />
                               <ConfirmSubmit
-                                className="text-sm text-red-600 underline-offset-2 hover:underline"
+                                className="text-sm text-red-300 underline-offset-2 hover:underline"
                                 title="Șterge depozitul"
                                 successMessage="Depozit șters"
                                 confirmMessage="Sigur dorești să ștergi acest depozit?"
@@ -2022,26 +2030,21 @@ export default async function ContractPage({
                   </div>
                 )}
 
-                <div id="contract-deposits-create" className="mt-3">
-                  <div className="text-sm font-semibold mb-2">
-                    Adaugă depozit
-                  </div>
-                  <form
-                    action={createDepositAction}
-                    className="flex flex-wrap items-end gap-3 text-[11px]"
-                  >
+                <div id="contract-deposits-create" className="rounded-xl border border-white/12 bg-white/[0.04] p-4 mt-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">Adaugă depozit</div>
+                  <form action={createDepositAction} className="flex flex-wrap items-end gap-3 text-[11px]">
                     <input
                       type="hidden"
                       name="contractId"
                       value={contract.id}
                     />
                     <div>
-                      <label className="block text-foreground/60 mb-1">
+                      <label className="block text-white/60 mb-1">
                         Tip
                       </label>
                       <select
                         name="type"
-                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                         required
                       >
                         <option value="bank_transfer">Transfer bancar</option>
@@ -2050,7 +2053,7 @@ export default async function ContractPage({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-foreground/60 mb-1">
+                      <label className="block text-white/60 mb-1">
                         Sumă (EUR)
                       </label>
                       <input
@@ -2058,11 +2061,11 @@ export default async function ContractPage({
                         type="number"
                         step="0.01"
                         min={0}
-                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                       />
                     </div>
                     <div>
-                      <label className="block text-foreground/60 mb-1">
+                      <label className="block text-white/60 mb-1">
                         Sumă (RON)
                       </label>
                       <input
@@ -2070,54 +2073,41 @@ export default async function ContractPage({
                         type="number"
                         step="0.01"
                         min={0}
-                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                       />
                     </div>
                     <div>
-                      <label className="block text-foreground/60 mb-1">
+                      <label className="block text-white/60 mb-1">
                         Notă
                       </label>
                       <input
                         name="note"
-                        className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                        className="rounded-md border border-white/20 bg-transparent px-2 py-1"
                       />
                     </div>
-                    <label className="text-xs flex items-center gap-2 mb-2">
+                    <label className="text-xs flex items-center gap-2 mb-2 text-white/80">
                       <input type="checkbox" name="returned" /> Returnat
                     </label>
                     <button
                       type="submit"
-                      className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-3 py-2 font-semibold hover:bg-foreground/5"
+                      className="inline-flex items-center gap-1 rounded-md border border-white/20 px-3 py-2 font-semibold hover:bg-white/10"
                     >
                       Adaugă
                     </button>
                   </form>
-                  <div className="mt-6 pt-4 border-t border-foreground/10">
-                    <div className="text-sm font-semibold mb-2">Corecție contract</div>
-                    <form action={updateCorrectionPercentAction} className="flex flex-wrap items-end gap-3 text-[11px]">
-                      <input type="hidden" name="contractId" value={contract.id} />
-                      <div>
-                        <label className="block text-foreground/60 mb-1">Corecție %</label>
-                        <input
-                          name="correctionPercent"
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          max={100}
-                          defaultValue={typeof contract.correctionPercent === "number" ? contract.correctionPercent : ("" as any)}
-                          className="rounded-md border border-foreground/20 bg-background px-2 py-1"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-3 py-2 font-semibold hover:bg-foreground/5"
-                      >
-                        Salvează corecția
-                      </button>
-                    </form>
-                  </div>
                 </div>
               </div>
+            </div>
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 mt-4">
+              <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">Corecție contract</div>
+              <form action={updateCorrectionPercentAction} className="flex flex-wrap items-end gap-3 text-[11px]">
+                <input type="hidden" name="contractId" value={contract.id} />
+                <div>
+                  <label className="block text-white/60 mb-1">Corecție %</label>
+                  <input name="correctionPercent" type="number" step="0.01" min={0} max={100} defaultValue={typeof contract.correctionPercent === "number" ? contract.correctionPercent : ("" as any)} className="rounded-md border border-white/20 bg-transparent px-2 py-1" />
+                </div>
+                <button type="submit" className="inline-flex items-center gap-1 rounded-md border border-white/20 px-3 py-2 font-semibold hover:bg-white/10">Salvează corecția</button>
+              </form>
             </div>
           </ManageContractScans>
         </div>

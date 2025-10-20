@@ -466,17 +466,9 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
       type: "annualPrognosis" as const,
       ron: stats ? fmtRON(stats.prognosisAnnualRON) : null,
       eur: stats ? fmtEUR(stats.prognosisAnnualEUR) : null,
-      // Provide net prognosis values (EUR derived proportionally if not explicitly available)
+      // Net prognosis values
       netRON: stats ? fmtRON(stats.prognosisAnnualNetRON) : null,
-      netEUR:
-        stats && stats.prognosisAnnualRON > 0
-          ? fmtEUR(
-              (stats.prognosisAnnualNetRON / stats.prognosisAnnualRON) *
-                stats.prognosisAnnualEUR
-            )
-          : stats
-          ? fmtEUR(0)
-          : null,
+      netEUR: stats ? fmtEUR(stats.prognosisAnnualEUR) : null,
       progress: null,
     },
   ];
@@ -594,13 +586,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
                               {fmtRON(stats.actualAnnualNetRON)}
                             </span>
                             <span className="text-xs text-foreground/50">
-                              {stats.actualAnnualRON > 0
-                                ? fmtEUR(
-                                    (stats.actualAnnualNetRON /
-                                      stats.actualAnnualRON) *
-                                      stats.actualAnnualEUR
-                                  )
-                                : fmtEUR(0)}
+                              {fmtEUR(stats.actualAnnualEUR)}
                             </span>
                           </div>
                         </>

@@ -110,29 +110,27 @@ export async function GET(req: Request) {
           const mStart = new Date(year, mIdx - 1, 1);
           const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
           if (end < mStart || start > mEnd) continue; // contract inactive this month
-          
-          // For annual prognosis: in "next" mode, check if invoicing this month for next month makes sense
-          let includeInAnnual = true;
+          // Annual prognosis accumulation for this calendar month
           if (mode === "next") {
+            // In advance mode, include if next-month coverage applies
             const { include, fraction } = computeNextMonthProration(c as any, year, mIdx);
-            includeInAnnual = include;
-            if (include && fraction > 0 && fraction < 1) {
-              // Scale the amounts for partial coverage
-              const fCorrectedEUR = correctedEUR * fraction;
-              const fNetRON = typeof netRON === 'number' ? netRON * fraction : undefined;
-              const fVatRON = typeof fNetRON === 'number' ? fNetRON * (tvaPct / 100) : undefined;
-              const fTotalRON = typeof fNetRON === 'number' ? fNetRON + (fVatRON ?? 0) : undefined;
-              if (typeof fTotalRON === 'number') prognosisAnnualRON += fTotalRON;
-              prognosisAnnualEUR += fCorrectedEUR;
-              if (typeof fNetRON === 'number') prognosisAnnualNetRON += fNetRON;
-              // Skip default add below
-              if (mIdx !== month) continue; // monthly prognosis handled separately
-            } else if (!include) {
-              continue; // skip entirely for annual
+            if (include) {
+              if (fraction > 0 && fraction < 1) {
+                const fCorrectedEUR = correctedEUR * fraction;
+                const fNetRON = typeof netRON === 'number' ? netRON * fraction : undefined;
+                const fVatRON = typeof fNetRON === 'number' ? fNetRON * (tvaPct / 100) : undefined;
+                const fTotalRON = typeof fNetRON === 'number' ? fNetRON + (fVatRON ?? 0) : undefined;
+                if (typeof fTotalRON === 'number') prognosisAnnualRON += fTotalRON;
+                prognosisAnnualEUR += fCorrectedEUR;
+                if (typeof fNetRON === 'number') prognosisAnnualNetRON += fNetRON;
+              } else {
+                if (typeof totalRON === 'number') prognosisAnnualRON += totalRON;
+                prognosisAnnualEUR += correctedEUR;
+                if (typeof netRON === 'number') prognosisAnnualNetRON += netRON;
+              }
             }
-          }
-          
-          if (includeInAnnual && mode !== "next") {
+          } else {
+            // Current mode: include full occurrence for active months
             if (typeof totalRON === 'number') prognosisAnnualRON += totalRON;
             prognosisAnnualEUR += correctedEUR;
             if (typeof netRON === 'number') prognosisAnnualNetRON += netRON;

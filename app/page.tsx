@@ -1,9 +1,4 @@
-import {
-  fetchContracts,
-  effectiveEndDate,
-  currentRentAmount,
-  rentAmountAtDate,
-} from "@/lib/contracts";
+import { fetchContracts, effectiveEndDate, rentAmountAtDate } from "@/lib/contracts";
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
@@ -12,7 +7,6 @@ import ActionButton from "@/app/components/action-button";
 import { revalidatePath } from "next/cache";
 import {
   computeInvoiceFromContract,
-  findInvoiceByContractAndDate,
   issueInvoiceAndGeneratePdf,
   listInvoicesForMonth,
   deleteInvoiceById,
@@ -131,7 +125,11 @@ export default async function HomePage() {
           due.push({ contract: c, issuedAt, amountEUR: partAmount, ...(p.id ? { partnerId: p.id } : {}), partnerName: p.name, sharePercent: p.sharePercent } as any);
         }
       } else {
-        due.push({ contract: c, issuedAt, amountEUR: amountEUROverride });
+        // Attach primary partner info so issued-key matching works for single-partner contracts
+        const extra: any = {};
+        if ((c as any).partnerId) extra.partnerId = (c as any).partnerId;
+        if (c.partner) extra.partnerName = c.partner;
+        due.push({ contract: c, issuedAt, amountEUR: amountEUROverride, ...extra } as any);
       }
     } else if (c.rentType === "yearly") {
       const entries = (c as any).irregularInvoices as
@@ -323,9 +321,25 @@ export default async function HomePage() {
                 {groups
                   .get(owner)!
                   .slice()
-                  .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
+                  .sort((a, b) => {
+                    const day = (s: string) => {
+                      const dd = Number(s?.slice(8, 10));
+                      return Number.isInteger(dd) ? dd : new Date(s).getDate() || 0;
+                    };
+                    const pa = ((a as any).partnerName || (a.contract as any).partner || "").toString();
+                    const pb = ((b as any).partnerName || (b.contract as any).partner || "").toString();
+                    const dA = day(a.issuedAt);
+                    const dB = day(b.issuedAt);
+                    if (dA !== dB) return dA - dB;
+                    return pa.localeCompare(pb, "ro-RO", { sensitivity: "base" });
+                  })
                   .map((d) => {
-                    const partnerKey = (d as any).partnerId || (d as any).partnerName || '';
+                    const partnerKey =
+                      (d as any).partnerId ||
+                      (d as any).partnerName ||
+                      d.contract.partnerId ||
+                      d.contract.partner ||
+                      '';
                     const key = `${d.contract.id}|${d.issuedAt}|${partnerKey}`;
                     const already = issuedByKey.has(key);
                     const amtEUR =
@@ -365,6 +379,7 @@ export default async function HomePage() {
                       ? ((((d.contract as any).partners as any[]) as Array<{ id?: string; name: string; sharePercent?: number }>))
                       : [];
                     const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
+                    const partnerCount = partners.filter(p => typeof p?.name === 'string' && p.name.trim()).length;
 
                     const liBase =
                       "group rounded-lg border transition-colors shadow-sm p-4";
@@ -618,27 +633,31 @@ export default async function HomePage() {
                                 ? fmtEUR(amtEUR)
                                 : "–"}
                         </div>
-                        {partners.length > 1 && sumShares > 0 && !partnerKey && (
+                        {partnerCount > 1 && !partnerKey && (
                           <div className="sm:col-span-3 md:col-span-4 lg:col-span-5">
-                            <div className="text-[12px] text-foreground/60 mb-1">Repartizare parteneri</div>
+                            <div className="text-[12px] text-foreground/60 mb-1">Procentaje parteneri</div>
                             <ul className="text-[12px] text-foreground/70 space-y-0.5">
                               {partners.map((p, idx) => {
-                                const share = typeof p.sharePercent === 'number' ? p.sharePercent / 100 : 0;
-                                if (!share) return null;
-                                const partEUR = typeof correctedEUR === 'number' ? correctedEUR * share : undefined;
-                                const partRON = typeof totalRON === 'number' ? totalRON * share : undefined;
+                                const hasPct = typeof p.sharePercent === 'number' && isFinite(p.sharePercent);
+                                const share = hasPct ? (p.sharePercent as number) / 100 : undefined;
+                                const partEUR = typeof share === 'number' && typeof correctedEUR === 'number' ? correctedEUR * share : undefined;
+                                const partRON = typeof share === 'number' && typeof totalRON === 'number' ? totalRON * share : undefined;
                                 return (
                                   <li key={(p.id || p.name || String(idx))} className="flex items-center gap-2">
                                     <Link href={`/partners/${encodeURIComponent(p.id || p.name || '')}`} className="hover:underline">
                                       {p.name}
                                     </Link>
                                     <span className="text-foreground/50">•</span>
-                                    <span>{typeof p.sharePercent === 'number' ? `${p.sharePercent}%` : ''}</span>
-                                    <span className="text-foreground/50">•</span>
-                                    <span>
-                                      {typeof partEUR === 'number' ? `${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'EUR' }).format(partEUR)}` : '—'}
-                                      {typeof partRON === 'number' ? ` · ${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'RON' }).format(partRON)}` : ''}
-                                    </span>
+                                    <span>{hasPct ? `${p.sharePercent}%` : '—'}</span>
+                                    {hasPct ? (
+                                      <>
+                                        <span className="text-foreground/50">•</span>
+                                        <span>
+                                          {typeof partEUR === 'number' ? `${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'EUR' }).format(partEUR)}` : '—'}
+                                          {typeof partRON === 'number' ? ` · ${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'RON' }).format(partRON)}` : ''}
+                                        </span>
+                                      </>
+                                    ) : null}
                                   </li>
                                 );
                               })}
