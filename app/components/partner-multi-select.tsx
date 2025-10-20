@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 type Partner = { id: string; name: string };
 interface Props {
-  defaultPartners?: { id?: string; name: string }[];
+  defaultPartners?: { id?: string; name: string; sharePercent?: number }[];
   max?: number;
 }
 export default function PartnerMultiSelect({
@@ -11,8 +11,8 @@ export default function PartnerMultiSelect({
   max = 10,
 }: Props) {
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [rows, setRows] = useState<{ id?: string; name: string }[]>(
-    defaultPartners.length > 0 ? defaultPartners : [{ id: undefined, name: "" }]
+  const [rows, setRows] = useState<{ id?: string; name: string; sharePercent?: number }[]>(
+    defaultPartners.length > 0 ? defaultPartners : [{ id: undefined, name: "", sharePercent: undefined }]
   );
   useEffect(() => {
     let aborted = false;
@@ -30,17 +30,17 @@ export default function PartnerMultiSelect({
   }, []);
   const update = (
     idx: number,
-    patch: Partial<{ id?: string; name: string }>
+    patch: Partial<{ id?: string; name: string; sharePercent?: number }>
   ) => {
     setRows((r) => r.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
   };
   const addRow = () => {
-    setRows((r) => (r.length >= max ? r : [...r, { id: undefined, name: "" }]));
+    setRows((r) => (r.length >= max ? r : [...r, { id: undefined, name: "", sharePercent: undefined }]));
   };
   const removeRow = (idx: number) => {
     setRows((r) =>
       r.length === 1
-        ? [{ id: undefined, name: "" }]
+        ? [{ id: undefined, name: "", sharePercent: undefined }]
         : r.filter((_, i) => i !== idx)
     );
   };
@@ -68,12 +68,30 @@ export default function PartnerMultiSelect({
                 ))}
               </select>
             </div>
-            <div className="col-span-7 sm:col-span-8">
+            <div className="col-span-6 sm:col-span-7">
               <input
                 placeholder="Nume partener"
                 value={row.name}
                 onChange={(e) => update(i, { name: e.target.value })}
                 className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-2">
+              <input
+                placeholder="%"
+                value={typeof row.sharePercent === 'number' ? String(row.sharePercent) : ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = Number(raw.replace(',', '.'));
+                  update(i, { sharePercent: isFinite(n) ? n : undefined });
+                }}
+                className="rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-sm w-32 min-w-[7rem]"
+                inputMode="decimal"
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                title="Procent din chirie"
               />
             </div>
             <div className="col-span-1 flex justify-end pt-1">
@@ -105,6 +123,7 @@ export default function PartnerMultiSelect({
         <div key={i} className="hidden">
           <input name="partnerIds" value={r.id || ""} readOnly />
           <input name="partnerNames" value={r.name} readOnly />
+          <input name="partnerShares" value={typeof r.sharePercent === 'number' ? String(r.sharePercent) : ''} readOnly />
         </div>
       ))}
       {/* For backward compatibility: primary partner fields (first row) */}

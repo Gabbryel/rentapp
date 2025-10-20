@@ -29,8 +29,9 @@ export async function updateContractAction(
     asset: (formData.get("asset") as string) || "",
   partnerId: (formData.get("partnerId") as string) || "",
   partner: (formData.get("partner") as string) ?? "",
-  partnerIds: (formData.getAll("partnerIds") as string[]).filter(Boolean),
-  partnerNames: (formData.getAll("partnerNames") as string[]).filter((n) => typeof n === "string" && n.trim()),
+  partnerIds: (formData.getAll("partnerIds") as string[]).filter(() => true),
+  partnerNames: (formData.getAll("partnerNames") as string[]).filter(() => true),
+  partnerShares: (formData.getAll("partnerShares") as string[]).filter(() => true),
   ownerId: (formData.get("ownerId") as string) || "",
   owner: (formData.get("owner") as string) || "",
     signedAt: (formData.get("signedAt") as string) ?? "",
@@ -182,12 +183,15 @@ export async function updateContractAction(
   partners: (() => {
     const ids = (rawValues.partnerIds as any as string[]) || [];
     const names = (rawValues.partnerNames as any as string[]) || [];
-    const rows: { id?: string; name: string }[] = [];
-    for (let i=0;i<Math.max(ids.length, names.length);i++) {
+    const shares = (rawValues.partnerShares as any as string[]) || [];
+    const rows: { id?: string; name: string; sharePercent?: number }[] = [];
+    for (let i=0;i<Math.max(ids.length, names.length, shares.length);i++) {
       const name = (names[i]||"").trim();
       if (!name) continue;
       const id = (ids[i]||"").trim() || undefined;
-      rows.push({ id, name });
+      const raw = (shares[i]||"").trim();
+      const pct = raw === '' ? undefined : Number(raw.replace(',', '.'));
+      rows.push({ id, name, sharePercent: (typeof pct === 'number' && isFinite(pct)) ? pct : undefined });
     }
     if (rows.length === 0 && rawValues.partner) rows.push({ id: rawValues.partnerId || undefined, name: rawValues.partner });
     return rows.length>0 ? rows : undefined;

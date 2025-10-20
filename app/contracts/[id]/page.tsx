@@ -156,13 +156,32 @@ async function issueInvoice(formData: FormData) {
       }
       return undefined;
     })();
-    const invoiceData = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: amountOverride });
-    const savedInvoice = await issueInvoiceAndGeneratePdf(invoiceData);
+    const partners: Array<{ id?: string; name: string; sharePercent?: number }> = Array.isArray((contract as any).partners)
+      ? (((contract as any).partners as any[]).map((p) => ({ id: p?.id, name: p?.name, sharePercent: typeof p?.sharePercent === 'number' ? p.sharePercent : undefined })))
+      : [];
+    const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
+    if (partners.length > 1 && sumShares > 0) {
+      // Split issuance per partner
+      // Determine base EUR for this date if no override
+      const baseInv = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: amountOverride });
+      const baseEUR = amountOverride ?? baseInv.amountEUR;
+      for (const p of partners) {
+        const share = typeof p.sharePercent === 'number' ? p.sharePercent / 100 : 0;
+        if (share <= 0) continue;
+        const invPart = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: baseEUR * share });
+        // Override partner on the invoice
+        const patched = { ...invPart, partner: p.name, partnerId: p.id || p.name } as any;
+        await issueInvoiceAndGeneratePdf(patched);
+      }
+    } else {
+      const invoiceData = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: amountOverride });
+      await issueInvoiceAndGeneratePdf(invoiceData);
+    }
   await logAction({
     action: "invoice.issue",
     targetType: "contract",
     targetId: contractId,
-    meta: { issuedAt, invoiceId: savedInvoice.id },
+    meta: { issuedAt },
   });
   } catch (err: any) {
     const msg = (err && (err.message || err.toString())) || "Eroare la emiterea facturii";
@@ -273,6 +292,41 @@ async function updateCorrectionPercentAction(formData: FormData) {
   } catch (e: any) {
     const msg = (e && (e.message || String(e))) || "Eroare la actualizarea corecției";
     publishToast(String(msg), "error");
+  }
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+// Update partner shares (percent per partner) on this contract
+async function updatePartnerSharesAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "");
+  if (!contractId) return;
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+  const ids = (formData.getAll("partnerId") as string[]) || [];
+  const names = (formData.getAll("partnerName") as string[]) || [];
+  const sharesRaw = (formData.getAll("sharePercent") as string[]) || [];
+  const rows: Array<{ id?: string; name: string; sharePercent?: number }> = [];
+  for (let i = 0; i < Math.max(ids.length, names.length, sharesRaw.length); i++) {
+    const name = (names[i] || "").trim();
+    if (!name) continue;
+    const id = (ids[i] || "").trim() || undefined;
+    const raw = (sharesRaw[i] || "").trim();
+    const pct = raw === "" ? undefined : Number(raw.replace(",", "."));
+    rows.push({ id, name, sharePercent: typeof pct === "number" && isFinite(pct) ? Math.max(0, Math.min(100, pct)) : undefined });
+  }
+  try {
+    const patch: any = { ...(existing as any), partners: rows.length > 0 ? rows : undefined };
+    // Keep legacy single partner fields in sync with first partner
+    if (rows.length > 0) {
+      patch.partner = rows[0].name;
+      patch.partnerId = rows[0].id ?? rows[0].name;
+    }
+    await upsertContract(patch);
+    await logAction({ action: "contract.partners.shares.update", targetType: "contract", targetId: contractId, meta: { partners: rows } });
+    publishToast("Procentaje parteneri actualizate", "success");
+  } catch (e: any) {
+    publishToast("Eroare la actualizarea procentelor", "error");
   }
   revalidatePath(`/contracts/${contractId}`);
 }
@@ -737,7 +791,7 @@ export default async function ContractPage({
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                   Contract
                 </h3>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="col-span-2 flex items-baseline gap-2">
                     <span className="text-foreground/60">Proprietar:</span>
                     <span className="font-medium truncate">
@@ -746,6 +800,23 @@ export default async function ContractPage({
                       ).trim() || "—"}
                     </span>
                   </div>
+                  {Array.isArray((contract as any).partners) && (contract as any).partners.length > 0 && (
+                    <div className="col-span-2">
+                      <span className="block text-foreground/60">Parteneri</span>
+                      <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                        {(((contract as any).partners) as any[]).map((p, idx) => (
+                          <span key={(p?.id||p?.name||idx)} className="inline-flex items-center gap-1 rounded bg-foreground/5 px-2 py-0.5">
+                            <Link href={`/partners/${encodeURIComponent(p?.id || p?.name || '')}`} className="hover:underline">
+                              {String(p?.name || '')}
+                            </Link>
+                            {typeof p?.sharePercent === 'number' && (
+                              <span className="text-foreground/60">({p.sharePercent}%)</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <span className="block text-foreground/60">Semnat</span>
                     <span className="font-medium">
@@ -1289,6 +1360,44 @@ export default async function ContractPage({
             irregularInvoices={(contract as any).irregularInvoices || []}
           >
             {/* Gestionează contract (mutat în manage-contract-section) */}
+            {Array.isArray((contract as any).partners) && (contract as any).partners.length > 0 ? (
+              <div className="rounded-md border border-foreground/10 p-3 space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">Procentaje parteneri</div>
+                <form action={updatePartnerSharesAction} className="space-y-2">
+                  <input type="hidden" name="contractId" value={contract.id} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                    {(((contract as any).partners as any[]) || []).map((p: any, i: number) => (
+                      <div key={(p?.id || p?.name || i) + "-share"} className="rounded bg-foreground/5 px-2 py-2 flex items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate" title={String(p?.name || "")}>
+                            {String(p?.name || "")}
+                          </div>
+                          <input type="hidden" name="partnerId" value={p?.id || ""} />
+                          <input type="hidden" name="partnerName" value={p?.name || ""} />
+                        </div>
+                        <div className="shrink-0">
+                          <label className="block text-foreground/60 text-[11px]">%</label>
+                          <input
+                            name="sharePercent"
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            max={100}
+                            defaultValue={typeof p?.sharePercent === 'number' ? p.sharePercent : ("" as any)}
+                            className="rounded-md border border-foreground/20 bg-background px-2 py-1 text-xs w-32 min-w-[7rem]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-1">
+                    <button type="submit" className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5">
+                      Salvează procentele
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
             {contract.rentType === "yearly" ? (
               <div className="rounded-md border border-foreground/10 p-3 space-y-3">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">

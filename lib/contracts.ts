@@ -475,6 +475,49 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     asset: typeof (r as any).asset === "string" ? (r as any).asset : undefined,
     partnerId: typeof r.partnerId === "string" ? r.partnerId : undefined,
     partner: typeof r.partner === "string" ? r.partner : (r.partner as string | undefined),
+    // Normalize multiple partners; ensure primary partner appears first
+    partners: ((): { id?: string; name: string; sharePercent?: number }[] | undefined => {
+      const arr = Array.isArray((r as any).partners)
+        ? ((r as any).partners as unknown[])
+        : [];
+      const mapped = arr
+        .map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>;
+          const id = typeof o.id === "string" && o.id.trim() ? o.id.trim() : undefined;
+          const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : undefined;
+          const spRaw = (o as any).sharePercent as unknown;
+          let share: number | undefined = undefined;
+          if (typeof spRaw === "number") {
+            share = Number.isFinite(spRaw) ? spRaw : undefined;
+          } else if (typeof spRaw === "string" && spRaw.trim() !== "") {
+            const n = Number(spRaw.replace(",", "."));
+            share = Number.isFinite(n) ? n : undefined;
+          }
+          if (name) return { id, name, sharePercent: share };
+          return null;
+        })
+        .filter(Boolean) as { id?: string; name: string; sharePercent?: number }[];
+      // Fallback to single partner fields when partners missing
+      if (mapped.length === 0) {
+        const primaryName = typeof r.partner === "string" ? r.partner : undefined;
+        const primaryId = typeof r.partnerId === "string" ? r.partnerId : undefined;
+        if (primaryName) return [{ id: primaryId, name: primaryName }];
+        return undefined;
+      }
+      // Ensure the primary (single) partner is first if present
+      const primaryName = typeof r.partner === "string" ? r.partner : undefined;
+      if (primaryName && mapped[0]?.name !== primaryName) {
+        const idx = mapped.findIndex((p) => p.name === primaryName);
+        if (idx > 0) {
+          const [item] = mapped.splice(idx, 1);
+          mapped.unshift(item);
+        } else if (idx === -1) {
+          const primaryId = typeof r.partnerId === "string" ? r.partnerId : undefined;
+          mapped.unshift({ id: primaryId, name: primaryName });
+        }
+      }
+      return mapped;
+    })(),
     owner: (r.owner as string) ?? "Markov Services s.r.l.",
     signedAt: toYmd(r.signedAt)!,
     startDate: toYmd(r.startDate)!,
@@ -1718,7 +1761,7 @@ export async function renderContractPdf(
 export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice> {
   // Global guard: only one invoice per contract per issued date
   try {
-    const dupe = await findInvoiceByContractAndDate(inv.contractId, inv.issuedAt);
+    const dupe = await findInvoiceByContractPartnerAndDate(inv.contractId, inv.partnerId || inv.partner, inv.issuedAt);
     if (dupe) return dupe;
   } catch {}
   // Persist invoice, generate PDF, save PDF, update invoice with url
@@ -1823,6 +1866,38 @@ export async function findInvoiceByContractAndDate(
   } catch {
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+}
+
+/** Find an invoice by contract, partner and exact issued date (YYYY-MM-DD) */
+export async function findInvoiceByContractPartnerAndDate(
+  contractId: string,
+  partnerIdOrName: string,
+  issuedAt: string
+): Promise<Invoice | null> {
+  const partnerKey = String(partnerIdOrName || "");
+  if (!process.env.MONGODB_URI) {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find(
+      (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
+    );
+    return found ? InvoiceSchema.parse(found) : null;
+  }
+  try {
+    const db = await getDb();
+    const doc = await db
+      .collection<Invoice>("invoices")
+      .findOne(
+        { contractId, issuedAt, $or: [{ partnerId: partnerKey }, { partner: partnerKey }] },
+        { projection: { _id: 0 } }
+      );
+    return doc ? InvoiceSchema.parse(doc) : null;
+  } catch {
+    const all = await readJson<Invoice[]>("invoices.json", []);
+    const found = all.find(
+      (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
+    );
     return found ? InvoiceSchema.parse(found) : null;
   }
 }

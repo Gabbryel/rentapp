@@ -58,6 +58,11 @@ export const ContractSchema = z
         z.object({
           id: z.string().min(1).optional(),
           name: z.string().min(1, "nume partener obligatoriu"),
+          sharePercent: z
+            .number()
+            .min(0, "procent minim 0")
+            .max(100, "procent maxim 100")
+            .optional(),
         })
       )
       .min(1, "Cel puțin un partener")

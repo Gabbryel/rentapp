@@ -33,6 +33,7 @@ export async function createContractAction(
   partner: (formData.get("partner") as string) ?? "",
   partnerIds: (formData.getAll("partnerIds") as string[]).filter(Boolean),
   partnerNames: (formData.getAll("partnerNames") as string[]).filter((n) => typeof n === "string" && n.trim()),
+  partnerShares: (formData.getAll("partnerShares") as string[]).filter(() => true),
   ownerId: (formData.get("ownerId") as string) || "",
   owner: (formData.get("owner") as string) || "",
     signedAt: (formData.get("signedAt") as string) ?? "",
@@ -81,12 +82,15 @@ export async function createContractAction(
       partners: (() => {
         const ids = (rawValues.partnerIds as unknown as string[]) || [];
         const names = (rawValues.partnerNames as unknown as string[]) || [];
-        const rows: { id?: string; name: string }[] = [];
-        for (let i = 0; i < Math.max(ids.length, names.length); i++) {
+        const shares = (rawValues.partnerShares as unknown as string[]) || [];
+        const rows: { id?: string; name: string; sharePercent?: number }[] = [];
+        for (let i = 0; i < Math.max(ids.length, names.length, shares.length); i++) {
           const name = (names[i] || "").trim();
           if (!name) continue;
-            const id = (ids[i] || "").trim() || undefined;
-          rows.push({ id, name });
+          const id = (ids[i] || "").trim() || undefined;
+          const raw = (shares[i] || "").trim();
+          const pct = raw === '' ? undefined : Number(raw.replace(',', '.'));
+          rows.push({ id, name, sharePercent: (typeof pct === 'number' && isFinite(pct)) ? pct : undefined });
         }
         if (rows.length === 0 && (rawValues.partner as string)) {
           rows.push({ id: (rawValues.partnerId as string) || undefined, name: rawValues.partner as string });
