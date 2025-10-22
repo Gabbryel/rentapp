@@ -1,7 +1,25 @@
 import { sendMail } from "@/lib/email";
 
 function appBaseUrl() {
-  return process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Priority: explicit > public > Vercel env > localhost fallback
+  const explicit = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (explicit && explicit.trim()) return normalizeBaseUrl(explicit.trim());
+  // Vercel provides VERCEL_URL without protocol (e.g. my-app.vercel.app)
+  const vercel = process.env.VERCEL_URL;
+  if (vercel && vercel.trim()) {
+    return normalizeBaseUrl(`https://${vercel.trim()}`);
+  }
+  return "http://localhost:3000";
+}
+
+function normalizeBaseUrl(u: string) {
+  // Ensure it has protocol and no trailing slash
+  let url = u;
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  // Remove trailing slash to avoid double slashes when concatenating
+  return url.replace(/\/$/, "");
 }
 
 function layout({ title, preheader, bodyHtml }: { title: string; preheader?: string; bodyHtml: string }) {
