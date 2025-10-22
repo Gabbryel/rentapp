@@ -1,23 +1,17 @@
 import { requireAdmin } from "@/lib/auth";
+import { issueToken } from "@/lib/auth-tokens";
+import { sendInviteEmail } from "@/lib/auth-email";
+import { getDb } from "@/lib/mongodb";
 
 async function getInvites() {
-  const res = await fetch(`${process.env.APP_BASE_URL || ""}/api/invite`, {
-    cache: "no-store",
-  });
-  if (!res.ok)
-    return [] as Array<{
-      token: string;
-      email: string;
-      createdAt: string;
-      expiresAt: string;
-    }>;
-  const data = await res.json();
-  return data.invites as Array<{
-    token: string;
-    email: string;
-    createdAt: string;
-    expiresAt: string;
-  }>;
+  const db = await getDb();
+  const now = new Date();
+  const invites = await db
+    .collection("auth_tokens")
+    .find({ type: "invite", expiresAt: { $gt: now } })
+    .project({ token: 1, email: 1, createdAt: 1, expiresAt: 1, _id: 0 })
+    .toArray();
+  return invites as Array<{ token: string; email: string; createdAt: string; expiresAt: string }>;
 }
 
 async function sendInvite(formData: FormData) {
@@ -27,11 +21,9 @@ async function sendInvite(formData: FormData) {
     .trim()
     .toLowerCase();
   if (!email) return;
-  await fetch("/api/invite", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-    headers: { "content-type": "application/json" },
-  });
+  // Create invite directly to avoid cookie forwarding issues to route handlers
+  const token = await issueToken(email, "invite", 168, {});
+  await sendInviteEmail(email, token);
 }
 
 async function revokeInvite(formData: FormData) {
@@ -39,11 +31,8 @@ async function revokeInvite(formData: FormData) {
   await requireAdmin();
   const token = String(formData.get("token") || "");
   if (!token) return;
-  await fetch("/api/invite", {
-    method: "DELETE",
-    body: JSON.stringify({ token }),
-    headers: { "content-type": "application/json" },
-  });
+  const db = await getDb();
+  await db.collection("auth_tokens").deleteOne({ token, type: "invite" });
 }
 
 export default async function AdminInvitesPage() {
