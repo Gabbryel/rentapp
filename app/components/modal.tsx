@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 declare global {
   interface HTMLElement {
-    inert?: boolean;
+    inert: boolean;
   }
 }
 
