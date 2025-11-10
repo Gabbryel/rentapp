@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import ActionButton, {
-  type StatsOptimisticDetail,
-} from "@/app/components/action-button";
+import ActionButton from "@/app/components/action-button";
+import type { OptimisticDelta } from "@/types/stats";
+
+declare global {
+  interface Window {
+    __statsOptimisticQueue?: OptimisticDelta[];
+  }
+}
 
 type Props = React.ComponentProps<typeof ActionButton> & {
   confirmMessage: string;
@@ -26,12 +31,15 @@ export default function ConfirmSubmit({
   const allowSubmitRef = useRef(false);
   const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const handleIntercept = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    if (allowSubmitRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setOpen(true);
-  }, []);
+  const handleIntercept = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (allowSubmitRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(true);
+    },
+    []
+  );
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -42,7 +50,7 @@ export default function ConfirmSubmit({
     if (submitButton && typeof window !== "undefined") {
       const ds = submitButton.dataset;
       if (ds.deltaMode) {
-        const detail: StatsOptimisticDetail = {
+        const detail: OptimisticDelta = {
           mode: ds.deltaMode,
           monthRON: toNumber(ds.deltaMonthRon),
           monthEUR: toNumber(ds.deltaMonthEur),
@@ -54,12 +62,18 @@ export default function ConfirmSubmit({
         window.dispatchEvent(
           new CustomEvent<{ message: string }>("app:toast", {
             detail: {
-              message: ds.successMessage || buttonProps.successMessage || "Șters",
+              message:
+                ds.successMessage || buttonProps.successMessage || "Șters",
             },
           })
         );
+        // Mirror ActionButton behavior: persist optimistic detail in global queue for pre-mount listeners
+        window.__statsOptimisticQueue = [
+          ...(window.__statsOptimisticQueue ?? []),
+          detail,
+        ];
         window.dispatchEvent(
-          new CustomEvent<StatsOptimisticDetail>("app:stats:optimistic", {
+          new CustomEvent<OptimisticDelta>("app:stats:optimistic", {
             detail,
           })
         );
