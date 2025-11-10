@@ -1,6 +1,9 @@
 "use client";
+
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import ActionButton from "@/app/components/action-button";
+import ActionButton, {
+  type StatsOptimisticDetail,
+} from "@/app/components/action-button";
 
 type Props = React.ComponentProps<typeof ActionButton> & {
   confirmMessage: string;
@@ -8,88 +11,82 @@ type Props = React.ComponentProps<typeof ActionButton> & {
   cancelLabel?: string;
 };
 
+const toNumber = (value?: string) => {
+  const numeric = value ? Number(value) : 0;
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
 export default function ConfirmSubmit({
   confirmMessage,
   confirmLabel = "Confirmă",
   cancelLabel = "Anulează",
-  ...rest
+  ...buttonProps
 }: Props) {
   const [open, setOpen] = useState(false);
   const allowSubmitRef = useRef(false);
   const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const handleIntercept = useCallback((e: React.MouseEvent) => {
-    if (allowSubmitRef.current) return; // already confirmed
-    e.preventDefault();
-    e.stopPropagation();
+  const handleIntercept = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    if (allowSubmitRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
     setOpen(true);
   }, []);
 
   const close = useCallback(() => setOpen(false), []);
 
   const confirm = useCallback(() => {
-    const form = triggerBtnRef.current?.closest(
-      "form"
-    ) as HTMLFormElement | null;
-    if (!form) return;
-    // Since the original click was intercepted (capture), the ActionButton's onClick
-    // never fired. We must manually perform the optimistic dispatch & toast here.
-    try {
-      const btn = triggerBtnRef.current as HTMLElement | null;
-      if (btn && typeof window !== "undefined") {
-        const ds: any = btn.dataset;
-        if (ds.deltaMode) {
-          const num = (v?: string) => (v ? Number(v) : 0);
-          // Build optimistic detail (positive deltas; consumer logic applies sign=-1 for delete)
-          const detail = {
-            mode: ds.deltaMode as string,
-            monthRON: num(ds.deltaMonthRon),
-            monthEUR: num(ds.deltaMonthEur),
-            annualRON: num(ds.deltaAnnualRon),
-            annualEUR: num(ds.deltaAnnualEur),
-            monthNetRON: num(ds.deltaMonthNetRon),
-            annualNetRON: num(ds.deltaAnnualNetRon),
-          };
-          // Toast
-          window.dispatchEvent(
-            new CustomEvent("app:toast", {
-              detail: { message: (ds.successMessage as string) || "Șters" },
-            })
-          );
-          // Optimistic stats event
-          window.dispatchEvent(
-            new CustomEvent("app:stats:optimistic", { detail })
-          );
-        }
+    const submitButton = triggerBtnRef.current;
+    const form = submitButton?.closest("form");
+    if (!(form instanceof HTMLFormElement)) return;
+    if (submitButton && typeof window !== "undefined") {
+      const ds = submitButton.dataset;
+      if (ds.deltaMode) {
+        const detail: StatsOptimisticDetail = {
+          mode: ds.deltaMode,
+          monthRON: toNumber(ds.deltaMonthRon),
+          monthEUR: toNumber(ds.deltaMonthEur),
+          annualRON: toNumber(ds.deltaAnnualRon),
+          annualEUR: toNumber(ds.deltaAnnualEur),
+          monthNetRON: toNumber(ds.deltaMonthNetRon),
+          annualNetRON: toNumber(ds.deltaAnnualNetRon),
+        };
+        window.dispatchEvent(
+          new CustomEvent<{ message: string }>("app:toast", {
+            detail: {
+              message: ds.successMessage || buttonProps.successMessage || "Șters",
+            },
+          })
+        );
+        window.dispatchEvent(
+          new CustomEvent<StatsOptimisticDetail>("app:stats:optimistic", {
+            detail,
+          })
+        );
       }
-    } catch {}
+    }
     allowSubmitRef.current = true;
-    // Use requestSubmit to trigger proper form handling & server action
-    form.requestSubmit(triggerBtnRef.current || undefined);
+    form.requestSubmit(submitButton ?? undefined);
     setOpen(false);
-    // reset flag shortly after to avoid accidental duplicate
-    setTimeout(() => {
+    window.setTimeout(() => {
       allowSubmitRef.current = false;
     }, 0);
-  }, []);
+  }, [buttonProps.successMessage]);
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, close]);
 
   return (
     <>
       <ActionButton
-        {...rest}
-        ref={(n: any) => {
-          triggerBtnRef.current = n;
-        }}
+        {...buttonProps}
+        ref={triggerBtnRef}
         onClickCapture={handleIntercept}
       />
       {open ? (

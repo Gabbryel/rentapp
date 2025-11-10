@@ -1,14 +1,30 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
 import React, {
   useCallback,
-  ButtonHTMLAttributes,
-  forwardRef,
-  useState,
   useEffect,
+  useState,
+  forwardRef,
+  type ButtonHTMLAttributes,
 } from "react";
+import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
+
+export type StatsOptimisticDetail = {
+  mode: string;
+  monthRON: number;
+  monthEUR: number;
+  annualRON: number;
+  annualEUR: number;
+  monthNetRON: number;
+  annualNetRON: number;
+};
+
+declare global {
+  interface Window {
+    __statsOptimisticQueue?: StatsOptimisticDetail[];
+  }
+}
 
 type Props = {
   children: React.ReactNode;
@@ -17,97 +33,83 @@ type Props = {
   successMessage: string;
   disabled?: boolean;
   triggerStatsRefresh?: boolean;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "disabled">;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "disabled" | "onClick">;
 
-function ActionButtonBase({
-  children,
-  className,
-  title,
-  successMessage,
-  disabled,
-  triggerStatsRefresh,
-  _ref,
-  ...buttonProps
-}: Props & { _ref?: React.ForwardedRef<HTMLButtonElement> }) {
+function toNumber(value: string | undefined): number {
+  const numeric = value ? Number(value) : 0;
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
+  {
+    children,
+    className,
+    title,
+    successMessage,
+    disabled,
+    triggerStatsRefresh,
+    ...buttonProps
+  },
+  ref
+) {
   const { pending } = useFormStatus();
   const router = useRouter();
   const [clicked, setClicked] = useState(false);
+
   useEffect(() => {
     if (!pending && clicked) {
-      // Form submission finished. Trigger a stats refresh and full page refresh so server components update.
       if (triggerStatsRefresh) {
         window.dispatchEvent(new Event("app:stats:refresh"));
       }
       try {
         router.refresh();
-      } catch {}
+      } catch {
+        // ignore navigation refresh errors
+      }
       setClicked(false);
     } else if (!pending) {
       setClicked(false);
     }
-  }, [pending, clicked, triggerStatsRefresh]);
+  }, [pending, clicked, triggerStatsRefresh, router]);
 
   const handleClick = useCallback(
-    (e: React.MouseEvent) => {
+    (event: React.MouseEvent<HTMLButtonElement>) => {
       if (clicked) {
-        e.preventDefault();
-        e.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
         return;
       }
       setClicked(true);
-      // Let the server action run; when the navigation settles, Next will re-render the page.
-      // We optimistically show a toast to confirm the click succeeded.
-      // Consumers can add error handling later by returning a response flag.
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("app:toast", { detail: { message: successMessage } })
-        );
-        if (triggerStatsRefresh) {
-          const target = e.currentTarget as HTMLElement;
-          const ds = target.dataset;
-          const num = (v?: string) => (v ? Number(v) : 0);
-          if (ds.deltaMode) {
-            try {
-              const detail = {
-                mode: ds.deltaMode as string,
-                monthRON: num(ds.deltaMonthRon),
-                monthEUR: num(ds.deltaMonthEur),
-                annualRON: num(ds.deltaAnnualRon),
-                annualEUR: num(ds.deltaAnnualEur),
-                // Optional future extensions (net without VAT)
-                monthNetRON: num((ds as any).deltaMonthNetRon),
-                annualNetRON: num((ds as any).deltaAnnualNetRon),
-              };
-              (window as any).__statsOptimisticQueue = [
-                ...(((window as any).__statsOptimisticQueue as any[]) || []),
-                detail,
-              ];
-              window.dispatchEvent(
-                new CustomEvent("app:stats:optimistic", { detail })
-              );
-            } catch {
-              // fallback to original event path
-              window.dispatchEvent(
-                new CustomEvent("app:stats:optimistic", {
-                  detail: {
-                    mode: ds.deltaMode,
-                    monthRON: num(ds.deltaMonthRon),
-                    monthEUR: num(ds.deltaMonthEur),
-                    annualRON: num(ds.deltaAnnualRon),
-                    annualEUR: num(ds.deltaAnnualEur),
-                    monthNetRON: num((ds as any).deltaMonthNetRon),
-                    annualNetRON: num((ds as any).deltaAnnualNetRon),
-                  },
-                })
-              );
-            }
-          }
-          // We no longer schedule timers; a single refresh will be dispatched
-          // after the form submission settles (see useEffect above).
+      window.dispatchEvent(
+        new CustomEvent<{ message: string }>("app:toast", {
+          detail: { message: successMessage },
+        })
+      );
+      if (triggerStatsRefresh) {
+        const { dataset } = event.currentTarget;
+        if (dataset.deltaMode) {
+          const detail: StatsOptimisticDetail = {
+            mode: dataset.deltaMode,
+            monthRON: toNumber(dataset.deltaMonthRon),
+            monthEUR: toNumber(dataset.deltaMonthEur),
+            annualRON: toNumber(dataset.deltaAnnualRon),
+            annualEUR: toNumber(dataset.deltaAnnualEur),
+            monthNetRON: toNumber(dataset.deltaMonthNetRon),
+            annualNetRON: toNumber(dataset.deltaAnnualNetRon),
+          };
+          window.__statsOptimisticQueue = [
+            ...(window.__statsOptimisticQueue ?? []),
+            detail,
+          ];
+          window.dispatchEvent(
+            new CustomEvent<StatsOptimisticDetail>("app:stats:optimistic", {
+              detail,
+            })
+          );
         }
       }
     },
-    [successMessage, triggerStatsRefresh, clicked]
+    [clicked, successMessage, triggerStatsRefresh]
   );
 
   return (
@@ -117,16 +119,12 @@ function ActionButtonBase({
       onClick={handleClick}
       className={className}
       disabled={pending || disabled || clicked}
-      ref={_ref as any}
+      ref={ref}
       {...buttonProps}
     >
       {pending ? "Se procesează…" : children}
     </button>
   );
-}
-
-const ActionButton = forwardRef<HTMLButtonElement, Props>((props, ref) => {
-  return <ActionButtonBase {...props} _ref={ref} />;
 });
 
 export default ActionButton;

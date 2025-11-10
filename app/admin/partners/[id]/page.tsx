@@ -86,10 +86,10 @@ export default async function EditPartnerPage({
         "representatives",
       ];
       const changes = fields
-        .map((f) => ({
-          field: String(f),
-          from: (current as any)[f],
-          to: (partner as any)[f],
+        .map((field) => ({
+          field: String(field),
+          from: current[field],
+          to: partner[field],
         }))
         .filter((c) => c.from !== c.to);
       await logAction({
@@ -102,18 +102,18 @@ export default async function EditPartnerPage({
     try {
       const fmt = (v: unknown) =>
         v === null || typeof v === "undefined" ? "—" : String(v);
-      const fields = [
-        { k: "name", label: "Nume" },
-        { k: "vatNumber", label: "CUI" },
-        { k: "orcNumber", label: "Nr. ORC" },
-        { k: "headquarters", label: "Sediu" },
-        { k: "isVatPayer", label: "Plătitor de TVA" },
-      ] as const;
+      const fields: Array<{ key: keyof Partner; label: string }> = [
+        { key: "name", label: "Nume" },
+        { key: "vatNumber", label: "CUI" },
+        { key: "orcNumber", label: "Nr. ORC" },
+        { key: "headquarters", label: "Sediu" },
+        { key: "isVatPayer", label: "Plătitor de TVA" },
+      ];
       const diffs = fields
-        .map(({ k, label }) => ({
+        .map(({ key, label }) => ({
           label,
-          from: (current as any)[k],
-          to: (partner as any)[k],
+          from: current[key],
+          to: partner[key],
         }))
         .filter((c) => c.from !== c.to)
         .map((c) => `${c.label}: ${fmt(c.from)} → ${fmt(c.to)}`)

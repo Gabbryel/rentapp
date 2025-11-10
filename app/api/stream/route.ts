@@ -32,7 +32,7 @@ export async function GET() {
       const anyController = controller as unknown as { signal?: AbortSignal };
       anyController.signal?.addEventListener?.("abort", onClose);
     },
-    cancel(reason) {
+    cancel(_reason) {
       // Ensure cleanup if consumer cancels
       // We can't access remove here directly; cleanup occurs via abort/throw guard above
     },

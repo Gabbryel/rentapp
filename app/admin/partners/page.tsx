@@ -143,11 +143,11 @@ export default async function AdminPartnersPage() {
           <tbody>
             {partners.map((p) => {
               const primary = Array.isArray(p.representatives)
-                ? p.representatives.find((r) => (r as any).primary) ||
+                ? p.representatives.find((repr) => repr?.primary) ??
                   p.representatives[0]
                 : undefined;
-              const pPhone = (primary as any)?.phone as string | undefined;
-              const pEmail = (primary as any)?.email as string | undefined;
+              const pPhone = primary?.phone ?? undefined;
+              const pEmail = primary?.email ?? undefined;
               return (
                 <tr key={p.id} className="border-t border-foreground/10">
                   <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">

@@ -18,9 +18,9 @@ export default function ScanViewer({
     const isIOS = (() => {
       if (typeof navigator === "undefined") return false;
       const ua = navigator.userAgent || "";
-      const isTouchMac =
-        navigator.platform === "MacIntel" &&
-        (navigator as any).maxTouchPoints > 1;
+      const maxTouchPoints =
+        typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
+      const isTouchMac = navigator.platform === "MacIntel" && maxTouchPoints > 1;
       return /iPad|iPhone|iPod/.test(ua) || isTouchMac;
     })();
     // Append a hint to fit to page width when the viewer supports it

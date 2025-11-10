@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
         hasBuffer: !!f.data,
       })),
     });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Upload failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }

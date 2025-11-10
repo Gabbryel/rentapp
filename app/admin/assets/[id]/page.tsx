@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import AssetScans from "@/app/components/asset-scans";
 import DeleteAssetClient from "./delete/DeleteAssetClient";
 import { fetchContractsByAssetId } from "@/lib/contracts";
-import { Contract } from "@/lib/schemas/contract";
+import type { Contract as ContractType } from "@/lib/schemas/contract";
 
 export default async function AssetDetailPage({
   params,
@@ -40,20 +40,23 @@ export default async function AssetDetailPage({
           <div className="text-sm text-foreground/60">Adresă</div>
           <div className="mt-1">{asset.address}</div>
         </div>
-        {(asset as any).owner && (
+        {asset.owner && (
           <div className="rounded-md border border-foreground/10 p-4">
             <div className="text-sm text-foreground/60">Proprietar</div>
             <div className="mt-1">
-              <Link href={`/owners/${encodeURIComponent((asset as any).ownerId || (asset as any).owner)}`} className="hover:underline">
-                {(asset as any).owner}
+              <Link
+                href={`/owners/${encodeURIComponent(asset.ownerId || asset.owner)}`}
+                className="hover:underline"
+              >
+                {asset.owner}
               </Link>
             </div>
           </div>
         )}
-        {typeof (asset as any).areaSqm === "number" && (
+        {typeof asset.areaSqm === "number" && (
           <div className="rounded-md border border-foreground/10 p-4">
             <div className="text-sm text-foreground/60">Suprafață</div>
-            <div className="mt-1">{(asset as any).areaSqm} mp</div>
+            <div className="mt-1">{asset.areaSqm} mp</div>
           </div>
         )}
         {contracts.length > 0 && (
@@ -62,22 +65,20 @@ export default async function AssetDetailPage({
               Contract(e) asociat(e)
             </div>
             <div className="mt-2 flex flex-col gap-2">
-              {contracts.map((c: any) => (
+              {contracts.map((contract: ContractType) => (
                 <Link
-                  key={c.id}
-                  href={`/contracts/${c.id}`}
+                  key={contract.id}
+                  href={`/contracts/${contract.id}`}
                   className="text-sm text-foreground/80 hover:underline"
                 >
-                  <span className="font-medium">{c.name}</span>
-                  <span className="ml-2 text-foreground/60">
-                    {c.partner ?? ""}
-                  </span>
+                  <span className="font-medium">{contract.name}</span>
+                  <span className="ml-2 text-foreground/60">{contract.partner ?? ""}</span>
                 </Link>
               ))}
             </div>
           </div>
         )}
-        <AssetScans scans={asset.scans as any} assetName={asset.name} />
+        <AssetScans scans={asset.scans ?? []} assetName={asset.name} />
       </div>
     </main>
   );

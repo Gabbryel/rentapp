@@ -136,19 +136,13 @@ export default async function AdminContracts() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {(() => {
-                        const arr = Array.isArray(
-                          (c as any).contractExtensions
-                        )
-                          ? ((c as any).contractExtensions as Array<{
-                              extendedUntil?: string;
-                            }>)
+                        const extensions = Array.isArray(c.contractExtensions)
+                          ? c.contractExtensions
                           : [];
-                        if (arr.length === 0) return "—";
-                        const latest = arr
-                          .map((item) =>
-                            String(item.extendedUntil || "").trim()
-                          )
-                          .filter(Boolean)
+                        if (extensions.length === 0) return "—";
+                        const latest = extensions
+                          .map((item) => item.extendedUntil)
+                          .filter((value): value is string => Boolean(value && value.trim()))
                           .sort()
                           .pop();
                         return latest ? fmt(latest) : "—";

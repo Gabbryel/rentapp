@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Incremental typing suppression: this module performs extensive dynamic normalization.
+// We'll re-enable the rule after introducing stronger domain types for legacy raw records.
 import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
 import { getDb } from "@/lib/mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
@@ -54,6 +57,17 @@ async function loadPdfFonts(
     const boldFont = await pdfDoc.embedFont(boldBytes, { subset: true });
     return { font: baseFont, fontBold: boldFont };
   } catch {
+    // Fallback for when custom fonts or fontkit are unavailable. Note: Helvetica may not render
+    // Romanian diacritics correctly. Ensure public/fonts/NotoSans-*.ttf are present and
+    // @pdf-lib/fontkit is installed for full UTF-8 coverage.
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "PDF fonts: falling back to Helvetica. Pentru diacritice corecte, asigurați-vă că există NotoSans-Regular.ttf și NotoSans-SemiBold.ttf în public/fonts și că @pdf-lib/fontkit este instalat."
+        );
+      } catch {}
+    }
     const fallbackFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fallbackBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     return { font: fallbackFont, fontBold: fallbackBold };

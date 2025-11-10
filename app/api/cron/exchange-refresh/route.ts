@@ -38,10 +38,8 @@ export async function GET(req: NextRequest) {
       bt,
       note: "Rates refreshed (BNR + BT) and persisted in exchange_rates.",
     });
-  } catch (e: any) {
-    return Response.json(
-      { ok: false, error: e?.message || String(e) },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Rate refresh failed";
+    return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

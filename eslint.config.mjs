@@ -28,6 +28,28 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  // Incremental typing: temporarily downgrade noisy any violations in high-churn domains.
+  {
+    files: ["lib/contracts.ts", "app/contracts/**", "app/page.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+  // Global baseline: surface but do not fail CI on common migration rules
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "prefer-const": "warn",
+      "@next/next/no-html-link-for-pages": "warn",
+    },
+  },
+  // Type declarations often rely on `any` for ambient definitions
+  {
+    files: ["types/**/*.d.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

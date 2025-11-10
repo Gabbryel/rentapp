@@ -1,8 +1,13 @@
-import { fetchContracts, effectiveEndDate, rentAmountAtDate } from "@/lib/contracts";
+import {
+  fetchContracts,
+  effectiveEndDate,
+  rentAmountAtDate,
+} from "@/lib/contracts";
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
 import StatsCards from "@/app/components/stats-cards";
+import PdfModal from "./components/pdf-modal";
 import ActionButton from "@/app/components/action-button";
 import { revalidatePath } from "next/cache";
 import {
@@ -14,6 +19,9 @@ import {
 } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import ConfirmSubmit from "@/app/components/confirm-submit";
+import { getDailyEurRon, getEurRonForDate } from "@/lib/exchange";
+import type { Contract as ContractType } from "@/lib/schemas/contract";
+import type { Invoice } from "@/lib/schemas/invoice";
 
 // The client component itself contains its own loading skeletons.
 
@@ -39,26 +47,110 @@ const fmtRON = (n: number) =>
     n
   );
 
-export default async function HomePage() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1-12
-  const contracts = await fetchContracts();
+type RateSelection =
+  | Awaited<ReturnType<typeof getDailyEurRon>>
+  | NonNullable<Awaited<ReturnType<typeof getEurRonForDate>>>;
+
+type ContractPartner = NonNullable<ContractType["partners"]>[number];
+
+type DueItem = {
+  contract: ContractType;
+  issuedAt: string;
+  amountEUR?: number;
+  partnerId?: string;
+  partnerName?: string;
+  sharePercent?: number;
+  exchangeRateOverride?: number;
+  exchangeRateDate?: string;
+};
+
+const BILLING_TIMEZONE = process.env.BILLING_TIMEZONE || "Europe/Bucharest";
+
+function calendarDateInTimezone(tz: string) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).formatToParts(new Date());
+    const getPart = (type: "year" | "month" | "day") =>
+      Number(parts.find((p) => p.type === type)?.value ?? 0);
+    const year = getPart("year");
+    const month = getPart("month");
+    const day = getPart("day");
+    if (year > 0 && month > 0 && day > 0) {
+      return { year, month, day };
+    }
+  } catch {
+    // ignore and fall back to server timezone
+  }
+  const fallback = new Date();
+  return {
+    year: fallback.getFullYear(),
+    month: fallback.getMonth() + 1,
+    day: fallback.getDate(),
+  };
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[]>>;
+}) {
+  const { year, month } = calendarDateInTimezone(BILLING_TIMEZONE);
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const rateParamRaw = resolvedParams?.rateDate;
+  const requestedRateDate =
+    typeof rateParamRaw === "string"
+      ? rateParamRaw
+      : Array.isArray(rateParamRaw)
+      ? rateParamRaw[0]
+      : undefined;
+  const validRateDate =
+    typeof requestedRateDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedRateDate)
+      ? requestedRateDate
+      : undefined;
+  let rateSelection: RateSelection | null = null;
+  if (validRateDate) {
+    rateSelection = await getEurRonForDate(validRateDate, {
+      fallbackToPrevious: true,
+    });
+  }
+  if (!rateSelection) {
+    rateSelection = await getDailyEurRon({ forceRefresh: false });
+  }
+  const rateOverride =
+    typeof rateSelection?.rate === "number" &&
+    Number.isFinite(rateSelection.rate)
+      ? rateSelection.rate
+      : undefined;
+  const rateEffectiveDate = rateSelection?.date;
+  const rateSource = rateSelection?.source ?? "bnr";
+  const isOverrideActive = Boolean(validRateDate);
+  const contracts: ContractType[] = await fetchContracts();
 
   // Invoices issued this month (for duplication prevention only)
-  const issuedThisMonth = await listInvoicesForMonth(year, month);
-  const issuedKey = (i: any) => `${i.contractId}|${i.issuedAt}|${i.partnerId || i.partner || ''}`;
+  const issuedThisMonth: Invoice[] = await listInvoicesForMonth(year, month);
+  const issuedKey = (invoice: Invoice) =>
+    `${invoice.contractId}|${invoice.issuedAt}|${
+      invoice.partnerId || invoice.partner || ""
+    }`;
   const issuedByKey = new Set(issuedThisMonth.map((i) => issuedKey(i)));
   const issuedInvoiceMap = new Map(
     issuedThisMonth.map((i) => [issuedKey(i), i])
   );
 
   // Build list of due invoices (contract occurrences expected this month & not yet issued)
-  const due: {
-    contract: any;
-    issuedAt: string; // yyyy-mm-dd
-    amountEUR?: number;
-  }[] = [];
+  const due: DueItem[] = [];
+  const rateProps =
+    isOverrideActive && typeof rateOverride === "number"
+      ? {
+          exchangeRateOverride: rateOverride,
+          exchangeRateDate: rateEffectiveDate,
+        }
+      : {};
 
   const daysInMonth = (y: number, m: number) => new Date(y, m, 0).getDate();
   const monthDays = daysInMonth(year, month);
@@ -75,7 +167,7 @@ export default async function HomePage() {
 
     if (c.rentType === "monthly") {
       // Determine if this contract uses advance (next month) billing
-      const mode = (c as any).invoiceMonthMode === "next" ? "next" : "current";
+      const mode = c.invoiceMonthMode === "next" ? "next" : "current";
       // Determine the invoice day for this month: use monthlyInvoiceDay, else fallback to startDate day
       const baseDay =
         typeof c.monthlyInvoiceDay === "number"
@@ -101,40 +193,70 @@ export default async function HomePage() {
         // Use next month base even when fraction === 1 to have a concrete override
         const nextMonthDate = new Date(year, month, 1);
         const nextIso = nextMonthDate.toISOString().slice(0, 10);
-        const base = rentAmountAtDate(c as any, nextIso);
+        const base = rentAmountAtDate(c, nextIso);
         if (typeof base === "number") {
-          amountEUROverride = base * (typeof fraction === "number" && fraction > 0 ? fraction : 1);
+          amountEUROverride =
+            base *
+            (typeof fraction === "number" && fraction > 0 ? fraction : 1);
         }
       } else {
         // For current-mode, precompute the base amount for this issued date
-        const base = rentAmountAtDate(c as any, issuedAt);
+        const base = rentAmountAtDate(c, issuedAt);
         if (typeof base === "number") {
           amountEUROverride = base;
         }
       }
 
-      const partners: Array<{ id?: string; name: string; sharePercent?: number }> = Array.isArray((c as any).partners)
-        ? (((c as any).partners as any[]).map((p) => ({ id: p?.id, name: p?.name, sharePercent: typeof p?.sharePercent === 'number' ? p.sharePercent : undefined })))
+      const partners: ContractPartner[] = Array.isArray(c.partners)
+        ? c.partners
         : [];
-      const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
+      const sumShares = partners.reduce(
+        (total, partner) =>
+          total +
+          (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
+        0
+      );
       if (partners.length > 1 && sumShares > 0) {
-        for (const p of partners) {
-          const share = typeof p.sharePercent === 'number' ? p.sharePercent / 100 : 0;
+        for (const partner of partners) {
+          const share =
+            typeof partner.sharePercent === "number"
+              ? partner.sharePercent / 100
+              : 0;
           if (share <= 0) continue;
-          const partAmount = typeof amountEUROverride === 'number' ? amountEUROverride * share : undefined;
-          due.push({ contract: c, issuedAt, amountEUR: partAmount, ...(p.id ? { partnerId: p.id } : {}), partnerName: p.name, sharePercent: p.sharePercent } as any);
+          const partAmount =
+            typeof amountEUROverride === "number"
+              ? amountEUROverride * share
+              : undefined;
+          due.push({
+            contract: c,
+            issuedAt,
+            amountEUR: partAmount,
+            partnerId: partner.id ?? undefined,
+            partnerName: partner.name,
+            sharePercent: partner.sharePercent,
+            ...rateProps,
+          });
         }
       } else {
         // Attach primary partner info so issued-key matching works for single-partner contracts
-        const extra: any = {};
-        if ((c as any).partnerId) extra.partnerId = (c as any).partnerId;
+        const extra: Pick<DueItem, "partnerId" | "partnerName"> = {};
+        if (c.partnerId) extra.partnerId = c.partnerId;
         if (c.partner) extra.partnerName = c.partner;
-        due.push({ contract: c, issuedAt, amountEUR: amountEUROverride, ...extra } as any);
+        due.push({
+          contract: c,
+          issuedAt,
+          amountEUR: amountEUROverride,
+          ...extra,
+          ...rateProps,
+        });
       }
     } else if (c.rentType === "yearly") {
-      const entries = (c as any).irregularInvoices as
-        | { month: number; day: number; amountEUR: number }[]
-        | undefined;
+      const entries =
+        Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
+          ? c.irregularInvoices
+          : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
+          ? c.yearlyInvoices
+          : undefined;
       if (!entries) continue;
       for (const yi of entries) {
         if (yi.month !== month) continue;
@@ -144,18 +266,41 @@ export default async function HomePage() {
         ).padStart(2, "0")}`;
         const issuedDate = new Date(issuedAt);
         if (issuedDate < start || issuedDate > end) continue;
-        const partners: Array<{ id?: string; name: string; sharePercent?: number }> = Array.isArray((c as any).partners)
-          ? (((c as any).partners as any[]).map((p) => ({ id: p?.id, name: p?.name, sharePercent: typeof p?.sharePercent === 'number' ? p.sharePercent : undefined })))
+        const partners: ContractPartner[] = Array.isArray(c.partners)
+          ? c.partners
           : [];
-        const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
+        const sumShares = partners.reduce(
+          (total, partner) =>
+            total +
+            (typeof partner.sharePercent === "number"
+              ? partner.sharePercent
+              : 0),
+          0
+        );
         if (partners.length > 1 && sumShares > 0) {
-          for (const p of partners) {
-            const share = typeof p.sharePercent === 'number' ? p.sharePercent / 100 : 0;
+          for (const partner of partners) {
+            const share =
+              typeof partner.sharePercent === "number"
+                ? partner.sharePercent / 100
+                : 0;
             if (share <= 0) continue;
-            due.push({ contract: c, issuedAt, amountEUR: yi.amountEUR * share, ...(p.id ? { partnerId: p.id } : {}), partnerName: p.name, sharePercent: p.sharePercent } as any);
+            due.push({
+              contract: c,
+              issuedAt,
+              amountEUR: yi.amountEUR * share,
+              partnerId: partner.id ?? undefined,
+              partnerName: partner.name,
+              sharePercent: partner.sharePercent,
+              ...rateProps,
+            });
           }
         } else {
-          due.push({ contract: c, issuedAt, amountEUR: yi.amountEUR });
+          due.push({
+            contract: c,
+            issuedAt,
+            amountEUR: yi.amountEUR,
+            ...rateProps,
+          });
         }
       }
     }
@@ -169,40 +314,82 @@ export default async function HomePage() {
       const amountEURRaw = formData.get("amountEUR");
       const amountOverride =
         typeof amountEURRaw === "string" ? Number(amountEURRaw) : undefined;
-      const contract = contracts.find((c) => c.id === contractId);
-      if (!contract) return;
-      const partners: Array<{ id?: string; name: string; sharePercent?: number }> = Array.isArray((contract as any).partners)
-        ? (((contract as any).partners as any[]).map((p) => ({ id: p?.id, name: p?.name, sharePercent: typeof p?.sharePercent === 'number' ? p.sharePercent : undefined })))
+      const rateOverrideRaw = formData.get("exchangeRateRON");
+      let rateOverride: number | undefined = undefined;
+      if (
+        typeof rateOverrideRaw === "string" &&
+        rateOverrideRaw.trim() !== ""
+      ) {
+        const parsed = Number(rateOverrideRaw);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          rateOverride = parsed;
+        }
+      }
+      const found = contracts.find((c) => c.id === contractId);
+      if (!found) return;
+      const contract: ContractType =
+        typeof rateOverride === "number"
+          ? { ...found, exchangeRateRON: rateOverride }
+          : found;
+      const partners: ContractPartner[] = Array.isArray(contract.partners)
+        ? contract.partners
         : [];
-      const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
+      const sumShares = partners.reduce(
+        (total, partner) =>
+          total +
+          (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
+        0
+      );
       if (partners.length > 1 && sumShares > 0) {
         // Multi-partner issuance: compute full base EUR for this period, then split by shares
         let baseEUR: number | undefined;
         try {
           const y = Number(issuedAt.slice(0, 4));
           const m = Number(issuedAt.slice(5, 7));
-          const mode = (contract as any).invoiceMonthMode === "next" ? "next" : "current";
+          const mode =
+            contract.invoiceMonthMode === "next" ? "next" : "current";
           if (mode === "next") {
-            const { include, fraction } = computeNextMonthProration(contract as any, y, m);
+            const { include, fraction } = computeNextMonthProration(
+              contract,
+              y,
+              m
+            );
             if (!include) return; // suppressed by rules
             const nextMonthDate = new Date(y, m, 1);
             const nextIso = nextMonthDate.toISOString().slice(0, 10);
-            const base = rentAmountAtDate(contract as any, nextIso);
-            if (typeof base === 'number') baseEUR = base * (typeof fraction === 'number' && fraction > 0 ? fraction : 1);
+            const base = rentAmountAtDate(contract, nextIso);
+            if (typeof base === "number") {
+              baseEUR =
+                base *
+                (typeof fraction === "number" && fraction > 0 ? fraction : 1);
+            }
           } else {
-            baseEUR = rentAmountAtDate(contract as any, issuedAt);
+            baseEUR = rentAmountAtDate(contract, issuedAt);
           }
         } catch {}
-        if (!(typeof baseEUR === 'number' && isFinite(baseEUR) && baseEUR > 0)) {
+        if (
+          !(typeof baseEUR === "number" && isFinite(baseEUR) && baseEUR > 0)
+        ) {
           // Fallback to computed invoice if needed
           const baseInv = computeInvoiceFromContract({ contract, issuedAt });
           baseEUR = baseInv.amountEUR;
         }
-        for (const p of partners) {
-          const share = typeof p.sharePercent === 'number' ? p.sharePercent / 100 : 0;
+        for (const partner of partners) {
+          const share =
+            typeof partner.sharePercent === "number"
+              ? partner.sharePercent / 100
+              : 0;
           if (share <= 0) continue;
-          const invPart = computeInvoiceFromContract({ contract, issuedAt, amountEUROverride: (baseEUR as number) * share });
-          const patched = { ...invPart, partner: p.name, partnerId: p.id || p.name } as any;
+          const invPart = computeInvoiceFromContract({
+            contract,
+            issuedAt,
+            amountEUROverride: (baseEUR as number) * share,
+          });
+          const patched: Invoice = {
+            ...invPart,
+            partner: partner.name,
+            partnerId: partner.id || partner.name,
+          };
           await issueInvoiceAndGeneratePdf(patched);
         }
       } else {
@@ -229,7 +416,9 @@ export default async function HomePage() {
       const y = Number(issuedAt.slice(0, 4));
       const m = Number(issuedAt.slice(5, 7));
       const monthInvs = await listInvoicesForMonth(y, m);
-      const all = monthInvs.filter((it) => it.contractId === contractId && it.issuedAt === issuedAt);
+      const all = monthInvs.filter(
+        (it) => it.contractId === contractId && it.issuedAt === issuedAt
+      );
       for (const inv of all) {
         await deleteInvoiceById(inv.id);
       }
@@ -250,10 +439,8 @@ export default async function HomePage() {
           {(() => {
             const ownerMap = new Map<string, { id?: string; name: string }>();
             for (const c of contracts) {
-              const name = String((c as any).owner || "").trim() || "—";
-              const id = (c as any).ownerId
-                ? String((c as any).ownerId)
-                : undefined;
+              const name = c.owner?.trim() || "—";
+              const id = c.ownerId ?? undefined;
               const key = id || name;
               if (!ownerMap.has(key)) ownerMap.set(key, { id, name });
             }
@@ -292,13 +479,79 @@ export default async function HomePage() {
         <h1 className="text-fluid-4xl font-semibold tracking-tight mb-8">
           Facturi de emis luna aceasta
         </h1>
+        <section className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5">
+          <form
+            method="get"
+            className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+          >
+            <label className="flex flex-col gap-2 text-sm font-medium text-foreground/80">
+              Data pentru curs EUR/RON (BNR)
+              <input
+                type="date"
+                name="rateDate"
+                defaultValue={validRateDate ?? rateEffectiveDate ?? ""}
+                className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+              />
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="rounded-md border border-foreground/20 px-3 py-2 text-sm font-medium hover:bg-foreground/5"
+              >
+                Aplică cursul
+              </button>
+              {validRateDate ? (
+                <a
+                  href="/"
+                  className="text-sm text-foreground/60 hover:text-foreground"
+                >
+                  Revino la data curentă
+                </a>
+              ) : null}
+            </div>
+          </form>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground/70">
+            <span>
+              {isOverrideActive ? "Curs aplicat" : "Curs disponibil"}:{" "}
+              {typeof rateOverride === "number"
+                ? `${rateOverride.toFixed(4)} RON/EUR`
+                : "nedisponibil"}
+            </span>
+            {rateEffectiveDate ? (
+              <span>Valabil pentru {fmt(rateEffectiveDate)}</span>
+            ) : null}
+            <span className="text-foreground/50">
+              Sursă:{" "}
+              {{
+                bnr: "BNR (live)",
+                db: "Arhivă internă",
+                cache: "Cache locală",
+                fallback: "Ultimul curs salvat",
+              }[rateSource] ?? "BNR"}
+            </span>
+          </div>
+          {validRateDate &&
+          rateEffectiveDate &&
+          validRateDate !== rateEffectiveDate ? (
+            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              Nu există un curs publicat pentru {fmt(validRateDate)}. S-a
+              folosit valoarea din {fmt(rateEffectiveDate)}.
+            </div>
+          ) : null}
+          {!isOverrideActive ? (
+            <div className="mt-3 text-xs text-foreground/60">
+              Selectează o dată și apasă „Aplică cursul” pentru a folosi această
+              valoare la emiterea facturilor.
+            </div>
+          ) : null}
+        </section>
         {(() => {
           if (due.length === 0) return null;
           const groups = new Map<string, typeof due>();
-          for (const d of due) {
-            const owner = (d.contract as any).owner || "—";
+          for (const item of due) {
+            const owner = item.contract.owner || "—";
             const arr = groups.get(owner) || [];
-            arr.push(d);
+            arr.push(item);
             groups.set(owner, arr);
           }
           const owners = Array.from(groups.keys()).sort((a, b) =>
@@ -324,62 +577,108 @@ export default async function HomePage() {
                   .sort((a, b) => {
                     const day = (s: string) => {
                       const dd = Number(s?.slice(8, 10));
-                      return Number.isInteger(dd) ? dd : new Date(s).getDate() || 0;
+                      return Number.isInteger(dd)
+                        ? dd
+                        : new Date(s).getDate() || 0;
                     };
-                    const pa = ((a as any).partnerName || (a.contract as any).partner || "").toString();
-                    const pb = ((b as any).partnerName || (b.contract as any).partner || "").toString();
+                    const pa = (
+                      a.partnerName ??
+                      a.contract.partner ??
+                      ""
+                    ).toString();
+                    const pb = (
+                      b.partnerName ??
+                      b.contract.partner ??
+                      ""
+                    ).toString();
                     const dA = day(a.issuedAt);
                     const dB = day(b.issuedAt);
                     if (dA !== dB) return dA - dB;
-                    return pa.localeCompare(pb, "ro-RO", { sensitivity: "base" });
+                    return pa.localeCompare(pb, "ro-RO", {
+                      sensitivity: "base",
+                    });
                   })
                   .map((d) => {
                     const partnerKey =
-                      (d as any).partnerId ||
-                      (d as any).partnerName ||
+                      d.partnerId ||
+                      d.partnerName ||
                       d.contract.partnerId ||
                       d.contract.partner ||
-                      '';
+                      "";
                     const key = `${d.contract.id}|${d.issuedAt}|${partnerKey}`;
                     const already = issuedByKey.has(key);
                     const amtEUR =
                       typeof d.amountEUR === "number"
                         ? d.amountEUR
-                        : rentAmountAtDate(d.contract as any, d.issuedAt);
-                    const rate =
-                      typeof d.contract.exchangeRateRON === "number"
-                        ? d.contract.exchangeRateRON
+                        : rentAmountAtDate(d.contract, d.issuedAt);
+                    const rateOverrideItem =
+                      typeof d.exchangeRateOverride === "number"
+                        ? d.exchangeRateOverride
                         : undefined;
-                    const corrPct =
-                      typeof d.contract.correctionPercent === "number"
-                        ? d.contract.correctionPercent
-                        : 0;
-                    const tvaPct =
-                      typeof d.contract.tvaPercent === "number"
-                        ? d.contract.tvaPercent
-                        : 0;
-                    const correctedEUR =
-                      typeof amtEUR === "number"
-                        ? amtEUR * (1 + corrPct / 100)
-                        : undefined;
-                    const netRON =
-                      typeof correctedEUR === "number" &&
-                      typeof rate === "number"
-                        ? correctedEUR * rate
-                        : undefined;
-                    const vatRON =
-                      typeof netRON === "number"
-                        ? netRON * (tvaPct / 100)
-                        : undefined;
-                    const totalRON =
-                      typeof netRON === "number"
-                        ? netRON + (vatRON ?? 0)
-                        : undefined;
-                    const partners: Array<{ id?: string; name: string; sharePercent?: number }> = Array.isArray((d.contract as any).partners)
-                      ? ((((d.contract as any).partners as any[]) as Array<{ id?: string; name: string; sharePercent?: number }>))
+                    const rateDate = d.exchangeRateDate;
+                    const inv = already ? issuedInvoiceMap.get(key) : null;
+                    // When invoice already issued, display values from the invoice itself
+                    const rate = already
+                      ? inv?.exchangeRateRON
+                      : typeof rateOverrideItem === "number"
+                      ? rateOverrideItem
+                      : typeof d.contract.exchangeRateRON === "number"
+                      ? d.contract.exchangeRateRON
+                      : undefined;
+                    const corrPct = already
+                      ? inv?.correctionPercent ?? 0
+                      : typeof d.contract.correctionPercent === "number"
+                      ? d.contract.correctionPercent
+                      : 0;
+                    const tvaPct = already
+                      ? inv?.tvaPercent ?? 0
+                      : typeof d.contract.tvaPercent === "number"
+                      ? d.contract.tvaPercent
+                      : 0;
+                    const correctedEUR = already
+                      ? inv?.correctedAmountEUR
+                      : typeof amtEUR === "number"
+                      ? amtEUR * (1 + (corrPct || 0) / 100)
+                      : undefined;
+                    const netRON = already
+                      ? inv?.netRON
+                      : typeof correctedEUR === "number" &&
+                        typeof rate === "number"
+                      ? correctedEUR * rate
+                      : undefined;
+                    const vatRON = already
+                      ? inv?.vatRON
+                      : typeof netRON === "number"
+                      ? netRON * ((tvaPct || 0) / 100)
+                      : undefined;
+                    const totalRON = already
+                      ? inv?.totalRON
+                      : typeof netRON === "number"
+                      ? netRON + (vatRON ?? 0)
+                      : undefined;
+                    const partners: ContractPartner[] = Array.isArray(
+                      d.contract.partners
+                    )
+                      ? d.contract.partners
                       : [];
-                    const sumShares = partners.reduce((s, p) => s + (typeof p.sharePercent === 'number' ? p.sharePercent : 0), 0);
-                    const partnerCount = partners.filter(p => typeof p?.name === 'string' && p.name.trim()).length;
+                    const sumShares = partners.reduce(
+                      (total, partner) =>
+                        total +
+                        (typeof partner.sharePercent === "number"
+                          ? partner.sharePercent
+                          : 0),
+                      0
+                    );
+                    const partnerCount = partners.filter(
+                      (partner) =>
+                        typeof partner?.name === "string" &&
+                        partner.name.trim().length > 0
+                    ).length;
+                    const partnerHrefId =
+                      d.partnerId || d.contract.partnerId || null;
+                    const partnerSlug = encodeURIComponent(
+                      d.partnerName ?? d.contract.partner
+                    );
 
                     const liBase =
                       "group rounded-lg border transition-colors shadow-sm p-4";
@@ -393,10 +692,12 @@ export default async function HomePage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
                                 <Link
-                                  href={`/partners/${(d as any).partnerId || d.contract.partnerId || encodeURIComponent((d as any).partnerName || d.contract.partner)}`}
+                                  href={`/partners/${
+                                    partnerHrefId ?? partnerSlug
+                                  }`}
                                   className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
                                 >
-                                  {(d as any).partnerName || d.contract.partner}
+                                  {d.partnerName ?? d.contract.partner}
                                 </Link>
                               </span>
                               <Link
@@ -408,8 +709,8 @@ export default async function HomePage() {
                                 </h3>
                               </Link>
 
-                              {(d.contract as any).invoiceMonthMode ===
-                                "next" && d.contract.rentType === "monthly" ? (
+                              {d.contract.invoiceMonthMode === "next" &&
+                              d.contract.rentType === "monthly" ? (
                                 <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                   În avans
                                 </span>
@@ -478,10 +779,18 @@ export default async function HomePage() {
                                   name="issuedAt"
                                   value={d.issuedAt}
                                 />
-                                {(d as any).partnerId ? (
-                                  <input type="hidden" name="partnerId" value={(d as any).partnerId} />
-                                ) : (d as any).partnerName ? (
-                                  <input type="hidden" name="partnerName" value={(d as any).partnerName} />
+                                {d.partnerId ? (
+                                  <input
+                                    type="hidden"
+                                    name="partnerId"
+                                    value={d.partnerId}
+                                  />
+                                ) : d.partnerName ? (
+                                  <input
+                                    type="hidden"
+                                    name="partnerName"
+                                    value={d.partnerName}
+                                  />
                                 ) : null}
                                 <ConfirmSubmit
                                   className="rounded-md border px-2.5 py-1.5 text-sm font-medium flex items-center justify-center border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
@@ -554,13 +863,30 @@ export default async function HomePage() {
                                   name="issuedAt"
                                   value={d.issuedAt}
                                 />
-                                {(d as any).partnerId ? (
-                                  <input type="hidden" name="partnerId" value={(d as any).partnerId} />
-                                ) : (d as any).partnerName ? (
-                                  <input type="hidden" name="partnerName" value={(d as any).partnerName} />
+                                {d.partnerId ? (
+                                  <input
+                                    type="hidden"
+                                    name="partnerId"
+                                    value={d.partnerId}
+                                  />
+                                ) : d.partnerName ? (
+                                  <input
+                                    type="hidden"
+                                    name="partnerName"
+                                    value={d.partnerName}
+                                  />
+                                ) : null}
+                                {isOverrideActive &&
+                                typeof rateOverrideItem === "number" ? (
+                                  <input
+                                    type="hidden"
+                                    name="exchangeRateRON"
+                                    value={String(rateOverrideItem)}
+                                  />
                                 ) : null}
                                 {/* Only send override for non-split items; for split/partners we compute base in action */}
-                                {(!partnerKey && typeof d.amountEUR === "number") ? (
+                                {!partnerKey &&
+                                typeof d.amountEUR === "number" ? (
                                   <input
                                     type="hidden"
                                     name="amountEUR"
@@ -621,59 +947,126 @@ export default async function HomePage() {
                                 </ActionButton>
                               </form>
                             )}
+                            {already && inv?.pdfUrl ? (
+                              <PdfModal
+                                url={inv.pdfUrl}
+                                invoiceNumber={inv.number || inv.id}
+                                className="ml-1"
+                              />
+                            ) : null}
                           </div>
                         </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 text-[15px]">
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 text-[15px]">
                           <div className="space-y-0.5">
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
-                              EUR inițial
+                              EUR {already ? "emis" : "inițial"}
                             </div>
                             <div className="font-medium text-indigo-700 dark:text-indigo-400">
-                              {typeof amtEUR === "number"
+                              {already
+                                ? typeof inv?.amountEUR === "number"
+                                  ? fmtEUR(inv.amountEUR)
+                                  : "–"
+                                : typeof amtEUR === "number"
                                 ? fmtEUR(amtEUR)
                                 : "–"}
-                        </div>
-                        {partnerCount > 1 && !partnerKey && (
-                          <div className="sm:col-span-3 md:col-span-4 lg:col-span-5">
-                            <div className="text-[12px] text-foreground/60 mb-1">Procentaje parteneri</div>
-                            <ul className="text-[12px] text-foreground/70 space-y-0.5">
-                              {partners.map((p, idx) => {
-                                const hasPct = typeof p.sharePercent === 'number' && isFinite(p.sharePercent);
-                                const share = hasPct ? (p.sharePercent as number) / 100 : undefined;
-                                const partEUR = typeof share === 'number' && typeof correctedEUR === 'number' ? correctedEUR * share : undefined;
-                                const partRON = typeof share === 'number' && typeof totalRON === 'number' ? totalRON * share : undefined;
-                                return (
-                                  <li key={(p.id || p.name || String(idx))} className="flex items-center gap-2">
-                                    <Link href={`/partners/${encodeURIComponent(p.id || p.name || '')}`} className="hover:underline">
-                                      {p.name}
-                                    </Link>
-                                    <span className="text-foreground/50">•</span>
-                                    <span>{hasPct ? `${p.sharePercent}%` : '—'}</span>
-                                    {hasPct ? (
-                                      <>
-                                        <span className="text-foreground/50">•</span>
-                                        <span>
-                                          {typeof partEUR === 'number' ? `${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'EUR' }).format(partEUR)}` : '—'}
-                                          {typeof partRON === 'number' ? ` · ${new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'RON' }).format(partRON)}` : ''}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                          {partnerCount > 1 && !partnerKey ? (
+                            <div className="sm:col-span-3 md:col-span-5 lg:col-span-6">
+                              <div className="text-[12px] text-foreground/60 mb-1">
+                                Procentaje parteneri
+                              </div>
+                              <ul className="text-[12px] text-foreground/70 space-y-0.5">
+                                {partners.map((p, idx) => {
+                                  const hasPct =
+                                    typeof p.sharePercent === "number" &&
+                                    isFinite(p.sharePercent);
+                                  const share = hasPct
+                                    ? (p.sharePercent as number) / 100
+                                    : undefined;
+                                  const partEUR =
+                                    typeof share === "number" &&
+                                    typeof correctedEUR === "number"
+                                      ? correctedEUR * share
+                                      : undefined;
+                                  const partRON =
+                                    typeof share === "number" &&
+                                    typeof totalRON === "number"
+                                      ? totalRON * share
+                                      : undefined;
+                                  return (
+                                    <li
+                                      key={p.id || p.name || String(idx)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Link
+                                        href={`/partners/${encodeURIComponent(
+                                          p.id || p.name || ""
+                                        )}`}
+                                        className="hover:underline"
+                                      >
+                                        {p.name}
+                                      </Link>
+                                      <span className="text-foreground/50">
+                                        •
+                                      </span>
+                                      <span>
+                                        {hasPct ? `${p.sharePercent}%` : "—"}
+                                      </span>
+                                      {hasPct ? (
+                                        <>
+                                          <span className="text-foreground/50">
+                                            •
+                                          </span>
+                                          <span>
+                                            {typeof partEUR === "number"
+                                              ? new Intl.NumberFormat("ro-RO", {
+                                                  style: "currency",
+                                                  currency: "EUR",
+                                                }).format(partEUR)
+                                              : "—"}
+                                            {typeof partRON === "number"
+                                              ? ` · ${new Intl.NumberFormat(
+                                                  "ro-RO",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "RON",
+                                                  }
+                                                ).format(partRON)}`
+                                              : ""}
+                                          </span>
+                                        </>
+                                      ) : null}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ) : null}
                           <div className="space-y-0.5">
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
-                              EUR corectat{corrPct ? ` (+${corrPct}%)` : ""}
+                              EUR{" "}
+                              {already ? "emis (după corecție)" : "corectat"}
+                              {corrPct ? ` (+${corrPct}%)` : ""}
                             </div>
                             <div className="font-medium text-indigo-700 dark:text-indigo-400">
                               {typeof correctedEUR === "number"
                                 ? fmtEUR(correctedEUR)
                                 : "–"}
                             </div>
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                              {already ? "Curs la emitere" : "Curs RON/EUR"}
+                            </div>
+                            <div className="font-medium text-slate-700 dark:text-slate-300">
+                              {typeof rate === "number" ? rate.toFixed(4) : "–"}
+                            </div>
+                            {!already && rateDate ? (
+                              <div className="text-xs text-foreground/50">
+                                Data cursului: {fmt(rateDate)}
+                              </div>
+                            ) : null}
                           </div>
                           <div className="space-y-0.5">
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">

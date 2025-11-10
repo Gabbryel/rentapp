@@ -11,10 +11,45 @@ import { getDailyEurRon } from "@/lib/exchange";
 import { redirect } from "next/navigation";
 import { effectiveEndDate, computeFutureIndexingDates } from "@/lib/contracts";
 
+export type EditFormValues = {
+  id: string;
+  name: string;
+  assetId: string;
+  asset: string;
+  partnerId: string;
+  partner: string;
+  partnerIds: string[];
+  partnerNames: string[];
+  partnerShares: string[];
+  ownerId: string;
+  owner: string;
+  signedAt: string;
+  startDate: string;
+  endDate: string;
+  paymentDueDays: string;
+  amountEUR: string;
+  exchangeRateRON: string;
+  tvaPercent: string;
+  correctionPercent: string;
+  existingUrl: string[];
+  existingTitle: string[];
+  existingRemoveIdx: string[];
+  scanUrls: string[];
+  scanTitles: string[];
+  rentType: string;
+  invoiceMonthMode: string;
+  monthlyInvoiceDay: string;
+  indexingDay: string;
+  indexingMonth: string;
+  howOftenIsIndexing: string;
+  contractExtensions: string;
+  irregularInvoices: Array<{ month: string; day: string; amountEUR: string }>;
+};
+
 export type EditFormState = {
   ok: boolean;
   message?: string;
-  values: Record<string, unknown>;
+  values: Partial<EditFormValues>;
 };
 
 export async function updateContractAction(
@@ -22,56 +57,58 @@ export async function updateContractAction(
   formData: FormData
 ): Promise<EditFormState> {
   const id = (formData.get("id") as string) || "";
-  const rawValues = {
+  const getText = (key: string) => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : "";
+  };
+  const getAllText = (key: string) =>
+    formData
+      .getAll(key)
+      .map((value) => (typeof value === "string" ? value : String(value)));
+
+  const irregularInvoices: EditFormValues["irregularInvoices"] = [];
+  for (let i = 0; i < 24; i++) {
+    const month = getText(`irregularInvoices[${i}][month]`);
+    const day = getText(`irregularInvoices[${i}][day]`);
+    const amountEUR = getText(`irregularInvoices[${i}][amountEUR]`);
+    if (month || day || amountEUR) {
+      irregularInvoices.push({ month, day, amountEUR });
+    }
+  }
+
+  const rawValues: EditFormValues = {
     id,
-    name: (formData.get("name") as string) ?? "",
-    assetId: (formData.get("assetId") as string) || "",
-    asset: (formData.get("asset") as string) || "",
-  partnerId: (formData.get("partnerId") as string) || "",
-  partner: (formData.get("partner") as string) ?? "",
-  partnerIds: (formData.getAll("partnerIds") as string[]).filter(() => true),
-  partnerNames: (formData.getAll("partnerNames") as string[]).filter(() => true),
-  partnerShares: (formData.getAll("partnerShares") as string[]).filter(() => true),
-  ownerId: (formData.get("ownerId") as string) || "",
-  owner: (formData.get("owner") as string) || "",
-    signedAt: (formData.get("signedAt") as string) ?? "",
-    startDate: (formData.get("startDate") as string) ?? "",
-    endDate: (formData.get("endDate") as string) ?? "",
-  paymentDueDays: (formData.get("paymentDueDays") as string) || "",
-    amountEUR: (formData.get("amountEUR") as string) || "",
-    exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
-    tvaPercent: (formData.get("tvaPercent") as string) || "",
-    correctionPercent: (formData.get("correctionPercent") as string) || "",
-  // legacy indexing fields removed
-    // Multi-scan edit fields
-    existingUrl: (formData.getAll("existingUrl") as string[]) || [],
-    existingTitle: (formData.getAll("existingTitle") as string[]) || [],
-    existingRemoveIdx: (formData.getAll("existingRemoveIdx") as string[]) || [],
-    scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
-    scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
-    rentType: (formData.get("rentType") as string) || "",
-  invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
-    monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
-  // indexing schedule settings on Contract
-  indexingDay: (formData.get("indexingDay") as string) || "",
-  indexingMonth: (formData.get("indexingMonth") as string) || "",
-  howOftenIsIndexing: (formData.get("howOftenIsIndexing") as string) || "",
-  contractExtensions: (formData.get("contractExtensions") as string) || "[]",
-    // irregular invoices rows
-    ...(() => {
-      const out: Record<string, string> = {};
-      for (let i = 0; i < 24; i++) {
-        const m = (formData.get(`irregularInvoices[${i}][month]`) as string) || "";
-        const d = (formData.get(`irregularInvoices[${i}][day]`) as string) || "";
-        const a = (formData.get(`irregularInvoices[${i}][amountEUR]`) as string) || "";
-        if (m || d || a) {
-          out[`irregularInvoices[${i}][month]`] = m;
-          out[`irregularInvoices[${i}][day]`] = d;
-          out[`irregularInvoices[${i}][amountEUR]`] = a;
-        }
-      }
-      return out;
-    })(),
+    name: getText("name"),
+    assetId: getText("assetId"),
+    asset: getText("asset"),
+    partnerId: getText("partnerId"),
+    partner: getText("partner"),
+    partnerIds: getAllText("partnerIds"),
+    partnerNames: getAllText("partnerNames"),
+    partnerShares: getAllText("partnerShares"),
+    ownerId: getText("ownerId"),
+    owner: getText("owner"),
+    signedAt: getText("signedAt"),
+    startDate: getText("startDate"),
+    endDate: getText("endDate"),
+    paymentDueDays: getText("paymentDueDays"),
+    amountEUR: getText("amountEUR"),
+    exchangeRateRON: getText("exchangeRateRON"),
+    tvaPercent: getText("tvaPercent"),
+    correctionPercent: getText("correctionPercent"),
+    existingUrl: getAllText("existingUrl"),
+    existingTitle: getAllText("existingTitle"),
+    existingRemoveIdx: getAllText("existingRemoveIdx"),
+    scanUrls: getAllText("scanUrls").filter(Boolean),
+    scanTitles: getAllText("scanTitles"),
+    rentType: getText("rentType"),
+    invoiceMonthMode: getText("invoiceMonthMode") || "current",
+    monthlyInvoiceDay: getText("monthlyInvoiceDay"),
+    indexingDay: getText("indexingDay"),
+    indexingMonth: getText("indexingMonth"),
+    howOftenIsIndexing: getText("howOftenIsIndexing"),
+    contractExtensions: getText("contractExtensions") || "[]",
+    irregularInvoices,
   };
 
   try {
@@ -112,16 +149,10 @@ export async function updateContractAction(
         } catch {}
       }
     }
-    if (typeof exchangeRateRON === "number" && typeof parsedAmountEUR !== "number") {
-      if (typeof (prev as any).rentAmountEuro === "number") {
-        // no-op: amount now derived from history; keep previous for compatibility when needed
-      }
-    }
-
     // Multi-scan processing
-    const existingUrls = (rawValues.existingUrl as string[]) || [];
-    const existingTitles = (rawValues.existingTitle as string[]) || [];
-    const removeIdxSet = new Set(((rawValues.existingRemoveIdx as string[]) || []).map((s) => String(s)));
+    const existingUrls = rawValues.existingUrl;
+    const existingTitles = rawValues.existingTitle;
+    const removeIdxSet = new Set(rawValues.existingRemoveIdx.map((s) => String(s)));
 
     const nextScans: { url: string; title?: string }[] = [];
     const removedUrls: string[] = [];
@@ -167,8 +198,8 @@ export async function updateContractAction(
       nextScans.push({ url: res.url });
     }
     // New URLs
-    const urls = (rawValues.scanUrls as string[]) || [];
-    const titles = (rawValues.scanTitles as string[]) || [];
+    const urls = rawValues.scanUrls;
+    const titles = rawValues.scanTitles;
     urls.forEach((u, i) => {
       if (u) nextScans.push({ url: u, title: (titles[i] || "").trim() || undefined });
     });

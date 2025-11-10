@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { fetchContracts, effectiveEndDate, currentRentAmount, rentAmountAtDate } from "@/lib/contracts";
 import { fetchInvoicesForYearFresh } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
+import type { Contract as ContractType } from "@/lib/schemas/contract";
+import type { Invoice } from "@/lib/schemas/invoice";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,22 +40,23 @@ export async function GET(req: Request) {
     const ownerFilterRaw = url.searchParams.get("owner");
     const ownerIdFilter = url.searchParams.get("ownerId");
     const ownerFilter = ownerFilterRaw ? ownerFilterRaw.trim() : null;
-    const all = await fetchContracts();
-    const contracts = ownerFilter || ownerIdFilter
-      ? all.filter((c) => {
-          const name = String(((c as any).owner || "")).trim();
-          const id = String(((c as any).ownerId || ""));
-          return (
-            (ownerFilter && name === ownerFilter) ||
-            (ownerIdFilter && id === ownerIdFilter)
-          );
-        })
-      : all;
+    const all: ContractType[] = await fetchContracts();
+    const contracts: ContractType[] =
+      ownerFilter || ownerIdFilter
+        ? all.filter((contract) => {
+            const name = contract.owner?.trim() ?? "";
+            const id = contract.ownerId ?? "";
+            return (
+              (ownerFilter && name === ownerFilter) ||
+              (ownerIdFilter && id === ownerIdFilter)
+            );
+          })
+        : all;
     const contractsCount = contracts.length;
     // Actual invoices data
-  // Always fetch fresh to avoid serving stale cached totals after issuance/deletion.
-  const invoicesYear = await fetchInvoicesForYearFresh(year);
-    const monthKey = (inv: any) => inv.issuedAt.slice(0, 7);
+    // Always fetch fresh to avoid serving stale cached totals after issuance/deletion.
+    const invoicesYear = await fetchInvoicesForYearFresh(year);
+    const monthKey = (inv: Invoice) => inv.issuedAt.slice(0, 7);
     const ym = `${year}-${String(month).padStart(2, "0")}`;
     let actualMonthRON = 0; // cu TVA
     let actualMonthEUR = 0; // EUR net (corectat) – deja fără TVA
@@ -63,10 +66,10 @@ export async function GET(req: Request) {
     let actualAnnualNetRON = 0; // fără TVA
     const contractIdSet = new Set(contracts.map((c) => c.id));
     for (const inv of invoicesYear) {
-      if (!contractIdSet.has((inv as any).contractId)) continue;
-      const totalRON = safeNum((inv as any).totalRON) ?? 0;
-      const correctedEUR = safeNum((inv as any).correctedAmountEUR) ?? 0;
-      const netRON = safeNum((inv as any).netRON) ?? 0;
+      if (!contractIdSet.has(inv.contractId)) continue;
+      const totalRON = safeNum(inv.totalRON) ?? 0;
+      const correctedEUR = safeNum(inv.correctedAmountEUR) ?? 0;
+      const netRON = safeNum(inv.netRON) ?? 0;
       actualAnnualRON += totalRON;
       actualAnnualEUR += correctedEUR;
       actualAnnualNetRON += netRON;
@@ -92,20 +95,21 @@ export async function GET(req: Request) {
     for (const c of contracts) {
       const start = new Date(c.startDate);
       const end = new Date(effectiveEndDate(c));
-      const rate = safeNum((c as any).exchangeRateRON);
-      const amountEURBase = safeNum(currentRentAmount(c as any));
-      const corrPct = safeNum((c as any).correctionPercent) ?? 0;
-      const tvaPct = safeNum((c as any).tvaPercent) ?? 0;
+      const rate = safeNum(c.exchangeRateRON);
+      const amountEURBase = safeNum(currentRentAmount(c));
+      const corrPct = safeNum(c.correctionPercent) ?? 0;
+      const tvaPct = safeNum(c.tvaPercent) ?? 0;
+      const rentType = c.rentType as string;
 
-      if (c.rentType === "monthly") {
+      if (rentType === "monthly") {
         // Skip if no base amount
         if (!amountEURBase) continue;
         // Per-occurrence values (monthly)
         const correctedEUR = amountEURBase * (1 + corrPct / 100); // EUR net
-        const netRON = typeof rate === 'number' ? correctedEUR * rate : undefined; // RON fără TVA
-        const vatRON = typeof netRON === 'number' ? netRON * (tvaPct / 100) : undefined;
-        const totalRON = typeof netRON === 'number' ? netRON + (vatRON ?? 0) : undefined; // RON cu TVA
-        const mode = (c as any).invoiceMonthMode === "next" ? "next" : "current";
+        const netRON = typeof rate === "number" ? correctedEUR * rate : undefined; // RON fără TVA
+        const vatRON = typeof netRON === "number" ? netRON * (tvaPct / 100) : undefined;
+        const totalRON = typeof netRON === "number" ? netRON + (vatRON ?? 0) : undefined; // RON cu TVA
+        const mode = c.invoiceMonthMode === "next" ? "next" : "current";
         for (let mIdx = 1; mIdx <= 12; mIdx++) {
           const mStart = new Date(year, mIdx - 1, 1);
           const mEnd = new Date(year, mIdx - 1, daysInMonth(year, mIdx));
@@ -113,7 +117,7 @@ export async function GET(req: Request) {
           // Annual prognosis accumulation for this calendar month
           if (mode === "next") {
             // In advance mode, include if next-month coverage applies
-            const { include, fraction } = computeNextMonthProration(c as any, year, mIdx);
+            const { include, fraction } = computeNextMonthProration(c, year, mIdx);
             if (include) {
               if (fraction > 0 && fraction < 1) {
                 const fCorrectedEUR = correctedEUR * fraction;
@@ -143,7 +147,7 @@ export async function GET(req: Request) {
                 prognosisMonthEUR += correctedEUR;
                 if (typeof netRON === 'number') prognosisMonthNetRON += netRON;
               } else {
-                const { include, fraction } = computeNextMonthProration(c as any, year, month);
+                const { include, fraction } = computeNextMonthProration(c, year, month);
                 if (include) {
                   if (fraction > 0 && fraction < 1) {
                     const fCorrectedEUR = correctedEUR * fraction;
@@ -164,8 +168,12 @@ export async function GET(req: Request) {
           }
         }
         // Also include any additional irregularInvoices entries defined on a monthly contract
-        const extras = (c as any).irregularInvoices as { month: number; day: number; amountEUR: number }[] | undefined
-          || ((c as any).yearlyInvoices as { month: number; day: number; amountEUR: number }[] | undefined);
+        const extras =
+          Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
+            ? c.irregularInvoices
+            : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
+            ? c.yearlyInvoices
+            : undefined;
         if (extras) {
           for (const yi of extras) {
             if (yi.month < 1 || yi.month > 12) continue;
@@ -187,9 +195,13 @@ export async function GET(req: Request) {
             }
           }
         }
-      } else if (c.rentType === "yearly") {
-        const entries = (c as any).irregularInvoices as { month: number; day: number; amountEUR: number }[] | undefined
-          || ((c as any).yearlyInvoices as { month: number; day: number; amountEUR: number }[] | undefined);
+      } else if (rentType === "yearly") {
+        const entries =
+          Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
+            ? c.irregularInvoices
+            : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
+            ? c.yearlyInvoices
+            : undefined;
         if (entries) {
           for (const yi of entries) {
             if (yi.month < 1 || yi.month > 12) continue;
@@ -211,8 +223,11 @@ export async function GET(req: Request) {
             }
           }
         }
-      } else if ((c as any).rentType === "chosenDates") {
-        const entries = (c as any).chosenDatesInvoicesDates as { date: string }[] | undefined;
+      } else if (rentType === "chosenDates") {
+        type ContractWithChosenDates = ContractType & {
+          chosenDatesInvoicesDates?: Array<{ date: string }>;
+        };
+        const entries = (c as ContractWithChosenDates).chosenDatesInvoicesDates;
         if (Array.isArray(entries) && entries.length > 0) {
           for (const row of entries) {
             const iso = String((row && row.date) || "").slice(0, 10);
@@ -221,7 +236,7 @@ export async function GET(req: Request) {
             if (isNaN(d.getTime())) continue;
             if (d < start || d > end) continue;
             if (d.getFullYear() !== year) continue;
-            const baseEUR = rentAmountAtDate(c as any, iso);
+            const baseEUR = rentAmountAtDate(c, iso);
             if (typeof baseEUR !== 'number') continue;
             const correctedEUR = baseEUR * (1 + (corrPct ?? 0) / 100);
             const netRON = typeof rate === 'number' ? correctedEUR * rate : undefined;
@@ -260,7 +275,8 @@ export async function GET(req: Request) {
       generatedAt: new Date().toISOString(),
     };
     return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Eroare la calcularea statisticilor";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

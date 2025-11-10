@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchContractById, currentRentAmount } from "@/lib/contracts";
+import { fetchContractById } from "@/lib/contracts";
 import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/invoices";
 
 export async function POST(req: Request) {

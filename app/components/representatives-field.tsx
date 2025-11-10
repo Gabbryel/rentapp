@@ -83,7 +83,10 @@ export default function RepresentativesField({
         field === "email"
       ) {
         const v = value.trim();
-        (cur as any)[field] = v.length > 0 ? v : null;
+        const normalized = v.length > 0 ? v : null;
+        if (field === "fullname") cur.fullname = normalized;
+        if (field === "phone") cur.phone = normalized;
+        if (field === "email") cur.email = normalized;
       }
       next[idx] = cur;
       return next;

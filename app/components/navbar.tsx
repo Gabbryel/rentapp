@@ -30,6 +30,7 @@ export default function Navbar() {
   const [dbLatency, setDbLatency] = useState<number | null>(null);
   const [dbLocation, setDbLocation] = useState<"local" | "remote" | null>(null);
   const [dbProvider, setDbProvider] = useState<"atlas" | "other" | null>(null);
+  const [checkingDb, setCheckingDb] = useState(false);
   const [bnrRate, setBnrRate] = useState<number | null>(null);
   const [bnrDate, setBnrDate] = useState<string | null>(null);
   const [bnrSource, setBnrSource] = useState<string | null>(null);
@@ -38,6 +39,10 @@ export default function Navbar() {
   const [btSource, setBtSource] = useState<string | null>(null);
   const [refreshingFx, setRefreshingFx] = useState(false);
   const [fxError, setFxError] = useState<null | "bnr" | "bt" | "both">(null);
+  // DB manual check persistence
+  const [dbLastCheckedAt, setDbLastCheckedAt] = useState<number | null>(null);
+  const [dbLastOk, setDbLastOk] = useState<boolean | null>(null);
+  const DB_LAST_KEY = "rentapp:db:last-check";
 
   // Helper: how many hours passed since a given ISO date string
   const hoursSince = (dateStr: string | null) => {
@@ -230,38 +235,26 @@ export default function Navbar() {
         }
       }
     };
-    const loadDb = async () => {
-      try {
-        const res = await fetch("/api/db/status", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (aborted) return;
-        if (res.ok) {
-          const data = await res.json();
-          setDbConnected(Boolean(data.connected));
-          setDbName(data?.db?.name ?? null);
-          setDbLatency(
-            typeof data?.latencyMs === "number" ? data.latencyMs : null
-          );
-          setDbLocation(data?.cluster?.location ?? null);
-          setDbProvider(data?.cluster?.provider ?? null);
-        } else {
-          setDbConnected(false);
-          setDbName(null);
-          setDbLatency(null);
-          setDbLocation(null);
-          setDbProvider(null);
-        }
-      } catch {
-        if (aborted) return;
-        setDbConnected(false);
-        setDbName(null);
-        setDbLatency(null);
-        setDbLocation(null);
-        setDbProvider(null);
+    // Restore last known DB status from localStorage (manual; no auto network call)
+    try {
+      const raw = localStorage.getItem(DB_LAST_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        const ts = typeof cached?.ts === "number" ? cached.ts : null;
+        const ok = typeof cached?.ok === "boolean" ? cached.ok : null;
+        setDbLastCheckedAt(ts);
+        setDbLastOk(ok);
+        // Reflect cached fields into current UI
+        setDbConnected(ok === true);
+        setDbName(cached?.name ?? null);
+        setDbLatency(
+          typeof cached?.latency === "number" ? cached.latency : null
+        );
+        setDbLocation(cached?.location ?? null);
+        setDbProvider(cached?.provider ?? null);
       }
-    };
+    } catch {}
+    // DB status is now manual; do not auto-check on mount/focus
     const loadBnr = async () => {
       try {
         const res = await fetch("/api/exchange/eurron", {
@@ -303,7 +296,6 @@ export default function Navbar() {
       }
     };
     loadMe();
-    loadDb();
     loadBnr();
     loadBt();
 
@@ -311,7 +303,6 @@ export default function Navbar() {
     const onFocus = () => {
       // Refresh /api/me only if cache is stale (handled inside fetchMeCached)
       loadMe();
-      loadDb();
       loadBnr();
       loadBt();
     };
@@ -322,6 +313,85 @@ export default function Navbar() {
       window.removeEventListener("focus", onFocus);
     };
   }, [pathname]);
+
+  // Manual DB check action (desktop + mobile)
+  const checkDb = useCallback(async () => {
+    if (checkingDb) return;
+    setCheckingDb(true);
+    try {
+      const res = await fetch("/api/db/status", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setDbConnected(Boolean(data.connected));
+        setDbName(data?.db?.name ?? null);
+        setDbLatency(
+          typeof data?.latencyMs === "number" ? data.latencyMs : null
+        );
+        setDbLocation(data?.cluster?.location ?? null);
+        setDbProvider(data?.cluster?.provider ?? null);
+        // Persist last successful/failed check
+        const now = Date.now();
+        setDbLastCheckedAt(now);
+        setDbLastOk(Boolean(data.connected));
+        try {
+          localStorage.setItem(
+            DB_LAST_KEY,
+            JSON.stringify({
+              ts: now,
+              ok: Boolean(data.connected),
+              name: data?.db?.name ?? null,
+              latency:
+                typeof data?.latencyMs === "number" ? data.latencyMs : null,
+              location: data?.cluster?.location ?? null,
+              provider: data?.cluster?.provider ?? null,
+            })
+          );
+        } catch {}
+        try {
+          window.dispatchEvent(
+            new CustomEvent("app:toast", {
+              detail: {
+                type: "success",
+                message: "Conexiunea la baza de date a fost verificată.",
+              },
+            })
+          );
+        } catch {}
+      } else {
+        setDbConnected(false);
+        setDbName(null);
+        setDbLatency(null);
+        setDbLocation(null);
+        setDbProvider(null);
+        const now = Date.now();
+        setDbLastCheckedAt(now);
+        setDbLastOk(false);
+        try {
+          localStorage.setItem(
+            DB_LAST_KEY,
+            JSON.stringify({ ts: now, ok: false })
+          );
+        } catch {}
+      }
+    } catch {
+      setDbConnected(false);
+      setDbName(null);
+      setDbLatency(null);
+      setDbLocation(null);
+      setDbProvider(null);
+      const now = Date.now();
+      setDbLastCheckedAt(now);
+      setDbLastOk(false);
+      try {
+        localStorage.setItem(
+          DB_LAST_KEY,
+          JSON.stringify({ ts: now, ok: false })
+        );
+      } catch {}
+    } finally {
+      setCheckingDb(false);
+    }
+  }, [checkingDb]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-foreground/10 bg-background sm:bg-background/80 sm:backdrop-blur sm:supports-[backdrop-filter]:bg-background/60">
@@ -448,12 +518,21 @@ export default function Navbar() {
                 <span>EUR</span>
               </button>
               {/* DB status indicator */}
-              <span
-                className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
+              <button
+                type="button"
+                onClick={checkDb}
+                disabled={checkingDb}
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                  checkingDb
+                    ? "border-foreground/20 text-foreground/50 cursor-wait"
+                    : "border-foreground/10 text-foreground/70 hover:bg-foreground/5"
+                }`}
                 title={
-                  dbConnected === null
+                  checkingDb
                     ? "Verific conexiunea la baza de date..."
-                    : dbConnected
+                    : dbLastCheckedAt == null
+                    ? "Click pentru a verifica conexiunea la baza de date"
+                    : dbLastOk
                     ? `DB: ${dbName ?? "—"}${
                         dbLatency != null ? ` • ${dbLatency}ms` : ""
                       } • ${dbLocation ?? "?"}${
@@ -463,25 +542,31 @@ export default function Navbar() {
                             : ""
                           : ""
                       }`
-                    : "DB offline"
+                    : "DB offline (click pentru verificare)"
                 }
                 aria-live="polite"
+                aria-label="Verifică starea bazei de date"
               >
                 <span
                   className={
                     "h-2 w-2 rounded-full " +
-                    (dbConnected === null
-                      ? "bg-foreground/40"
-                      : dbConnected
+                    (checkingDb
+                      ? "bg-foreground/40 animate-pulse"
+                      : dbLastCheckedAt != null &&
+                        Date.now() - dbLastCheckedAt > 12 * 3600 * 1000
+                      ? "bg-blue-500"
+                      : dbLastOk === true
                       ? "bg-emerald-500"
-                      : "bg-red-500")
+                      : dbLastOk === false
+                      ? "bg-red-500"
+                      : "bg-foreground/40")
                   }
                   aria-hidden="true"
                 />
                 <span>
-                  DB{dbConnected && dbLocation ? ` • ${dbLocation}` : ""}
+                  DB{dbLastOk && dbLocation ? ` • ${dbLocation}` : ""}
                 </span>
-              </span>
+              </button>
               {/* BNR EUR/RON indicator */}
               <span
                 className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
@@ -599,7 +684,9 @@ export default function Navbar() {
             <div className="sm:hidden fixed inset-x-0 top-14 z-50 bg-white dark:bg-neutral-900 border-t border-foreground/10 shadow-md max-h-[calc(100vh-3.5rem)] overflow-y-auto">
               {/* Panel header with visible close button */}
               <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-foreground/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 supports-[backdrop-filter]:dark:bg-neutral-900/80">
-                <span className="text-sm font-medium text-foreground/80">Meniu</span>
+                <span className="text-sm font-medium text-foreground/80">
+                  Meniu
+                </span>
                 <button
                   onClick={() => setOpen(false)}
                   className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5 text-foreground"
@@ -771,12 +858,21 @@ export default function Navbar() {
                         <span>{btRate != null ? btRate.toFixed(4) : "—"}</span>
                       </span>
                     </div>
-                    <span
-                      className="inline-flex items-center gap-2 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-xs text-foreground/70 shadow-sm"
+                    <button
+                      type="button"
+                      onClick={checkDb}
+                      disabled={checkingDb}
+                      className={`inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs text-foreground/70 shadow-sm ${
+                        checkingDb
+                          ? "border-foreground/20 bg-white/70 dark:bg-neutral-900/70 cursor-wait"
+                          : "border-foreground/15 bg-white dark:bg-neutral-950 hover:bg-foreground/5"
+                      }`}
                       title={
-                        dbConnected === null
+                        checkingDb
                           ? "Verific conexiunea la baza de date..."
-                          : dbConnected
+                          : dbLastCheckedAt === null
+                          ? "Atinge pentru a verifica conexiunea la baza de date"
+                          : dbLastOk
                           ? `DB: ${dbName ?? "—"}${
                               dbLatency != null ? ` • ${dbLatency}ms` : ""
                             } • ${dbLocation ?? "?"}${
@@ -786,23 +882,29 @@ export default function Navbar() {
                                   : ""
                                 : ""
                             }`
-                          : "DB offline"
+                          : "DB offline (atinge pentru verificare)"
                       }
                       aria-live="polite"
+                      aria-label="Verifică starea bazei de date"
                     >
                       <span
                         className={
                           "h-2.5 w-2.5 rounded-full " +
-                          (dbConnected === null
-                            ? "bg-foreground/40"
-                            : dbConnected
+                          (checkingDb
+                            ? "bg-foreground/40 animate-pulse"
+                            : dbLastCheckedAt != null &&
+                              Date.now() - dbLastCheckedAt > 12 * 3600 * 1000
+                            ? "bg-blue-500"
+                            : dbLastOk === true
                             ? "bg-emerald-500"
-                            : "bg-red-500")
+                            : dbLastOk === false
+                            ? "bg-red-500"
+                            : "bg-foreground/40")
                         }
                         aria-hidden="true"
                       />
                       <span>
-                        {dbConnected
+                        {dbLastOk
                           ? `Baza de date: conectat${
                               dbLocation
                                 ? ` (${dbLocation}${
@@ -810,11 +912,14 @@ export default function Navbar() {
                                   })`
                                 : ""
                             }`
-                          : dbConnected === null
+                          : checkingDb
                           ? "Baza de date: verific..."
-                          : "Baza de date: offline"}
+                          : dbLastCheckedAt != null &&
+                            Date.now() - dbLastCheckedAt > 12 * 3600 * 1000
+                          ? "Baza de date: verificare veche (>12h)"
+                          : "Baza de date: offline (atinge pentru verificare)"}
                       </span>
-                    </span>
+                    </button>
                   </div>
                   {links.map((l) => {
                     const isActive =

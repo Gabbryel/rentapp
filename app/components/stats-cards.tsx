@@ -1,17 +1,9 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 
 declare global {
   interface Window {
-    __statsOptimisticQueue?: Array<{
-      mode: string;
-      monthRON?: number;
-      monthEUR?: number;
-      annualRON?: number;
-      annualEUR?: number;
-      monthNetRON?: number;
-      annualNetRON?: number;
-    }>;
+    __statsOptimisticQueue?: OptimisticDelta[];
   }
 }
 
@@ -32,6 +24,28 @@ type Stats = {
   actualAnnualEUR: number;
   actualAnnualNetRON: number;
   generatedAt: string;
+};
+
+type OptimisticDelta = {
+  mode: string;
+  monthRON?: number;
+  monthEUR?: number;
+  annualRON?: number;
+  annualEUR?: number;
+  monthNetRON?: number;
+  annualNetRON?: number;
+};
+
+type CardItem = {
+  label: string;
+  ron: string | null;
+  eur: string | null;
+  progress: number | null;
+  netRON?: string | null;
+  netEUR?: string | null;
+  vatRON?: string | null;
+  progressNet?: number | null;
+  type?: "annualPrognosis";
 };
 
 function fmtInt(n: number) {
@@ -62,7 +76,13 @@ const skeletonClass = "animate-pulse rounded bg-foreground/10 h-6 w-24";
 // Using a unified delay for consistent UX & animation parity.
 const FORCE_REFRESH_DELAY = 500; // ms
 
-export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId?: string }) {
+export default function StatsCards({
+  owner,
+  ownerId,
+}: {
+  owner?: string;
+  ownerId?: string;
+}) {
   const [stats, setStats] = useState<Stats | null>(null);
   const prevStatsRef = useRef<Stats | null>(null);
   const statsRef = useRef<Stats | null>(null);
@@ -90,33 +110,13 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
   const pendingLoadRef = useRef(false);
   const rollbackTimeoutsRef = useRef<number[]>([]);
   // Queue optimistic deltas that arrive before initial stats load
-  const optimisticQueueRef = useRef<
-    {
-      mode: string;
-      monthRON?: number;
-      monthEUR?: number;
-      annualRON?: number;
-      annualEUR?: number;
-      monthNetRON?: number;
-      annualNetRON?: number;
-    }[]
-  >(
+  const optimisticQueueRef = useRef<OptimisticDelta[]>(
     typeof window !== "undefined" && window.__statsOptimisticQueue
       ? [...window.__statsOptimisticQueue]
       : []
   );
   // Batching of rapid optimistic events (after baseline loaded)
-  const optimisticBatchRef = useRef<
-    {
-      mode: string;
-      monthRON?: number;
-      monthEUR?: number;
-      annualRON?: number;
-      annualEUR?: number;
-      monthNetRON?: number;
-      annualNetRON?: number;
-    }[]
-  >([]);
+  const optimisticBatchRef = useRef<OptimisticDelta[]>([]);
   // Removed debounce timer: we now flush every optimistic event immediately for reliability
   const optimisticBatchTimerRef = useRef<number | null>(null); // kept for cleanup compatibility
   const forceRefreshTimerRef = useRef<number | null>(null);
@@ -129,8 +129,8 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
 
   const [valueFx, setValueFx] = useState<Record<string, number>>({});
 
-  const applyOptimisticBatch = () => {
-    if (!stats) return; // safety; initial load will handle queued values
+  const applyOptimisticBatch = useCallback(() => {
+    if (!statsRef.current) return; // safety; initial load will handle queued values
     if (!optimisticBatchRef.current.length) return;
     const batch = optimisticBatchRef.current.splice(
       0,
@@ -234,7 +234,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
       }
       return next;
     });
-  };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,8 +244,10 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
         pendingLoadRef.current = true;
         setError(null); // clear previous error on new attempt
         const qsParts: string[] = [];
-        if (ownerId && ownerId.trim()) qsParts.push(`ownerId=${encodeURIComponent(ownerId.trim())}`);
-        if (owner && owner.trim()) qsParts.push(`owner=${encodeURIComponent(owner.trim())}`);
+        if (ownerId && ownerId.trim())
+          qsParts.push(`ownerId=${encodeURIComponent(ownerId.trim())}`);
+        if (owner && owner.trim())
+          qsParts.push(`owner=${encodeURIComponent(owner.trim())}`);
         const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
         const res = await fetch(`/api/stats${qs}`, { cache: "no-store" });
         if (!res.ok) throw new Error("Eșec încărcare statistici");
@@ -326,7 +328,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
                 "actualAnnualEUR",
               ];
               for (const k of keys) {
-                if (prev[k] !== (base as any)[k]) markValueChange(k);
+                if (prev[k] !== base[k]) markValueChange(k);
               }
               const prevVat = prev.actualMonthRON - prev.actualMonthNetRON;
               const nextVat = base.actualMonthRON - base.actualMonthNetRON;
@@ -335,8 +337,11 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
             return base;
           });
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || "Eroare");
+      } catch (error: unknown) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Eroare";
+          setError(message);
+        }
       } finally {
         pendingLoadRef.current = false;
       }
@@ -345,7 +350,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
     const schedule = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (!pendingLoadRef.current) {
-        if (stats) setSyncing(true); // keep current stats (no flicker) while syncing
+        if (statsRef.current) setSyncing(true); // keep current stats (no flicker) while syncing
       }
       debounceRef.current = window.setTimeout(() => {
         load();
@@ -353,7 +358,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
     };
     const handlerRefresh = () => schedule();
     const handlerOptimistic = (ev: Event) => {
-      const detail: any = (ev as CustomEvent).detail;
+      const detail = (ev as CustomEvent<OptimisticDelta>).detail;
       if (!detail) return;
       if (!statsRef.current) {
         optimisticQueueRef.current.push(detail);
@@ -373,21 +378,18 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
       }, FORCE_REFRESH_DELAY);
     };
     window.addEventListener("app:stats:refresh", handlerRefresh);
-    window.addEventListener("app:stats:optimistic", handlerOptimistic as any);
+    window.addEventListener("app:stats:optimistic", handlerOptimistic);
     return () => {
       cancelled = true;
       window.removeEventListener("app:stats:refresh", handlerRefresh);
-      window.removeEventListener(
-        "app:stats:optimistic",
-        handlerOptimistic as any
-      );
+      window.removeEventListener("app:stats:optimistic", handlerOptimistic);
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (optimisticBatchTimerRef.current)
         window.clearTimeout(optimisticBatchTimerRef.current);
       if (forceRefreshTimerRef.current)
         window.clearTimeout(forceRefreshTimerRef.current);
     };
-  }, []);
+  }, [applyOptimisticBatch, owner, ownerId]);
 
   // Clear syncing & rollback timers when new stats arrive
   useEffect(() => {
@@ -427,7 +429,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
     return () => window.clearTimeout(id);
   }, [deltaBubble]);
 
-  const cards = [
+  const cards: CardItem[] = [
     {
       label: "Contracts number",
       ron: stats ? fmtInt(stats.contractsCount) : null,
@@ -544,7 +546,7 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
             >
               <div className="text-sm text-foreground/60 mb-1">{c.label}</div>
               {/* Special rendering for annual prognosis card */}
-              {c.ron && (c as any).type === "annualPrognosis" ? (
+              {c.ron && c.type === "annualPrognosis" ? (
                 <>
                   <div className="text-xl font-semibold leading-tight flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span>{c.ron}</span>
@@ -554,14 +556,14 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
                       </span>
                     )}
                   </div>
-                  {(c as any).netRON && (
+                  {c.netRON && (
                     <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="text-foreground/50">Net:</span>
-                        <span>{(c as any).netRON}</span>
-                        {(c as any).netEUR && (
+                        <span>{c.netRON}</span>
+                        {c.netEUR && (
                           <span className="text-xs text-foreground/50">
-                            {(c as any).netEUR}
+                            {c.netEUR}
                           </span>
                         )}
                       </div>
@@ -630,11 +632,11 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
                           </span>
                         )}
                       </div>
-                      {(c as any).vatRON && (
+                      {c.vatRON && (
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-foreground/50">VAT:</span>
                           <span className={valClass("vatMonthRON")}>
-                            {(c as any).vatRON}
+                            {c.vatRON}
                           </span>
                         </div>
                       )}
@@ -653,16 +655,16 @@ export default function StatsCards({ owner, ownerId }: { owner?: string; ownerId
                           {c.progress}% gross realizat
                         </div>
                       </div>
-                      {typeof (c as any).progressNet === "number" && (
+                      {typeof c.progressNet === "number" && (
                         <div>
                           <div className="h-2 w-full rounded bg-foreground/10 overflow-hidden">
                             <div
                               className="h-full bg-cyan-500 transition-[width] duration-500 ease-out will-change-[width]"
-                              style={{ width: `${(c as any).progressNet}%` }}
+                              style={{ width: `${c.progressNet}%` }}
                             />
                           </div>
                           <div className="text-[11px] text-foreground/50 mt-1">
-                            {(c as any).progressNet}% net realizat
+                            {c.progressNet}% net realizat
                           </div>
                         </div>
                       )}

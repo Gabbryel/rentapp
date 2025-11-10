@@ -3,6 +3,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+declare global {
+  interface HTMLElement {
+    inert?: boolean;
+  }
+}
+
 type ModalProps = {
   open: boolean;
   onClose: () => void;
@@ -79,11 +85,9 @@ export default function Modal({
       const appRoot = document.getElementById("app-root");
       if (appRoot) {
         appRoot.setAttribute("aria-hidden", "true");
-        try {
-          // inert is supported by modern browsers; attribute is fine as a hint
-          (appRoot as any).inert = true;
-          appRoot.setAttribute("inert", "");
-        } catch {}
+        // inert is supported by modern browsers; attribute is fine as a hint
+        appRoot.inert = true;
+        appRoot.setAttribute("inert", "");
       }
     } else {
       document.body.classList.remove("has-modal-open");
@@ -91,10 +95,8 @@ export default function Modal({
       const appRoot = document.getElementById("app-root");
       if (appRoot) {
         appRoot.removeAttribute("aria-hidden");
-        try {
-          (appRoot as any).inert = false;
-          appRoot.removeAttribute("inert");
-        } catch {}
+        appRoot.inert = false;
+        appRoot.removeAttribute("inert");
       }
       // Restore focus to previously focused element
       try {
@@ -107,10 +109,8 @@ export default function Modal({
       const appRoot = document.getElementById("app-root");
       if (appRoot) {
         appRoot.removeAttribute("aria-hidden");
-        try {
-          (appRoot as any).inert = false;
-          appRoot.removeAttribute("inert");
-        } catch {}
+        appRoot.inert = false;
+        appRoot.removeAttribute("inert");
       }
     };
   }, [open, supportsBackdrop]);

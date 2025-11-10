@@ -47,7 +47,6 @@ export default function PartnerMultiSelect({
   return (
     <div className="space-y-2">
       {rows.map((row, i) => {
-        const current = row.id && partners.find((p) => p.id === row.id);
         return (
           <div key={i} className="grid grid-cols-12 gap-2 items-start">
             <div className="col-span-4 sm:col-span-3">

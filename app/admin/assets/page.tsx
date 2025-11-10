@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listAssets } from "@/lib/assets";
 import { fetchContractsByAssetId } from "@/lib/contracts";
+import type { Asset } from "@/lib/schemas/asset";
+import type { Contract as ContractType } from "@/lib/schemas/contract";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +11,10 @@ export default async function AdminAssetsPage() {
   // Sort assets alphabetically by name
   const assetsSorted = assets.slice().sort((a, b) => a.name.localeCompare(b.name));
   // For each asset, fetch associated contracts (counts and a primary item for meta)
-  const assetsWithContracts = await Promise.all(
-    assetsSorted.map(async (a) => {
-      const cs = await fetchContractsByAssetId(a.id);
-      return { asset: a, contracts: cs };
+  const assetsWithContracts: Array<{ asset: Asset; contracts: ContractType[] }> = await Promise.all(
+    assetsSorted.map(async (asset) => {
+      const assetContracts = await fetchContractsByAssetId(asset.id);
+      return { asset, contracts: assetContracts };
     })
   );
   return (
@@ -31,39 +33,39 @@ export default async function AdminAssetsPage() {
           {assetsWithContracts.length === 0 ? (
             <p className="p-4 text-sm text-foreground/60">Niciun asset.</p>
           ) : (
-            assetsWithContracts.map(({ asset: a, contracts }) => (
+            assetsWithContracts.map(({ asset: currentAsset, contracts }) => (
               <div
-                key={a.id}
+                key={currentAsset.id}
                 className="flex items-center justify-between px-4 py-3 hover:bg-foreground/5"
               >
-                <Link href={`/admin/assets/${a.id}`} className="min-w-0 flex-1">
+                <Link href={`/admin/assets/${currentAsset.id}`} className="min-w-0 flex-1">
                   <div>
-                    <div className="font-medium truncate">{a.name}</div>
-                    <div className="text-xs text-foreground/60 truncate">{a.address}</div>
-                    {(a as any).owner && (
-                      <div className="text-xs text-foreground/60 mt-0.5 truncate">Proprietar: {(a as any).owner}</div>
+                    <div className="font-medium truncate">{currentAsset.name}</div>
+                    <div className="text-xs text-foreground/60 truncate">{currentAsset.address}</div>
+                    {currentAsset.owner && (
+                      <div className="text-xs text-foreground/60 mt-0.5 truncate">Proprietar: {currentAsset.owner}</div>
                     )}
                   </div>
                 </Link>
                 <div className="text-xs text-foreground/60 flex items-center gap-4 pl-4">
-                  <div>{a.scans.length} fișiere</div>
-                  {typeof (a as any).areaSqm === "number" && (
+                  <div>{currentAsset.scans.length} fișiere</div>
+                  {typeof currentAsset.areaSqm === "number" && (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-foreground/15">
                       <span className="text-foreground/60">Suprafață</span>
-                      <span className="font-medium">{(a as any).areaSqm} mp</span>
+                      <span className="font-medium">{currentAsset.areaSqm} mp</span>
                     </div>
                   )}
                   <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-foreground/5">
                     <span className="font-medium">{contracts.length}</span>
                     <span className="text-foreground/60">contracte</span>
                   </div>
-                  {(a as any).owner && (
+                  {currentAsset.owner && (
                     <Link
-                      href={`/owners/${encodeURIComponent((a as any).ownerId || (a as any).owner)}`}
+                      href={`/owners/${encodeURIComponent(currentAsset.ownerId || currentAsset.owner)}`}
                       className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full border border-foreground/15 hover:bg-foreground/5"
                     >
                       <span className="text-foreground/60">Owner</span>
-                      <span className="font-medium">{(a as any).owner}</span>
+                      <span className="font-medium">{currentAsset.owner}</span>
                     </Link>
                   )}
                 </div>
