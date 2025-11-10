@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import type { OptimisticDelta } from "@/types/stats";
 
 declare global {
   interface Window {
@@ -26,15 +27,7 @@ type Stats = {
   generatedAt: string;
 };
 
-type OptimisticDelta = {
-  mode: string;
-  monthRON?: number;
-  monthEUR?: number;
-  annualRON?: number;
-  annualEUR?: number;
-  monthNetRON?: number;
-  annualNetRON?: number;
-};
+// OptimisticDelta type is shared via types/stats
 
 type CardItem = {
   label: string;

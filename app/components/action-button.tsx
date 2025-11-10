@@ -9,20 +9,11 @@ import React, {
 } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-
-export type StatsOptimisticDetail = {
-  mode: string;
-  monthRON: number;
-  monthEUR: number;
-  annualRON: number;
-  annualEUR: number;
-  monthNetRON: number;
-  annualNetRON: number;
-};
+import type { OptimisticDelta } from "@/types/stats";
 
 declare global {
   interface Window {
-    __statsOptimisticQueue?: StatsOptimisticDetail[];
+    __statsOptimisticQueue?: OptimisticDelta[];
   }
 }
 
@@ -33,7 +24,10 @@ type Props = {
   successMessage: string;
   disabled?: boolean;
   triggerStatsRefresh?: boolean;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "disabled" | "onClick">;
+} & Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "type" | "disabled" | "onClick"
+>;
 
 function toNumber(value: string | undefined): number {
   const numeric = value ? Number(value) : 0;
@@ -88,7 +82,7 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
       if (triggerStatsRefresh) {
         const { dataset } = event.currentTarget;
         if (dataset.deltaMode) {
-          const detail: StatsOptimisticDetail = {
+          const detail: OptimisticDelta = {
             mode: dataset.deltaMode,
             monthRON: toNumber(dataset.deltaMonthRon),
             monthEUR: toNumber(dataset.deltaMonthEur),
@@ -102,7 +96,7 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
             detail,
           ];
           window.dispatchEvent(
-            new CustomEvent<StatsOptimisticDetail>("app:stats:optimistic", {
+            new CustomEvent<OptimisticDelta>("app:stats:optimistic", {
               detail,
             })
           );
