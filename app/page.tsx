@@ -66,6 +66,26 @@ type DueItem = {
 
 const BILLING_TIMEZONE = process.env.BILLING_TIMEZONE || "Europe/Bucharest";
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
+const normalizePartnerToken = (value: unknown): string => {
+  if (!isNonEmptyString(value)) return "";
+  return value.trim().toLowerCase();
+};
+
+const makeIssuedKey = (
+  contractId: string,
+  issuedAt: string,
+  partnerToken?: unknown
+): string => {
+  const normalizedDate =
+    typeof issuedAt === "string" ? issuedAt.trim() : String(issuedAt ?? "");
+  return `${contractId}|${normalizedDate}|${normalizePartnerToken(
+    partnerToken
+  )}`;
+};
+
 function calendarDateInTimezone(tz: string) {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -133,14 +153,28 @@ export default async function HomePage({
 
   // Invoices issued this month (for duplication prevention only)
   const issuedThisMonth: Invoice[] = await listInvoicesForMonth(year, month);
-  const issuedKey = (invoice: Invoice) =>
-    `${invoice.contractId}|${invoice.issuedAt}|${
-      invoice.partnerId || invoice.partner || ""
-    }`;
-  const issuedByKey = new Set(issuedThisMonth.map((i) => issuedKey(i)));
-  const issuedInvoiceMap = new Map(
-    issuedThisMonth.map((i) => [issuedKey(i), i])
-  );
+  const issuedByKey = new Set<string>();
+  const issuedInvoiceMap = new Map<string, Invoice>();
+  const issuedCountsByBase = new Map<string, number>();
+  for (const invoice of issuedThisMonth) {
+    const baseKey = makeIssuedKey(invoice.contractId, invoice.issuedAt, "");
+    issuedCountsByBase.set(baseKey, (issuedCountsByBase.get(baseKey) ?? 0) + 1);
+    const tokenSet = new Set<string>();
+    if (isNonEmptyString(invoice.partnerId)) {
+      tokenSet.add(invoice.partnerId);
+    }
+    if (isNonEmptyString(invoice.partner)) {
+      tokenSet.add(invoice.partner);
+    }
+    tokenSet.add("");
+    for (const token of tokenSet) {
+      const key = makeIssuedKey(invoice.contractId, invoice.issuedAt, token);
+      issuedByKey.add(key);
+      if (!issuedInvoiceMap.has(key)) {
+        issuedInvoiceMap.set(key, invoice);
+      }
+    }
+  }
 
   // Build list of due invoices (contract occurrences expected this month & not yet issued)
   const due: DueItem[] = [];
@@ -599,14 +633,47 @@ export default async function HomePage({
                     });
                   })
                   .map((d) => {
-                    const partnerKey =
-                      d.partnerId ||
-                      d.partnerName ||
-                      d.contract.partnerId ||
-                      d.contract.partner ||
-                      "";
-                    const key = `${d.contract.id}|${d.issuedAt}|${partnerKey}`;
-                    const already = issuedByKey.has(key);
+                    const partnerTokenCandidates: string[] = [];
+                    if (isNonEmptyString(d.partnerId)) {
+                      partnerTokenCandidates.push(d.partnerId);
+                    }
+                    if (isNonEmptyString(d.partnerName)) {
+                      partnerTokenCandidates.push(d.partnerName);
+                    }
+                    if (isNonEmptyString(d.contract.partnerId)) {
+                      partnerTokenCandidates.push(d.contract.partnerId);
+                    }
+                    if (isNonEmptyString(d.contract.partner)) {
+                      partnerTokenCandidates.push(d.contract.partner);
+                    }
+                    const hasSpecificToken = partnerTokenCandidates.length > 0;
+                    let matchingKey: string | null = null;
+                    for (const candidate of partnerTokenCandidates) {
+                      const candidateKey = makeIssuedKey(
+                        d.contract.id,
+                        d.issuedAt,
+                        candidate
+                      );
+                      if (issuedByKey.has(candidateKey)) {
+                        matchingKey = candidateKey;
+                        break;
+                      }
+                    }
+                    if (!matchingKey) {
+                      const baseKey = makeIssuedKey(
+                        d.contract.id,
+                        d.issuedAt,
+                        ""
+                      );
+                      const baseCount = issuedCountsByBase.get(baseKey) ?? 0;
+                      if (
+                        issuedByKey.has(baseKey) &&
+                        (!hasSpecificToken || baseCount === 1)
+                      ) {
+                        matchingKey = baseKey;
+                      }
+                    }
+                    const already = matchingKey !== null;
                     const amtEUR =
                       typeof d.amountEUR === "number"
                         ? d.amountEUR
@@ -616,7 +683,9 @@ export default async function HomePage({
                         ? d.exchangeRateOverride
                         : undefined;
                     const rateDate = d.exchangeRateDate;
-                    const inv = already ? issuedInvoiceMap.get(key) : null;
+                    const inv = matchingKey
+                      ? issuedInvoiceMap.get(matchingKey) ?? null
+                      : null;
                     // When invoice already issued, display values from the invoice itself
                     const rate = already
                       ? inv?.exchangeRateRON

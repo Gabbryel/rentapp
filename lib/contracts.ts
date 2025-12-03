@@ -8,71 +8,10 @@ import { readJson, writeJson } from "@/lib/local-store";
 import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
 import type { Deposit } from "@/lib/schemas/deposit";
 import { saveBufferAsUpload } from "@/lib/storage";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { Buffer } from "buffer";
+import { PDFDocument, rgb } from "pdf-lib";
 import { createMessage } from "@/lib/messages";
 import { allocateInvoiceNumberForOwner } from "@/lib/invoice-settings";
-
-const PDF_FONT_REGULAR_PATH = "public/fonts/NotoSans-Regular.ttf";
-const PDF_FONT_BOLD_PATH = "public/fonts/NotoSans-SemiBold.ttf";
-
-const pdfFontByteCache = new Map<string, Uint8Array>();
-
-async function readFontBytes(relativePath: string): Promise<Uint8Array> {
-  const cached = pdfFontByteCache.get(relativePath);
-  if (cached) return cached;
-  const [{ readFile }, path] = await Promise.all([
-    import("fs/promises"),
-    import("path"),
-  ]);
-  const absolutePath = path.join(process.cwd(), relativePath);
-  const fileData = (await readFile(absolutePath)) as unknown as Uint8Array | string | ArrayBuffer;
-  let bytes: Uint8Array;
-  if (fileData instanceof Uint8Array) {
-    // Covers Node Buffer as well
-    bytes = new Uint8Array(fileData);
-  } else if (typeof fileData === "string") {
-    bytes = new Uint8Array(Buffer.from(fileData, "utf8"));
-  } else {
-    bytes = new Uint8Array(fileData as ArrayBuffer);
-  }
-  pdfFontByteCache.set(relativePath, bytes);
-  return bytes;
-}
-
-async function loadPdfFonts(
-  pdfDoc: PDFDocument
-): Promise<{ font: import("pdf-lib").PDFFont; fontBold: import("pdf-lib").PDFFont }> {
-  try {
-    const fontkitModule = await import("@pdf-lib/fontkit");
-    const fontkit = (fontkitModule as any).default ?? fontkitModule;
-    if (typeof pdfDoc.registerFontkit === "function") {
-      pdfDoc.registerFontkit(fontkit);
-    }
-    const [regularBytes, boldBytes] = await Promise.all([
-      readFontBytes(PDF_FONT_REGULAR_PATH),
-      readFontBytes(PDF_FONT_BOLD_PATH),
-    ]);
-    const baseFont = await pdfDoc.embedFont(regularBytes, { subset: true });
-    const boldFont = await pdfDoc.embedFont(boldBytes, { subset: true });
-    return { font: baseFont, fontBold: boldFont };
-  } catch {
-    // Fallback for when custom fonts or fontkit are unavailable. Note: Helvetica may not render
-    // Romanian diacritics correctly. Ensure public/fonts/NotoSans-*.ttf are present and
-    // @pdf-lib/fontkit is installed for full UTF-8 coverage.
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        // eslint-disable-next-line no-console
-        console.warn(
-          "PDF fonts: falling back to Helvetica. Pentru diacritice corecte, asigurați-vă că există NotoSans-Regular.ttf și NotoSans-SemiBold.ttf în public/fonts și că @pdf-lib/fontkit este instalat."
-        );
-      } catch {}
-    }
-    const fallbackFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fallbackBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    return { font: fallbackFont, fontBold: fallbackBold };
-  }
-}
+import { loadPdfFonts } from "@/lib/pdf-fonts";
 
 const MOCK_CONTRACTS: ContractType[] = [
   {
@@ -482,6 +421,10 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
           }
           return undefined;
         })();
+  const tvaType =
+    typeof (r as any).tvaType === "string" && (r as any).tvaType.trim()
+      ? (r as any).tvaType.trim()
+      : undefined;
   return {
     id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
     name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
@@ -638,6 +581,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
   rentAmountEuro: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
+    tvaType,
     correctionPercent,
     // schedule fields
     indexingDay: ((): number | undefined => {

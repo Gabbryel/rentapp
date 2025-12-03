@@ -143,6 +143,15 @@ export const ContractSchema = z
   exchangeRateRON: z.number().positive().optional(),
   // TVA percent (0-100), integer
   tvaPercent: z.number().int().min(0).max(100).optional(),
+  // TVA regime description used in written contracts / invoices
+  tvaType: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (typeof value !== "string") return value;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }),
   // Correction percent (0-100), can be decimal; applied to base amount before TVA
   correctionPercent: z.number().min(0).max(100).optional(),
   // rentHistory removed; amounts are tracked via indexingDates

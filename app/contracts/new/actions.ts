@@ -49,6 +49,7 @@ export async function createContractAction(
   amountEUR: (formData.get("amountEUR") as string) || "",
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
     tvaPercent: (formData.get("tvaPercent") as string) || "",
+    tvaType: (formData.get("tvaType") as string) || "",
     correctionPercent: (formData.get("correctionPercent") as string) || "",
     rentType: (formData.get("rentType") as string) || "monthly",
     invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
@@ -132,6 +133,11 @@ export async function createContractAction(
         if (!Number.isInteger(n)) return undefined;
         if (n < 0 || n > 100) return undefined;
         return n;
+      })(),
+      tvaType: (() => {
+        const raw = (rawValues.tvaType as string) || "";
+        const trimmed = raw.trim();
+        return trimmed ? trimmed : undefined;
       })(),
       correctionPercent: (() => {
         const raw = (rawValues.correctionPercent as string) || "";

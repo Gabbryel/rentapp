@@ -30,6 +30,7 @@ export type EditFormValues = {
   amountEUR: string;
   exchangeRateRON: string;
   tvaPercent: string;
+  tvaType: string;
   correctionPercent: string;
   existingUrl: string[];
   existingTitle: string[];
@@ -95,6 +96,7 @@ export async function updateContractAction(
     amountEUR: getText("amountEUR"),
     exchangeRateRON: getText("exchangeRateRON"),
     tvaPercent: getText("tvaPercent"),
+    tvaType: getText("tvaType"),
     correctionPercent: getText("correctionPercent"),
     existingUrl: getAllText("existingUrl"),
     existingTitle: getAllText("existingTitle"),
@@ -255,6 +257,10 @@ export async function updateContractAction(
   scanUrl: nextScans.length > 0 ? nextScans[0].url : prev.scanUrl ?? undefined,
   // amount now derived from rentHistory; keep for compatibility in upsert logic
       exchangeRateRON,
+      tvaType: (() => {
+        const trimmed = rawValues.tvaType.trim();
+        return trimmed ? trimmed : undefined;
+      })(),
       tvaPercent,
       correctionPercent,
       rentType: String(rawValues.rentType) === "yearly" ? "yearly" : "monthly",

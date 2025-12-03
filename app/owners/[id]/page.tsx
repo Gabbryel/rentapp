@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatsCards from "@/app/components/stats-cards";
 import { fetchOwnerById } from "@/lib/owners";
-import { fetchContracts, effectiveEndDate, currentRentAmount } from "@/lib/contracts";
+import {
+  fetchContracts,
+  effectiveEndDate,
+  currentRentAmount,
+} from "@/lib/contracts";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,17 +54,25 @@ export default async function OwnerPage({
   }
 
   const fmtEUR = (n: number) =>
-    new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(n);
+    new Intl.NumberFormat("ro-RO", {
+      style: "currency",
+      currency: "EUR",
+    }).format(n);
 
   return (
     <main className="min-h-screen px-4 sm:px-6 lg:px-8 py-10">
       <div className="mx-auto max-w-screen-2xl space-y-8">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
-            <Link href="/" className="text-sm text-foreground/70 hover:underline">
+            <Link
+              href="/"
+              className="text-sm text-foreground/70 hover:underline"
+            >
               ← Înapoi la listă
             </Link>
-            <h1 className="text-fluid-4xl font-bold leading-tight">{ownerName}</h1>
+            <h1 className="text-fluid-4xl font-bold leading-tight">
+              {ownerName}
+            </h1>
             {ownerDoc ? (
               <div className="text-sm text-foreground/70 space-y-1">
                 <div>
@@ -75,6 +87,37 @@ export default async function OwnerPage({
                   <span className="text-foreground/60">Sediu: </span>
                   <span className="font-medium">{ownerDoc.headquarters}</span>
                 </div>
+                {ownerDoc.bankAccount ? (
+                  <div>
+                    <span className="text-foreground/60">Cont bancar: </span>
+                    <span className="font-medium">{ownerDoc.bankAccount}</span>
+                  </div>
+                ) : null}
+                {ownerDoc.emails && ownerDoc.emails.length > 0 ? (
+                  <div>
+                    <span className="text-foreground/60">Email: </span>
+                    <span className="font-medium">
+                      {ownerDoc.emails.join(", ")}
+                    </span>
+                  </div>
+                ) : null}
+                {ownerDoc.phoneNumbers && ownerDoc.phoneNumbers.length > 0 ? (
+                  <div>
+                    <span className="text-foreground/60">Telefon: </span>
+                    <span className="font-medium">
+                      {ownerDoc.phoneNumbers.join(", ")}
+                    </span>
+                  </div>
+                ) : null}
+                {ownerDoc.administrators &&
+                ownerDoc.administrators.length > 0 ? (
+                  <div>
+                    <span className="text-foreground/60">Administratori: </span>
+                    <span className="font-medium">
+                      {ownerDoc.administrators.join(", ")}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -83,14 +126,18 @@ export default async function OwnerPage({
         {/* Stats for this owner (prognosis + actual) */}
         <section>
           <div className="rounded-xl border border-foreground/10 bg-background/70 p-4">
-            <div className="mb-2 text-sm font-semibold text-foreground/70">Statistici</div>
+            <div className="mb-2 text-sm font-semibold text-foreground/70">
+              Statistici
+            </div>
             <StatsCards owner={ownerName} ownerId={ownerDoc?.id} />
           </div>
         </section>
 
         {/* Linked contracts */}
         <section>
-          <h2 className="text-xl font-semibold tracking-tight mb-3">Contracte active</h2>
+          <h2 className="text-xl font-semibold tracking-tight mb-3">
+            Contracte active
+          </h2>
           {active.length === 0 ? (
             <div className="rounded-lg border border-foreground/10 bg-background/60 p-4 text-foreground/60">
               Niciun contract activ.
@@ -99,18 +146,26 @@ export default async function OwnerPage({
             <div className="grid grid-cols-1 gap-3">
               {active
                 .slice()
-                .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))
+                .sort((a, b) =>
+                  String(a.startDate).localeCompare(String(b.startDate))
+                )
                 .map((c) => {
                   const eur = currentRentAmount(c as any);
                   const endIso = String(effectiveEndDate(c));
                   return (
-                    <div key={c.id} className="rounded-lg border border-foreground/10 bg-background/60 p-4">
+                    <div
+                      key={c.id}
+                      className="rounded-lg border border-foreground/10 bg-background/60 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1 min-w-0">
                           <div className="text-sm text-foreground/70">
                             {String((c as any).partner || "").trim() || "—"}
                           </div>
-                          <Link href={`/contracts/${c.id}`} className="text-base font-semibold hover:underline">
+                          <Link
+                            href={`/contracts/${c.id}`}
+                            className="text-base font-semibold hover:underline"
+                          >
                             {c.name}
                           </Link>
                           <div className="text-xs text-foreground/60">
@@ -132,7 +187,9 @@ export default async function OwnerPage({
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold tracking-tight mb-3">Contracte expirate</h2>
+          <h2 className="text-xl font-semibold tracking-tight mb-3">
+            Contracte expirate
+          </h2>
           {expired.length === 0 ? (
             <div className="rounded-lg border border-foreground/10 bg-background/60 p-4 text-foreground/60">
               Niciun contract expirat.
@@ -141,18 +198,28 @@ export default async function OwnerPage({
             <div className="grid grid-cols-1 gap-3">
               {expired
                 .slice()
-                .sort((a, b) => String(effectiveEndDate(b)).localeCompare(String(effectiveEndDate(a))))
+                .sort((a, b) =>
+                  String(effectiveEndDate(b)).localeCompare(
+                    String(effectiveEndDate(a))
+                  )
+                )
                 .map((c) => {
                   const eur = currentRentAmount(c as any);
                   const endIso = String(effectiveEndDate(c));
                   return (
-                    <div key={c.id} className="rounded-lg border border-foreground/10 bg-background/60 p-4">
+                    <div
+                      key={c.id}
+                      className="rounded-lg border border-foreground/10 bg-background/60 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1 min-w-0">
                           <div className="text-sm text-foreground/70">
                             {String((c as any).partner || "").trim() || "—"}
                           </div>
-                          <Link href={`/contracts/${c.id}`} className="text-base font-semibold hover:underline">
+                          <Link
+                            href={`/contracts/${c.id}`}
+                            className="text-base font-semibold hover:underline"
+                          >
                             {c.name}
                           </Link>
                           <div className="text-xs text-foreground/60">

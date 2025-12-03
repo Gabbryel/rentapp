@@ -8,6 +8,7 @@ type NavItem = { href: string; label: string };
 const navItems: NavItem[] = [
   { href: "/admin", label: "Panou" },
   { href: "/admin/contracts", label: "Contracte" },
+  { href: "/admin/written-contracts", label: "Contracte scrise" },
   { href: "/admin/partners", label: "Parteneri" },
   { href: "/admin/owners", label: "Proprietari" },
   { href: "/admin/invoices", label: "Facturi" },

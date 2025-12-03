@@ -6,6 +6,7 @@ import {
   addScanAction,
   updateScanTitleAction,
   deleteScanAction,
+  updateVatPercentAction,
   type ScanActionState,
 } from "./actions";
 import YearlyInvoicesCard from "../yearly/YearlyInvoicesCard";
@@ -18,6 +19,7 @@ type Props = {
   irregularInvoices?: { month: number; day: number; amountEUR: number }[];
   children?: React.ReactNode;
   wrapChildrenInCard?: boolean;
+  currentVatPercent?: number | null;
 };
 
 export default function ManageContractScans({
@@ -28,6 +30,7 @@ export default function ManageContractScans({
   irregularInvoices,
   children,
   wrapChildrenInCard = true,
+  currentVatPercent,
 }: Props) {
   const [addState, addAction] = useActionState<ScanActionState, FormData>(
     addScanAction,
@@ -41,11 +44,19 @@ export default function ManageContractScans({
     deleteScanAction,
     { ok: false }
   );
+  const [vatState, updateVatAction] = useActionState<ScanActionState, FormData>(
+    updateVatPercentAction,
+    { ok: false }
+  );
   const [msg, setMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (addState.message) setMsg(addState.message);
   }, [addState.message]);
+
+  React.useEffect(() => {
+    if (vatState.message) setMsg(vatState.message);
+  }, [vatState.message]);
 
   const [open, setOpen] = React.useState(false);
   return (
@@ -96,6 +107,75 @@ export default function ManageContractScans({
                 mongoConfigured={mongoConfigured}
               />
             ) : null}
+            {/* Card: TVA contract */}
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
+              <div className="text-[11px] uppercase tracking-wide text-white/60">
+                TVA contract
+              </div>
+              <p className="text-xs text-white/70">
+                Actualizează procentul TVA folosit pentru calculele și facturile
+                emise din acest contract.
+              </p>
+              {vatState.message ? (
+                <div
+                  className={`rounded border px-3 py-2 text-xs ${
+                    vatState.ok
+                      ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                      : "border-amber-400/40 bg-amber-400/10 text-amber-100"
+                  }`}
+                >
+                  {vatState.message}
+                </div>
+              ) : null}
+              <form
+                action={updateVatAction}
+                className="flex flex-col gap-3 sm:flex-row sm:items-end"
+              >
+                <input type="hidden" name="id" value={id} />
+                <div className="flex-1 min-w-0">
+                  <label
+                    htmlFor="tvaPercent"
+                    className="block text-xs font-medium text-white/70"
+                  >
+                    Procent TVA (0 – 100)
+                  </label>
+                  <input
+                    id="tvaPercent"
+                    name="tvaPercent"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    step={1}
+                    defaultValue={
+                      typeof currentVatPercent === "number"
+                        ? currentVatPercent
+                        : ""
+                    }
+                    placeholder="ex: 19"
+                    className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button className="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/10">
+                    Salvează TVA
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-white/10 px-3 py-2 text-sm text-white/70 hover:bg-white/5"
+                    onClick={() => {
+                      if (typeof document === "undefined") return;
+                      const el = document.getElementById(
+                        "tvaPercent"
+                      ) as HTMLInputElement | null;
+                      if (el) el.value = "";
+                    }}
+                  >
+                    Golește
+                  </button>
+                </div>
+              </form>
+            </div>
             {/* Card: fișiere existente */}
             <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
               <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
@@ -217,20 +297,18 @@ export default function ManageContractScans({
             </div>
 
             {/* Card sau conținut direct: acțiuni suplimentare (children) */}
-            {children
-              ? wrapChildrenInCard
-                ? (
-                    <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
-                      <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
-                        Acțiuni contract
-                      </div>
-                      <div className="mt-1">{children}</div>
-                    </div>
-                  )
-                : (
-                    <>{children}</>
-                  )
-              : null}
+            {children ? (
+              wrapChildrenInCard ? (
+                <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
+                    Acțiuni contract
+                  </div>
+                  <div className="mt-1">{children}</div>
+                </div>
+              ) : (
+                <>{children}</>
+              )
+            ) : null}
           </div>
         </>
       )}

@@ -155,3 +155,81 @@ export async function deleteScanAction(_: ScanActionState, formData: FormData): 
     return { ok: false, message: msg };
   }
 }
+
+export async function updateVatPercentAction(
+  _: ScanActionState,
+  formData: FormData
+): Promise<ScanActionState> {
+  const id = String(formData.get("id") || "").trim();
+  if (!id) return { ok: false, message: "ID contract lipsă" };
+
+  const rawVat = String(formData.get("tvaPercent") ?? "").trim();
+  let nextVat: number | undefined;
+
+  if (rawVat.length > 0) {
+    const parsed = Number(rawVat);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+      return {
+        ok: false,
+        message: "TVA trebuie să fie un număr întreg între 0 și 100.",
+      };
+    }
+    nextVat = parsed;
+  }
+
+  try {
+    const prev = await fetchContractById(id);
+    if (!prev) return { ok: false, message: "Contract inexistent" };
+
+    const currentVat = typeof (prev as any).tvaPercent === "number" ? (prev as any).tvaPercent : undefined;
+    const next = { ...prev } as Record<string, unknown>;
+    if (typeof nextVat === "number") {
+      next.tvaPercent = nextVat;
+    } else {
+      delete next.tvaPercent;
+    }
+
+    const parsedContract = ContractSchema.safeParse(next);
+    if (!parsedContract.success) {
+      return {
+        ok: false,
+        message: parsedContract.error.issues[0]?.message || "Date TVA invalide",
+      };
+    }
+
+    await upsertContract(parsedContract.data);
+
+    try {
+      await logAction({
+        action: "contract.vat.update",
+        targetType: "contract",
+        targetId: id,
+        meta: { from: currentVat ?? null, to: nextVat ?? null },
+      });
+    } catch {}
+
+    try {
+      const toLabel = typeof nextVat === "number" ? `${nextVat}%` : "—";
+      const fromLabel = typeof currentVat === "number" ? `${currentVat}%` : "—";
+      await createMessage({
+        text: `Contract: ${prev.name} • TVA actualizat ${fromLabel} → ${toLabel}`,
+      });
+    } catch {}
+
+    revalidatePath(`/contracts/${id}`);
+
+    return {
+      ok: true,
+      message:
+        typeof nextVat === "number"
+          ? `TVA actualizat la ${nextVat}%`
+          : "TVA eliminat din contract",
+    };
+  } catch (e) {
+    const msg =
+      e && typeof e === "object" && "message" in e
+        ? String((e as any).message)
+        : String(e);
+    return { ok: false, message: msg };
+  }
+}

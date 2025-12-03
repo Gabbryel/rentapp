@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 // indexing UI removed
 import Link from "next/link";
 import { updateContractAction, type EditFormState } from "./actions";
@@ -8,6 +8,7 @@ import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
 import ExtensionsField from "@/app/components/extensions-field";
+import { useRouter } from "next/navigation";
 
 import type { Contract } from "@/lib/schemas/contract";
 
@@ -41,6 +42,8 @@ export default function EditForm({
     updateContractAction,
     { ok: false, values: {} }
   );
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const router = useRouter();
   const rentType = String(
     (state.values.rentType as string) ?? contract.rentType ?? "monthly"
   ) as "monthly" | "yearly";
@@ -66,8 +69,43 @@ export default function EditForm({
       ""
   );
 
+  const handleGenerateWrittenContract = () => {
+    if (typeof window === "undefined") return;
+    const formEl = formRef.current;
+    if (!formEl) return;
+    const fd = new FormData(formEl);
+    const payload: Record<string, unknown> = { contractId: contract.id };
+    fd.forEach((value, key) => {
+      if (value instanceof File) return;
+      const textValue = typeof value === "string" ? value : String(value ?? "");
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        const current = payload[key];
+        if (Array.isArray(current)) {
+          current.push(textValue);
+        } else {
+          payload[key] = [current, textValue];
+        }
+      } else {
+        payload[key] = textValue;
+      }
+    });
+    try {
+      window.sessionStorage.setItem(
+        "written-contract-prefill",
+        JSON.stringify(payload)
+      );
+    } catch (error) {
+      console.warn("Nu am putut salva draftul pentru contract scris", error);
+    }
+    router.push(
+      `/contracts/written-contract?contractId=${encodeURIComponent(
+        contract.id
+      )}`
+    );
+  };
+
   return (
-    <form action={formAction} className="space-y-8 mt-6">
+    <form ref={formRef} action={formAction} className="space-y-8 mt-6">
       {state.message && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700">
           {state.message}
@@ -327,11 +365,12 @@ export default function EditForm({
                       newRentAmount?: number;
                     }>)
                   : [];
-                if (arr.length === 0) return String((contract as any).amountEUR ?? "");
+                if (arr.length === 0)
+                  return String((contract as any).amountEUR ?? "");
                 const sorted = arr
                   .slice()
                   .map((r) => ({
-                    eff: String((r.actualDate || r.forecastDate) || ""),
+                    eff: String(r.actualDate || r.forecastDate || ""),
                     val: r.newRentAmount,
                   }))
                   .filter((r) => r.eff)
@@ -375,6 +414,17 @@ export default function EditForm({
                 state.values.tvaPercent ?? contract.tvaPercent ?? ""
               )}
               placeholder="ex: 19"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium">Tip TVA</label>
+            <input
+              name="tvaType"
+              defaultValue={String(
+                state.values.tvaType ?? contract.tvaType ?? ""
+              )}
+              placeholder="ex: fără drept de deducere (f.d.d.)"
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             />
           </div>
@@ -456,7 +506,14 @@ export default function EditForm({
           </div>
         </div>
       </fieldset>
-      <div className="pt-2 flex items-center justify-center gap-3">
+      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={handleGenerateWrittenContract}
+          className="rounded-md border border-foreground/20 px-4 py-2 text-sm font-semibold text-foreground hover:bg-foreground/5"
+        >
+          Generează contract
+        </button>
         <button
           disabled={!mongoConfigured}
           className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"

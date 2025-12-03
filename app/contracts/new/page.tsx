@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { createContractAction, type FormState } from "./actions";
 import ExchangeRateField from "@/app/components/exchange-rate-field";
 import PartnerSelect from "@/app/components/partner-select"; // kept for potential backward compatibility (not used now)
@@ -8,6 +8,7 @@ import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
 import ExtensionsField from "@/app/components/extensions-field";
 // indexing UI removed
+import { useRouter } from "next/navigation";
 
 const MONTH_OPTIONS = [
   { value: 1, label: "Ianuarie" },
@@ -32,6 +33,39 @@ export default function NewContractPage() {
   const [rentType, setRentType] = useState<"monthly" | "yearly">(
     (state.values.rentType as string) === "yearly" ? "yearly" : "monthly"
   );
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const router = useRouter();
+
+  const handleGenerateWrittenContract = () => {
+    if (typeof window === "undefined") return;
+    const formEl = formRef.current;
+    if (!formEl) return;
+    const fd = new FormData(formEl);
+    const payload: Record<string, unknown> = {};
+    fd.forEach((value, key) => {
+      if (value instanceof File) return;
+      const textValue = typeof value === "string" ? value : String(value ?? "");
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        const current = payload[key];
+        if (Array.isArray(current)) {
+          current.push(textValue);
+        } else {
+          payload[key] = [current, textValue];
+        }
+      } else {
+        payload[key] = textValue;
+      }
+    });
+    try {
+      window.sessionStorage.setItem(
+        "written-contract-prefill",
+        JSON.stringify(payload)
+      );
+    } catch (error) {
+      console.warn("Nu am putut salva draftul pentru contract scris", error);
+    }
+    router.push("/contracts/written-contract?source=new");
+  };
   return (
     <main className="mx-auto max-w-5xl p-6">
       <h1 className="text-xl font-semibold mb-4">Contract nou</h1>
@@ -40,7 +74,7 @@ export default function NewContractPage() {
           {state.message}
         </div>
       ) : null}
-      <form action={formAction} className="space-y-8">
+      <form ref={formRef} action={formAction} className="space-y-8">
         {/* Asset & Owner */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
@@ -211,7 +245,8 @@ export default function NewContractPage() {
                     type="number"
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
-                      (state.values[`irregularInvoices[0][month]`] as string) ?? ""
+                      (state.values[`irregularInvoices[0][month]`] as string) ??
+                        ""
                     )}
                   />
                   <input
@@ -223,7 +258,8 @@ export default function NewContractPage() {
                     type="number"
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
-                      (state.values[`irregularInvoices[0][day]`] as string) ?? ""
+                      (state.values[`irregularInvoices[0][day]`] as string) ??
+                        ""
                     )}
                   />
                   <input
@@ -275,6 +311,16 @@ export default function NewContractPage() {
                 inputMode="numeric"
                 placeholder="ex: 19"
                 defaultValue={(state.values.tvaPercent as string) || ""}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Tip TVA</label>
+              <input
+                name="tvaType"
+                type="text"
+                placeholder="ex: fără drept de deducere (f.d.d.)"
+                defaultValue={(state.values.tvaType as string) || ""}
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
             </div>
@@ -352,9 +398,16 @@ export default function NewContractPage() {
             </div>
           </div>
         </fieldset>
-        <div className="pt-2 flex justify-center">
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
             Salvează
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerateWrittenContract}
+            className="rounded-md border border-foreground/20 px-4 py-2 text-sm font-semibold text-foreground hover:bg-foreground/5"
+          >
+            Generează contract
           </button>
         </div>
       </form>

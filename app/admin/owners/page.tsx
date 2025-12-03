@@ -29,7 +29,10 @@ export default async function AdminOwnersPage() {
           <Card key={o.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="font-semibold truncate">
-                <Link href={`/owners/${encodeURIComponent(o.id)}`} className="hover:underline">
+                <Link
+                  href={`/owners/${encodeURIComponent(o.id)}`}
+                  className="hover:underline"
+                >
                   {o.name}
                 </Link>
               </div>
@@ -53,6 +56,28 @@ export default async function AdminOwnersPage() {
                 <dt className="text-foreground/60">Sediu</dt>
                 <dd className="font-medium break-words">{o.headquarters}</dd>
               </div>
+              {o.bankAccount ? (
+                <div>
+                  <dt className="text-foreground/60">Cont bancar</dt>
+                  <dd className="font-medium break-words">{o.bankAccount}</dd>
+                </div>
+              ) : null}
+              {o.emails && o.emails.length > 0 ? (
+                <div>
+                  <dt className="text-foreground/60">Email</dt>
+                  <dd className="font-medium break-words">
+                    {o.emails.join(", ")}
+                  </dd>
+                </div>
+              ) : null}
+              {o.phoneNumbers && o.phoneNumbers.length > 0 ? (
+                <div>
+                  <dt className="text-foreground/60">Telefon</dt>
+                  <dd className="font-medium break-words">
+                    {o.phoneNumbers.join(", ")}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </Card>
         ))}
@@ -67,6 +92,10 @@ export default async function AdminOwnersPage() {
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">CUI</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Nr. ORC</th>
               <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Sediu</th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">
+                Cont bancar
+              </th>
+              <th className="text-left px-3 py-2 sm:px-4 sm:py-3">Contact</th>
               <th className="text-right px-3 py-2 sm:px-4 sm:py-3">Acțiuni</th>
             </tr>
           </thead>
@@ -74,7 +103,10 @@ export default async function AdminOwnersPage() {
             {owners.map((o) => (
               <tr key={o.id} className="border-t border-foreground/10">
                 <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
-                  <Link href={`/owners/${encodeURIComponent(o.id)}`} className="hover:underline">
+                  <Link
+                    href={`/owners/${encodeURIComponent(o.id)}`}
+                    className="hover:underline"
+                  >
                     {o.name}
                   </Link>
                 </td>
@@ -86,6 +118,38 @@ export default async function AdminOwnersPage() {
                 </td>
                 <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[16rem]">
                   {o.headquarters}
+                </td>
+                <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[14rem]">
+                  {o.bankAccount ? (
+                    <div className="break-words text-xs font-medium">
+                      {o.bankAccount}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-foreground/50">—</div>
+                  )}
+                </td>
+                <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[14rem]">
+                  <div className="space-y-1">
+                    {o.emails && o.emails.length > 0 ? (
+                      <div className="break-words text-xs">
+                        <span className="text-foreground/60">Email: </span>
+                        <span className="font-medium">
+                          {o.emails.join(", ")}
+                        </span>
+                      </div>
+                    ) : null}
+                    {o.phoneNumbers && o.phoneNumbers.length > 0 ? (
+                      <div className="break-words text-xs">
+                        <span className="text-foreground/60">Tel: </span>
+                        <span className="font-medium">
+                          {o.phoneNumbers.join(", ")}
+                        </span>
+                      </div>
+                    ) : null}
+                    {!o.emails?.length && !o.phoneNumbers?.length ? (
+                      <div className="text-xs text-foreground/50">—</div>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-3 py-2 sm:px-4 sm:py-3 text-right">
                   <Link
@@ -100,7 +164,7 @@ export default async function AdminOwnersPage() {
             {owners.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="px-3 py-6 text-center text-foreground/60"
                 >
                   Niciun proprietar.
