@@ -13,7 +13,7 @@ import { createMessage } from "@/lib/messages";
 import { allocateInvoiceNumberForOwner } from "@/lib/invoice-settings";
 import { loadPdfFonts } from "@/lib/pdf-fonts";
 
-const MOCK_CONTRACTS: ContractType[] = [
+const RAW_MOCK_CONTRACTS = [
   {
     id: "c1",
     name: "Lease #1001",
@@ -376,6 +376,19 @@ const MOCK_CONTRACTS: ContractType[] = [
     
   },
 ];
+
+const MOCK_FINANCIAL_DEFAULTS = {
+  exchangeRateRON: 5,
+  tvaPercent: 0,
+  tvaType: undefined as string | undefined,
+};
+
+const MOCK_CONTRACTS: ContractType[] = RAW_MOCK_CONTRACTS.map((contract) =>
+  ContractSchema.parse({
+    ...MOCK_FINANCIAL_DEFAULTS,
+    ...contract,
+  })
+);
 
 // Validate mock data at module load (throws if invalid during dev)
 for (const c of MOCK_CONTRACTS) ContractSchema.parse(c);

@@ -674,6 +674,15 @@ export default async function HomePage({
                       }
                     }
                     const already = matchingKey !== null;
+                    const partnerKeyValue = partnerTokenCandidates[0] ?? "";
+                    const fallbackKey = partnerTokenCandidates.length
+                      ? makeIssuedKey(
+                          d.contract.id,
+                          d.issuedAt,
+                          partnerTokenCandidates[0]
+                        )
+                      : makeIssuedKey(d.contract.id, d.issuedAt, "");
+                    const listKey = matchingKey ?? fallbackKey;
                     const amtEUR =
                       typeof d.amountEUR === "number"
                         ? d.amountEUR
@@ -755,7 +764,7 @@ export default async function HomePage({
                       ? `${liBase} border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20`
                       : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;
                     return (
-                      <li key={key} className={liClass}>
+                      <li key={listKey} className={liClass}>
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -808,9 +817,7 @@ export default async function HomePage({
                               <span
                                 className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[12px] font-medium text-emerald-600 dark:text-emerald-400"
                                 title={`Factura emisă (#${
-                                  issuedInvoiceMap.get(key)?.number ||
-                                  issuedInvoiceMap.get(key)?.id ||
-                                  "–"
+                                  inv?.number || inv?.id || "–"
                                 })`}
                               >
                                 <svg
@@ -954,7 +961,7 @@ export default async function HomePage({
                                   />
                                 ) : null}
                                 {/* Only send override for non-split items; for split/partners we compute base in action */}
-                                {!partnerKey &&
+                                {!partnerKeyValue &&
                                 typeof d.amountEUR === "number" ? (
                                   <input
                                     type="hidden"
@@ -1040,7 +1047,7 @@ export default async function HomePage({
                                 : "–"}
                             </div>
                           </div>
-                          {partnerCount > 1 && !partnerKey ? (
+                          {partnerCount > 1 && !partnerKeyValue ? (
                             <div className="sm:col-span-3 md:col-span-5 lg:col-span-6">
                               <div className="text-[12px] text-foreground/60 mb-1">
                                 Procentaje parteneri

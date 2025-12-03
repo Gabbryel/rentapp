@@ -21,12 +21,11 @@ export async function POST(request: Request) {
 
     const parsed = WrittenContractDraftSchema.parse(documentPayload);
     const pdfBytes = await renderWrittenContractPdf(parsed);
-    const pdfBuffer = pdfBytes.buffer.slice(
-      pdfBytes.byteOffset,
-      pdfBytes.byteOffset + pdfBytes.byteLength
-    );
+    const pdfArrayBuffer = new ArrayBuffer(pdfBytes.length);
+    new Uint8Array(pdfArrayBuffer).set(pdfBytes);
+    const pdfBlob = new Blob([pdfArrayBuffer], { type: "application/pdf" });
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBlob, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline; filename=contract-scris-preview.pdf",
