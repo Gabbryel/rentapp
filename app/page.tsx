@@ -843,6 +843,7 @@ export default async function HomePage({
                             {already ? (
                               <form
                                 action={deleteIssued}
+                                method="post"
                                 className="flex items-center"
                               >
                                 <input
@@ -927,6 +928,7 @@ export default async function HomePage({
                             ) : (
                               <form
                                 action={issueDue}
+                                method="post"
                                 className="flex items-center"
                               >
                                 <input
