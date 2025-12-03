@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     new Uint8Array(pdfArrayBuffer).set(pdfBytes);
     const pdfBlob = new Blob([pdfArrayBuffer], { type: "application/pdf" });
 
-    return new NextResponse(pdfBlob, {
+    return new NextResponse(pdfBlob.stream(), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline; filename=contract-scris-preview.pdf",
