@@ -1,25 +1,10 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
-  },
+export default defineConfig([
+  ...nextCoreWebVitals,
+  ...nextTypescript,
   // Relax a few rules in tests and scripts which act as lightweight runners/tools
   {
     files: ["__tests__/**", "scripts/**"],
@@ -41,6 +26,9 @@ const eslintConfig = [
       "@typescript-eslint/no-explicit-any": "warn",
       "prefer-const": "warn",
       "@next/next/no-html-link-for-pages": "warn",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/immutability": "off",
     },
   },
   // Type declarations often rely on `any` for ambient definitions
@@ -50,6 +38,11 @@ const eslintConfig = [
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
-];
-
-export default eslintConfig;
+  globalIgnores([
+    "node_modules/**",
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
