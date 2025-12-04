@@ -1241,7 +1241,7 @@ export default async function ContractPage({
                         <svg
                           viewBox={`0 0 ${width} ${height}`}
                           width="100%"
-                          height="auto"
+                          height={height}
                           preserveAspectRatio="none"
                           role="img"
                           aria-label="Evoluție chirie (EUR)"
