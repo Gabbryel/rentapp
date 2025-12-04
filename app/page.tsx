@@ -1,5 +1,6 @@
 import {
   fetchContracts,
+  fetchContractById,
   effectiveEndDate,
   rentAmountAtDate,
 } from "@/lib/contracts";
@@ -23,6 +24,7 @@ import { getDailyEurRon, getEurRonForDate } from "@/lib/exchange";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
 import type { Invoice } from "@/lib/schemas/invoice";
 import { publishToast } from "@/lib/sse";
+import { logAction } from "@/lib/audit";
 
 // The client component itself contains its own loading skeletons.
 
@@ -346,6 +348,10 @@ export default async function HomePage({
 
     const contractIdRaw = formData.get("contractId");
     const issuedAtRaw = formData.get("issuedAt");
+    const partnerIdRaw = formData.get("partnerId");
+    const partnerNameRaw = formData.get("partnerName");
+    const sharePercentRaw = formData.get("sharePercent");
+
     const contractId =
       typeof contractIdRaw === "string" ? contractIdRaw.trim() : "";
     const issuedAt = typeof issuedAtRaw === "string" ? issuedAtRaw.trim() : "";
@@ -358,8 +364,44 @@ export default async function HomePage({
       return;
     }
 
-    const found = contracts.find((c) => c.id === contractId);
-    if (!found) {
+    const parseNumericField = (
+      value: FormDataEntryValue | null,
+      { allowZero = false }: { allowZero?: boolean } = {}
+    ): number | undefined => {
+      if (typeof value !== "string") return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed)) return undefined;
+      if (!allowZero && parsed <= 0) return undefined;
+      return parsed;
+    };
+
+    const amountOverrideValue = parseNumericField(formData.get("amountEUR"));
+    const sharePercentValue = parseNumericField(sharePercentRaw);
+
+    const rateOverrideRaw = formData.get("exchangeRateRON");
+    const parsedRateOverride = parseNumericField(rateOverrideRaw);
+
+    const partnerTokens = new Set<string>();
+    const addToken = (value: FormDataEntryValue | null) => {
+      const token = normalizePartnerToken(value);
+      if (token) partnerTokens.add(token);
+    };
+    addToken(partnerIdRaw);
+    addToken(partnerNameRaw);
+
+    const hasTargetPartner = partnerTokens.size > 0;
+    const matchesTarget = (value: unknown) =>
+      partnerTokens.size > 0 && partnerTokens.has(normalizePartnerToken(value));
+
+    const fallbackContract = contracts.find((c) => c.id === contractId);
+    let contract = await fetchContractById(contractId);
+    if (!contract && fallbackContract) {
+      contract = fallbackContract;
+    }
+
+    if (!contract) {
       publishToast(
         "Contractul selectat nu mai există. Reîncarcă pagina și încearcă din nou.",
         "error"
@@ -367,38 +409,28 @@ export default async function HomePage({
       return;
     }
 
-    const amountEURRaw = formData.get("amountEUR");
-    const amountOverride =
-      typeof amountEURRaw === "string" ? Number(amountEURRaw) : undefined;
-
-    const rateOverrideRaw = formData.get("exchangeRateRON");
-    const parsedRateOverride =
-      typeof rateOverrideRaw === "string" && rateOverrideRaw.trim() !== ""
-        ? Number(rateOverrideRaw)
-        : undefined;
-    const rateOverride =
-      typeof parsedRateOverride === "number" &&
-      Number.isFinite(parsedRateOverride) &&
-      parsedRateOverride > 0
-        ? parsedRateOverride
-        : undefined;
-
-    let contract: ContractType =
-      typeof rateOverride === "number"
-        ? { ...found, exchangeRateRON: rateOverride }
-        : found;
+    let workingContract: ContractType = contract;
+    if (typeof parsedRateOverride === "number") {
+      workingContract = {
+        ...workingContract,
+        exchangeRateRON: parsedRateOverride,
+      };
+    }
 
     if (
       !(
-        typeof contract.exchangeRateRON === "number" &&
-        Number.isFinite(contract.exchangeRateRON) &&
-        contract.exchangeRateRON > 0
+        typeof workingContract.exchangeRateRON === "number" &&
+        Number.isFinite(workingContract.exchangeRateRON) &&
+        workingContract.exchangeRateRON > 0
       )
     ) {
       try {
         const fallbackRate = await getDailyEurRon({ forceRefresh: false });
         if (typeof fallbackRate?.rate === "number" && fallbackRate.rate > 0) {
-          contract = { ...contract, exchangeRateRON: fallbackRate.rate };
+          workingContract = {
+            ...workingContract,
+            exchangeRateRON: fallbackRate.rate,
+          };
         } else {
           publishToast(
             "Contractul nu are un curs RON/EUR valid. Actualizează contractul sau aplică un curs manual înainte de emitere.",
@@ -419,29 +451,65 @@ export default async function HomePage({
       }
     }
 
+    const ensurePartnerOnContract = (
+      base: ContractType,
+      nameHint?: string | null,
+      idHint?: string | null
+    ): ContractType => {
+      const existingPartner =
+        typeof base.partner === "string" ? base.partner.trim() : "";
+      const existingPartnerId =
+        typeof base.partnerId === "string" ? base.partnerId.trim() : "";
+      const hintedName = typeof nameHint === "string" ? nameHint.trim() : "";
+      const hintedId = typeof idHint === "string" ? idHint.trim() : "";
+
+      const partnerName =
+        hintedName ||
+        existingPartner ||
+        existingPartnerId ||
+        hintedId ||
+        "Client";
+      const partnerId = hintedId || existingPartnerId || partnerName;
+
+      return {
+        ...base,
+        partner: partnerName,
+        partnerId,
+      } as ContractType;
+    };
+
+    const partnersList: ContractPartner[] = Array.isArray(
+      workingContract.partners
+    )
+      ? workingContract.partners
+      : [];
+    const sumShares = partnersList.reduce(
+      (total, partner) =>
+        total +
+        (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
+      0
+    );
+
     const issuedInvoices: Invoice[] = [];
 
-    try {
-      const partners: ContractPartner[] = Array.isArray(contract.partners)
-        ? contract.partners
-        : [];
-      const sumShares = partners.reduce(
-        (total, partner) =>
-          total +
-          (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
-        0
-      );
+    const baseContractForCalc = ensurePartnerOnContract(
+      workingContract,
+      typeof partnerNameRaw === "string" ? partnerNameRaw : null,
+      typeof partnerIdRaw === "string" ? partnerIdRaw : null
+    );
 
-      if (partners.length > 1 && sumShares > 0) {
-        let baseEUR: number | undefined;
-        try {
-          const y = Number(issuedAt.slice(0, 4));
-          const m = Number(issuedAt.slice(5, 7));
-          const mode =
-            contract.invoiceMonthMode === "next" ? "next" : "current";
+    if (partnersList.length > 1 && sumShares > 0) {
+      const y = Number(issuedAt.slice(0, 4));
+      const m = Number(issuedAt.slice(5, 7));
+      const mode =
+        workingContract.invoiceMonthMode === "next" ? "next" : "current";
+
+      let baseEUR: number | undefined;
+      try {
+        if (Number.isFinite(y) && Number.isFinite(m)) {
           if (mode === "next") {
             const { include, fraction } = computeNextMonthProration(
-              contract,
+              workingContract,
               y,
               m
             );
@@ -454,72 +522,167 @@ export default async function HomePage({
             }
             const nextMonthDate = new Date(y, m, 1);
             const nextIso = nextMonthDate.toISOString().slice(0, 10);
-            const base = rentAmountAtDate(contract, nextIso);
+            const base = rentAmountAtDate(workingContract, nextIso);
             if (typeof base === "number") {
               baseEUR =
                 base *
                 (typeof fraction === "number" && fraction > 0 ? fraction : 1);
             }
           } else {
-            baseEUR = rentAmountAtDate(contract, issuedAt);
+            baseEUR = rentAmountAtDate(workingContract, issuedAt);
           }
+        }
+      } catch (error) {
+        console.warn(
+          "Nu am putut calcula suma de bază pentru împărțirea pe parteneri",
+          {
+            contractId,
+            issuedAt,
+            error,
+          }
+        );
+      }
+
+      if (
+        !(
+          typeof baseEUR === "number" &&
+          Number.isFinite(baseEUR) &&
+          baseEUR > 0
+        )
+      ) {
+        try {
+          const baseInv = computeInvoiceFromContract({
+            contract: baseContractForCalc,
+            issuedAt,
+          });
+          baseEUR = baseInv.amountEUR;
         } catch (error) {
-          console.warn(
-            "Nu am putut calcula suma de bază pentru împărțirea pe parteneri",
+          console.error(
+            "Nu am putut calcula suma EUR pentru emitere (bază parteneri)",
             {
               contractId,
               issuedAt,
               error,
             }
           );
+          publishToast("Nu am putut calcula suma EUR pentru emitere.", "error");
+          return;
         }
+      }
 
+      for (const partner of partnersList) {
         if (
-          !(typeof baseEUR === "number" && isFinite(baseEUR) && baseEUR > 0)
+          hasTargetPartner &&
+          !(matchesTarget(partner.id) || matchesTarget(partner.name))
         ) {
-          const baseInv = computeInvoiceFromContract({ contract, issuedAt });
-          baseEUR = baseInv.amountEUR;
+          continue;
         }
-
-        for (const partner of partners) {
-          const share =
-            typeof partner.sharePercent === "number"
-              ? partner.sharePercent / 100
-              : 0;
-          if (share <= 0) continue;
+        const share =
+          typeof partner.sharePercent === "number" && partner.sharePercent > 0
+            ? partner.sharePercent / 100
+            : hasTargetPartner && typeof sharePercentValue === "number"
+            ? sharePercentValue / 100
+            : 0;
+        const amountForPartner =
+          hasTargetPartner && typeof amountOverrideValue === "number"
+            ? amountOverrideValue
+            : typeof baseEUR === "number" && share > 0
+            ? baseEUR * share
+            : undefined;
+        if (!(typeof amountForPartner === "number" && amountForPartner > 0)) {
+          continue;
+        }
+        const partnerNameResolved =
+          (typeof partner.name === "string" && partner.name) ||
+          (typeof partnerNameRaw === "string" ? partnerNameRaw : undefined) ||
+          workingContract.partner;
+        const partnerIdResolved =
+          (typeof partner.id === "string" && partner.id) ||
+          (typeof partnerNameResolved === "string"
+            ? partnerNameResolved
+            : undefined);
+        const contractForPartner = ensurePartnerOnContract(
+          workingContract,
+          partnerNameResolved,
+          partnerIdResolved
+        );
+        try {
           const invPart = computeInvoiceFromContract({
-            contract,
+            contract: contractForPartner,
             issuedAt,
-            amountEUROverride: (baseEUR as number) * share,
+            amountEUROverride: amountForPartner,
           });
-          const patched: Invoice = {
-            ...invPart,
-            partner: partner.name,
-            partnerId: partner.id || partner.name,
-          };
-          const saved = await issueInvoiceAndGeneratePdf(patched);
+          const saved = await issueInvoiceAndGeneratePdf(invPart);
           issuedInvoices.push(saved);
+        } catch (error) {
+          console.error("Emiterea facturii a eșuat", {
+            contractId,
+            issuedAt,
+            partner: partnerNameResolved,
+            error,
+          });
+          publishToast(
+            "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
+            "error"
+          );
+          return;
         }
-      } else {
+      }
+
+      if (issuedInvoices.length === 0) {
+        publishToast(
+          "Nu am putut identifica partenerul selectat pentru emitere. Reîncarcă pagina și încearcă din nou.",
+          "error"
+        );
+        return;
+      }
+    } else {
+      const fallbackPartnerName =
+        typeof partnerNameRaw === "string" && partnerNameRaw.trim().length > 0
+          ? partnerNameRaw.trim()
+          : workingContract.partner;
+      const fallbackPartnerId =
+        typeof partnerIdRaw === "string" && partnerIdRaw.trim().length > 0
+          ? partnerIdRaw.trim()
+          : (typeof fallbackPartnerName === "string" && fallbackPartnerName) ||
+            workingContract.partnerId;
+      const contractForPartner = ensurePartnerOnContract(
+        workingContract,
+        fallbackPartnerName,
+        fallbackPartnerId
+      );
+      if (
+        !(
+          typeof contractForPartner.partner === "string" &&
+          contractForPartner.partner.trim().length > 0
+        )
+      ) {
+        publishToast(
+          "Contractul nu are partener valid pentru emitere.",
+          "error"
+        );
+        return;
+      }
+      try {
         const inv = computeInvoiceFromContract({
-          contract,
+          contract: contractForPartner,
           issuedAt,
-          amountEUROverride: amountOverride,
+          amountEUROverride: amountOverrideValue,
         });
         const saved = await issueInvoiceAndGeneratePdf(inv);
         issuedInvoices.push(saved);
+      } catch (error) {
+        console.error("Emiterea facturii a eșuat", {
+          contractId,
+          issuedAt,
+          error,
+        });
+        publishToast(
+          "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
+          "error"
+        );
+        return;
       }
-    } catch (error) {
-      console.error("Emiterea facturii a eșuat", {
-        contractId,
-        issuedAt,
-        error,
-      });
-      publishToast(
-        "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
-        "error"
-      );
-      return;
     }
 
     if (issuedInvoices.length === 0) {
@@ -534,6 +697,21 @@ export default async function HomePage({
       invalidateYearInvoicesCache();
     } catch (error) {
       console.warn("Nu am putut invalida cache-ul de facturi anuale", error);
+    }
+
+    try {
+      await logAction({
+        action: "invoice.issue",
+        targetType: "contract",
+        targetId: contractId,
+        meta: {
+          issuedAt,
+          source: "home-dashboard",
+          invoiceIds: issuedInvoices.map((inv) => inv.id),
+        },
+      });
+    } catch (error) {
+      console.warn("Nu am putut salva logul de audit pentru emitere", error);
     }
 
     publishToast("Factura a fost emisă", "success");
@@ -1040,17 +1218,34 @@ export default async function HomePage({
                                   name="issuedAt"
                                   value={d.issuedAt}
                                 />
-                                {d.partnerId ? (
+                                {typeof d.partnerId === "string" &&
+                                d.partnerId ? (
                                   <input
                                     type="hidden"
                                     name="partnerId"
                                     value={d.partnerId}
                                   />
-                                ) : d.partnerName ? (
+                                ) : null}
+                                {typeof d.partnerName === "string" &&
+                                d.partnerName ? (
                                   <input
                                     type="hidden"
                                     name="partnerName"
                                     value={d.partnerName}
+                                  />
+                                ) : null}
+                                {typeof d.sharePercent === "number" ? (
+                                  <input
+                                    type="hidden"
+                                    name="sharePercent"
+                                    value={String(d.sharePercent)}
+                                  />
+                                ) : null}
+                                {typeof d.amountEUR === "number" ? (
+                                  <input
+                                    type="hidden"
+                                    name="amountEUR"
+                                    value={String(d.amountEUR)}
                                   />
                                 ) : null}
                                 {isOverrideActive &&
@@ -1059,15 +1254,6 @@ export default async function HomePage({
                                     type="hidden"
                                     name="exchangeRateRON"
                                     value={String(rateOverrideItem)}
-                                  />
-                                ) : null}
-                                {/* Only send override for non-split items; for split/partners we compute base in action */}
-                                {!partnerKeyValue &&
-                                typeof d.amountEUR === "number" ? (
-                                  <input
-                                    type="hidden"
-                                    name="amountEUR"
-                                    value={String(d.amountEUR)}
                                   />
                                 ) : null}
                                 <ActionButton
