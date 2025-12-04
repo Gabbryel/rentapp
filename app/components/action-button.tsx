@@ -24,6 +24,7 @@ type Props = {
   successMessage: string;
   disabled?: boolean;
   triggerStatsRefresh?: boolean;
+  optimisticToast?: boolean;
 } & Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "type" | "disabled" | "onClick"
@@ -42,6 +43,7 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
     successMessage,
     disabled,
     triggerStatsRefresh,
+    optimisticToast = true,
     ...buttonProps
   },
   ref
@@ -74,11 +76,13 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         return;
       }
       setClicked(true);
-      window.dispatchEvent(
-        new CustomEvent<{ message: string }>("app:toast", {
-          detail: { message: successMessage },
-        })
-      );
+      if (optimisticToast) {
+        window.dispatchEvent(
+          new CustomEvent<{ message: string }>("app:toast", {
+            detail: { message: successMessage },
+          })
+        );
+      }
       if (triggerStatsRefresh) {
         const { dataset } = event.currentTarget;
         if (dataset.deltaMode) {
@@ -103,7 +107,7 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         }
       }
     },
-    [clicked, successMessage, triggerStatsRefresh]
+    [clicked, successMessage, triggerStatsRefresh, optimisticToast]
   );
 
   return (

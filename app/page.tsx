@@ -22,6 +22,7 @@ import ConfirmSubmit from "@/app/components/confirm-submit";
 import { getDailyEurRon, getEurRonForDate } from "@/lib/exchange";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
 import type { Invoice } from "@/lib/schemas/invoice";
+import { publishToast } from "@/lib/sse";
 
 // The client component itself contains its own loading skeletons.
 
@@ -342,29 +343,85 @@ export default async function HomePage({
 
   async function issueDue(formData: FormData) {
     "use server";
-    try {
-      const contractId = String(formData.get("contractId"));
-      const issuedAt = String(formData.get("issuedAt"));
-      const amountEURRaw = formData.get("amountEUR");
-      const amountOverride =
-        typeof amountEURRaw === "string" ? Number(amountEURRaw) : undefined;
-      const rateOverrideRaw = formData.get("exchangeRateRON");
-      let rateOverride: number | undefined = undefined;
-      if (
-        typeof rateOverrideRaw === "string" &&
-        rateOverrideRaw.trim() !== ""
-      ) {
-        const parsed = Number(rateOverrideRaw);
-        if (Number.isFinite(parsed) && parsed > 0) {
-          rateOverride = parsed;
+
+    const contractIdRaw = formData.get("contractId");
+    const issuedAtRaw = formData.get("issuedAt");
+    const contractId =
+      typeof contractIdRaw === "string" ? contractIdRaw.trim() : "";
+    const issuedAt = typeof issuedAtRaw === "string" ? issuedAtRaw.trim() : "";
+
+    if (!contractId || !issuedAt) {
+      publishToast(
+        "Nu am primit datele necesare pentru emiterea facturii.",
+        "error"
+      );
+      return;
+    }
+
+    const found = contracts.find((c) => c.id === contractId);
+    if (!found) {
+      publishToast(
+        "Contractul selectat nu mai există. Reîncarcă pagina și încearcă din nou.",
+        "error"
+      );
+      return;
+    }
+
+    const amountEURRaw = formData.get("amountEUR");
+    const amountOverride =
+      typeof amountEURRaw === "string" ? Number(amountEURRaw) : undefined;
+
+    const rateOverrideRaw = formData.get("exchangeRateRON");
+    const parsedRateOverride =
+      typeof rateOverrideRaw === "string" && rateOverrideRaw.trim() !== ""
+        ? Number(rateOverrideRaw)
+        : undefined;
+    const rateOverride =
+      typeof parsedRateOverride === "number" &&
+      Number.isFinite(parsedRateOverride) &&
+      parsedRateOverride > 0
+        ? parsedRateOverride
+        : undefined;
+
+    let contract: ContractType =
+      typeof rateOverride === "number"
+        ? { ...found, exchangeRateRON: rateOverride }
+        : found;
+
+    if (
+      !(
+        typeof contract.exchangeRateRON === "number" &&
+        Number.isFinite(contract.exchangeRateRON) &&
+        contract.exchangeRateRON > 0
+      )
+    ) {
+      try {
+        const fallbackRate = await getDailyEurRon({ forceRefresh: false });
+        if (typeof fallbackRate?.rate === "number" && fallbackRate.rate > 0) {
+          contract = { ...contract, exchangeRateRON: fallbackRate.rate };
+        } else {
+          publishToast(
+            "Contractul nu are un curs RON/EUR valid. Actualizează contractul sau aplică un curs manual înainte de emitere.",
+            "error"
+          );
+          return;
         }
+      } catch (error) {
+        console.error("Nu am putut obține cursul RON/EUR pentru emitere", {
+          contractId,
+          error,
+        });
+        publishToast(
+          "Nu am putut obține cursul RON/EUR. Încearcă din nou în câteva momente.",
+          "error"
+        );
+        return;
       }
-      const found = contracts.find((c) => c.id === contractId);
-      if (!found) return;
-      const contract: ContractType =
-        typeof rateOverride === "number"
-          ? { ...found, exchangeRateRON: rateOverride }
-          : found;
+    }
+
+    const issuedInvoices: Invoice[] = [];
+
+    try {
       const partners: ContractPartner[] = Array.isArray(contract.partners)
         ? contract.partners
         : [];
@@ -374,8 +431,8 @@ export default async function HomePage({
           (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
         0
       );
+
       if (partners.length > 1 && sumShares > 0) {
-        // Multi-partner issuance: compute full base EUR for this period, then split by shares
         let baseEUR: number | undefined;
         try {
           const y = Number(issuedAt.slice(0, 4));
@@ -388,7 +445,13 @@ export default async function HomePage({
               y,
               m
             );
-            if (!include) return; // suppressed by rules
+            if (!include) {
+              publishToast(
+                "Regulile de facturare în avans au blocat emiterea pentru această lună.",
+                "info"
+              );
+              return;
+            }
             const nextMonthDate = new Date(y, m, 1);
             const nextIso = nextMonthDate.toISOString().slice(0, 10);
             const base = rentAmountAtDate(contract, nextIso);
@@ -400,14 +463,24 @@ export default async function HomePage({
           } else {
             baseEUR = rentAmountAtDate(contract, issuedAt);
           }
-        } catch {}
+        } catch (error) {
+          console.warn(
+            "Nu am putut calcula suma de bază pentru împărțirea pe parteneri",
+            {
+              contractId,
+              issuedAt,
+              error,
+            }
+          );
+        }
+
         if (
           !(typeof baseEUR === "number" && isFinite(baseEUR) && baseEUR > 0)
         ) {
-          // Fallback to computed invoice if needed
           const baseInv = computeInvoiceFromContract({ contract, issuedAt });
           baseEUR = baseInv.amountEUR;
         }
+
         for (const partner of partners) {
           const share =
             typeof partner.sharePercent === "number"
@@ -424,7 +497,8 @@ export default async function HomePage({
             partner: partner.name,
             partnerId: partner.id || partner.name,
           };
-          await issueInvoiceAndGeneratePdf(patched);
+          const saved = await issueInvoiceAndGeneratePdf(patched);
+          issuedInvoices.push(saved);
         }
       } else {
         const inv = computeInvoiceFromContract({
@@ -432,12 +506,37 @@ export default async function HomePage({
           issuedAt,
           amountEUROverride: amountOverride,
         });
-        await issueInvoiceAndGeneratePdf(inv);
+        const saved = await issueInvoiceAndGeneratePdf(inv);
+        issuedInvoices.push(saved);
       }
-      try {
-        invalidateYearInvoicesCache();
-      } catch {}
-    } catch {}
+    } catch (error) {
+      console.error("Emiterea facturii a eșuat", {
+        contractId,
+        issuedAt,
+        error,
+      });
+      publishToast(
+        "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
+        "error"
+      );
+      return;
+    }
+
+    if (issuedInvoices.length === 0) {
+      publishToast(
+        "Nu s-a emis nicio factură pentru selecția curentă.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      invalidateYearInvoicesCache();
+    } catch (error) {
+      console.warn("Nu am putut invalida cache-ul de facturi anuale", error);
+    }
+
+    publishToast("Factura a fost emisă", "success");
     revalidatePath("/");
   }
 
@@ -976,6 +1075,7 @@ export default async function HomePage({
                                   title="Emite factura"
                                   successMessage="Factura a fost emisă"
                                   triggerStatsRefresh
+                                  optimisticToast={false}
                                   data-delta-mode="issue"
                                   data-delta-month-ron={
                                     typeof totalRON === "number"
