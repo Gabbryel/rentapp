@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Buffer } from "node:buffer";
 import { Readable } from "node:stream";
 import { ObjectId, GridFSBucket } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -36,12 +37,23 @@ export async function saveScanFile(
   }
 
   // Local dev fallback
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadsDir, { recursive: true });
-  const filePath = path.join(uploadsDir, filename);
   const arrayBuffer = await file.arrayBuffer();
-  await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-  return { url: `/uploads/${filename}`, storage: "local" };
+  const buffer = Buffer.from(arrayBuffer);
+  const mimeType = file.type || inferMime(ext) || "application/octet-stream";
+  try {
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    const filePath = path.join(uploadsDir, filename);
+    await fs.writeFile(filePath, buffer);
+    return { url: `/uploads/${filename}`, storage: "local" };
+  } catch (error) {
+    console.warn("saveScanFile: local filesystem inaccessible, falling back to inline data URL", {
+      filename,
+      error,
+    });
+    const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+    return { url: dataUrl, storage: "local" };
+  }
 }
 
 // Save a raw buffer as an upload (useful for generated PDFs). Mirrors saveScanFile behavior.
@@ -54,13 +66,15 @@ export async function saveBufferAsUpload(
   const base = sanitize(filename.replace(/\.[^.]+$/, "")) || "file";
   const ext = (filename.split(".").pop() || "dat").toLowerCase();
   const finalName = `${base}.${ext}`;
+  const mimeType = contentType || inferMime(ext) || "application/octet-stream";
+  const dataBuffer = Buffer.from(data);
   if (process.env.MONGODB_URI) {
     try {
       const db = await getDb();
       const bucket = new GridFSBucket(db, { bucketName: "uploads" });
-      const readable = Readable.from(Buffer.from(data));
+      const readable = Readable.from(dataBuffer);
       const uploadStream = bucket.openUploadStream(finalName, {
-        contentType: contentType || inferMime(ext) || "application/octet-stream",
+        contentType: mimeType,
         metadata: { originalName: filename, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null },
       });
       await new Promise<void>((resolve, reject) => {
@@ -74,11 +88,20 @@ export async function saveBufferAsUpload(
   }
 
   // Local dev fallback
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadsDir, { recursive: true });
-  const filePath = path.join(uploadsDir, finalName);
-  await fs.writeFile(filePath, Buffer.from(data));
-  return { url: `/uploads/${finalName}`, storage: "local" };
+  try {
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    const filePath = path.join(uploadsDir, finalName);
+    await fs.writeFile(filePath, dataBuffer);
+    return { url: `/uploads/${finalName}`, storage: "local" };
+  } catch (error) {
+    console.warn("saveBufferAsUpload: local filesystem inaccessible, returning inline data URL", {
+      filename: finalName,
+      error,
+    });
+    const dataUrl = `data:${mimeType};base64,${dataBuffer.toString("base64")}`;
+    return { url: dataUrl, storage: "local" };
+  }
 }
 
 export async function deleteScanByUrl(url?: string | null) {

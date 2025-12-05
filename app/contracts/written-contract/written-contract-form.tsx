@@ -17,11 +17,6 @@ import type { WrittenContract } from "@/lib/schemas/written-contract";
 import PdfModal from "@/app/components/pdf-modal";
 
 const PREFILL_STORAGE_KEY = "written-contract-prefill";
-const HUMAN_DATE_FORMATTER = new Intl.DateTimeFormat("ro-RO", {
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
 const DOT_DATE_FORMATTER = new Intl.DateTimeFormat("ro-RO", {
   day: "2-digit",
   month: "2-digit",
@@ -36,6 +31,14 @@ const UPDATED_AT_FORMATTER = new Intl.DateTimeFormat("ro-RO", {
 });
 
 type ContractLike = Record<string, unknown> | null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function ensureRecord(value: ContractLike): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
 
 type OwnerOption = {
   id: string;
@@ -235,13 +238,6 @@ function formatDateInput(value?: string): string {
   return trimmed.slice(0, 10);
 }
 
-function formatDateHuman(value?: string): string {
-  if (!value) return "________";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return HUMAN_DATE_FORMATTER.format(date);
-}
-
 function formatDateDot(value?: string): string {
   if (!value) return "——";
   const date = new Date(value);
@@ -380,11 +376,6 @@ function normalizeUtilityPaymentTerm(value?: string): string {
     .trim();
   const finalValue = withoutSuffix || trimmed;
   return escapeHtml(finalValue);
-}
-
-function display(value?: string, placeholder = "—"): string {
-  const trimmed = (value ?? "").trim();
-  return trimmed ? escapeHtml(trimmed) : placeholder;
 }
 
 type TemplateValue = {
@@ -551,10 +542,7 @@ function buildPartnerPatchFromOption(
   return patch;
 }
 
-function buildAssetPatchFromOption(
-  asset: AssetOption,
-  prev: EditorState
-): Partial<EditorState> {
+function buildAssetPatchFromOption(asset: AssetOption): Partial<EditorState> {
   const patch: Partial<EditorState> = {
     assetId: asset.id,
     assetName: asset.name,
@@ -649,7 +637,6 @@ function createTemplateBody(state: EditorState): string {
   );
   const intendedUseTemplate = makeTemplateValue(state.intendedUse, "________");
 
-  const contractNumberTemplate = makeTemplateValue(state.documentNumber, "—");
   const contractStartTemplate = makeDotDateTemplateValue(
     state.contractStartDate,
     "——"
@@ -775,11 +762,9 @@ function createTemplateBody(state: EditorState): string {
   const assetAddress = boldTemplateValue(assetAddressTemplate);
   const intendedUseValue = boldTemplateValue(intendedUseTemplate);
 
-  const contractNumber = boldTemplateValue(contractNumberTemplate);
   const contractStart = boldTemplateValue(contractStartTemplate);
   const contractEnd = boldTemplateValue(contractEndTemplate);
   const contractSignedAtValue = boldTemplateValue(contractSignedAtTemplate);
-  const contractRange = `${contractStart} - ${contractEnd}`;
 
   const invoiceIssueDayValue = boldTemplateValue(invoiceIssueDayTemplate);
   const invoiceMonthModeValue = boldTemplateValue(invoiceMonthModeTemplate);
@@ -1308,16 +1293,16 @@ function mapPrefillToState(
   data: Record<string, unknown>
 ): Partial<EditorState> {
   const mapped: Partial<EditorState> = {};
-  const flag = (data as Record<string, unknown>).__writtenContract;
+  const flag = data["__writtenContract"];
   if (flag === true) {
     for (const key of EDITOR_STATE_KEYS) {
-      const raw = (data as Record<string, unknown>)[key];
+      const raw = data[key];
       if (typeof raw === "string") {
-        (mapped as Record<string, string>)[key] = raw;
+        mapped[key] = raw;
       }
     }
     if (!mapped.intendedUse) {
-      const legacy = (data as Record<string, unknown>).spaceUsage;
+      const legacy = data["spaceUsage"];
       if (typeof legacy === "string" && legacy.trim()) {
         mapped.intendedUse = legacy.trim();
       }
@@ -1325,12 +1310,10 @@ function mapPrefillToState(
     return mapped;
   }
 
-  const anyData = data as Record<string, unknown>;
-
   const copyIfString = (source: string, target: EditorStateKey) => {
-    const raw = anyData[source];
+    const raw = data[source];
     if (typeof raw === "string" && raw.trim()) {
-      (mapped as Record<string, string>)[target] = raw.trim();
+      mapped[target] = raw.trim();
     }
   };
 
@@ -1361,17 +1344,17 @@ function mapPrefillToState(
   copyIfString("documentDate", "documentDate");
   copyIfString("tvaPercent", "tvaPercent");
 
-  const contractId = anyData["id"];
+  const contractId = data["id"];
   if (typeof contractId === "string" && contractId.trim()) {
     mapped.contractId = contractId.trim();
   }
 
-  const rentRaw = anyData["rentAmountEuro"] ?? anyData["amountEUR"];
+  const rentRaw = data["rentAmountEuro"] ?? data["amountEUR"];
   const tvaRaw = (() => {
     if (typeof mapped.tvaPercent === "string" && mapped.tvaPercent.trim()) {
       return mapped.tvaPercent.trim();
     }
-    const fromData = anyData["tvaPercent"];
+    const fromData = data["tvaPercent"];
     if (typeof fromData === "number" && Number.isFinite(fromData)) {
       return String(fromData);
     }
@@ -1405,20 +1388,16 @@ function deriveBaseState(
   partners: PartnerOption[],
   assets: AssetOption[]
 ): EditorState {
-  const raw = contract ?? {};
+  const raw = ensureRecord(contract);
 
-  const ownerIdFromDocument =
-    document?.ownerId ?? getString((raw as any).ownerId);
-  const ownerNameFromData =
-    document?.ownerName ?? getString((raw as any).owner);
+  const ownerIdFromDocument = document?.ownerId ?? getString(raw["ownerId"]);
+  const ownerNameFromData = document?.ownerName ?? getString(raw["owner"]);
   const partnerIdFromDocument =
-    document?.partnerId ?? getString((raw as any).partnerId);
+    document?.partnerId ?? getString(raw["partnerId"]);
   const partnerNameFromData =
-    document?.partnerName ?? getString((raw as any).partner);
-  const assetIdFromDocument =
-    document?.assetId ?? getString((raw as any).assetId);
-  const assetNameFromData =
-    document?.assetName ?? getString((raw as any).asset);
+    document?.partnerName ?? getString(raw["partner"]);
+  const assetIdFromDocument = document?.assetId ?? getString(raw["assetId"]);
+  const assetNameFromData = document?.assetName ?? getString(raw["asset"]);
 
   const normalizedOwnerId = ownerIdFromDocument?.trim()
     ? ownerIdFromDocument.trim()
@@ -1435,7 +1414,7 @@ function deriveBaseState(
   const resolvedOwner = ownerById ?? ownerByName;
 
   const ownerName = resolvedOwner?.name ?? ownerNameFromData ?? "";
-  const contractIdRaw = document?.contractId ?? getString((raw as any).id);
+  const contractIdRaw = document?.contractId ?? getString(raw["id"]);
 
   const normalizedPartnerId = partnerIdFromDocument?.trim()
     ? partnerIdFromDocument.trim()
@@ -1479,14 +1458,14 @@ function deriveBaseState(
       : undefined;
 
   const contractSignedAtDefault =
-    document?.contractSignedAt ?? getString((raw as any).signedAt);
+    document?.contractSignedAt ?? getString(raw["signedAt"]);
   const contractStartDateDefault =
-    document?.contractStartDate ?? getString((raw as any).startDate);
+    document?.contractStartDate ?? getString(raw["startDate"]);
   const contractEndDateDefault =
-    document?.contractEndDate ?? getString((raw as any).endDate);
+    document?.contractEndDate ?? getString(raw["endDate"]);
 
   const startMonthName = formatMonthName(contractStartDateDefault);
-  const invoiceMonthModeRaw = getString((raw as any).invoiceMonthMode);
+  const invoiceMonthModeRaw = getString(raw["invoiceMonthMode"]);
   const rentMonthDate =
     invoiceMonthModeRaw && invoiceMonthModeRaw.toLowerCase() === "next"
       ? addMonths(contractStartDateDefault, 1)
@@ -1495,16 +1474,15 @@ function deriveBaseState(
   const inferredIndexingMonth = startMonthName;
 
   const tvaType = (() => {
-    const source = document?.tvaType ?? getString((raw as any).tvaType);
-    if (typeof source !== "string") return "";
-    return source.trim();
+    const source = document?.tvaType ?? getString(raw["tvaType"]);
+    return typeof source === "string" ? source.trim() : "";
   })();
 
   const correctionPercent = (() => {
     if (typeof document?.correctionPercent === "string") {
       return document.correctionPercent;
     }
-    const rawCorr = (raw as any).correctionPercent;
+    const rawCorr = raw["correctionPercent"];
     if (typeof rawCorr === "number" && Number.isFinite(rawCorr)) {
       return String(rawCorr);
     }
@@ -1514,7 +1492,7 @@ function deriveBaseState(
     return "";
   })();
 
-  const rentAmountEuro = (raw as any).rentAmountEuro ?? (raw as any).amountEUR;
+  const rentAmountEuro = raw["rentAmountEuro"] ?? raw["amountEUR"];
   const rentNumber =
     typeof rentAmountEuro === "number" && Number.isFinite(rentAmountEuro)
       ? rentAmountEuro
@@ -1527,8 +1505,7 @@ function deriveBaseState(
           maximumFractionDigits: 2,
         })} EUR`
       : "");
-  const tvaPercentSource =
-    document?.tvaPercent ?? getString((raw as any).tvaPercent);
+  const tvaPercentSource = document?.tvaPercent ?? getString(raw["tvaPercent"]);
   const tvaPercent = (tvaPercentSource ?? "").trim();
   const tvaPercentText = resolveTvaPercentDisplay(tvaPercent).display;
   const tvaTypeText = resolveTvaTypeDisplay(tvaType).display;
@@ -1547,13 +1524,10 @@ function deriveBaseState(
 
   const invoiceIssueDayValueRaw =
     document?.invoiceIssueDay ??
-    pickFirstFilled(
-      (raw as any).invoiceIssueDay,
-      (raw as any).monthlyInvoiceDay
-    );
+    pickFirstFilled(raw["invoiceIssueDay"], raw["monthlyInvoiceDay"]);
   const monthlyInvoiceDay =
     document?.monthlyInvoiceDay ??
-    pickFirstFilled((raw as any).monthlyInvoiceDay, invoiceIssueDayValueRaw);
+    pickFirstFilled(raw["monthlyInvoiceDay"], invoiceIssueDayValueRaw);
   const invoiceMonthMode = (
     document?.invoiceMonthMode ??
     invoiceMonthModeRaw ??
@@ -1570,99 +1544,82 @@ function deriveBaseState(
     contractStartDate: contractStartDateDefault,
     contractEndDate: contractEndDateDefault,
     assetName:
-      document?.assetName ??
-      resolvedAsset?.name ??
-      getString((raw as any).asset),
+      document?.assetName ?? resolvedAsset?.name ?? getString(raw["asset"]),
     assetAddress:
       document?.assetAddress ??
       pickFirstFilled(
         resolvedAsset?.address,
-        (raw as any).assetAddress,
-        (raw as any).address
+        raw["assetAddress"],
+        raw["address"]
       ),
     spaceSurface:
       document?.spaceSurface ??
       assetSurfaceFromAsset ??
-      pickFirstFilled((raw as any).spaceSurface, (raw as any).surface),
+      pickFirstFilled(raw["spaceSurface"], raw["surface"]),
     intendedUse:
       document?.intendedUse ??
       document?.spaceUsage ??
-      pickFirstFilled(
-        (raw as any).intendedUse,
-        (raw as any).spaceUsage,
-        (raw as any).usage
-      ),
+      pickFirstFilled(raw["intendedUse"], raw["spaceUsage"], raw["usage"]),
     title:
-      (document?.title ?? getString((raw as any).name) ?? "") ||
+      (document?.title ?? getString(raw["name"]) ?? "") ||
       "CONTRACT DE ÎNCHIRIERE",
     subtitle:
       document?.subtitle ??
       (ownerName || partnerName ? makeSubtitle(ownerName, partnerName) : ""),
     documentNumber:
       document?.documentNumber ??
-      pickFirstFilled((raw as any).contractNumber, (raw as any).id),
+      pickFirstFilled(raw["contractNumber"], raw["id"]),
     documentDate:
       document?.documentDate ??
-      pickFirstFilled((raw as any).documentDate, (raw as any).signedAt),
+      pickFirstFilled(raw["documentDate"], raw["signedAt"]),
     ownerName,
     ownerAddress:
       document?.ownerAddress ??
       pickFirstFilled(
-        (raw as any).ownerAddress,
-        (raw as any).address,
+        raw["ownerAddress"],
+        raw["address"],
         resolvedOwner?.headquarters
       ),
     ownerContactEmails:
       document?.ownerContactEmails ??
-      pickFirstFilled((raw as any).ownerContactEmails),
+      pickFirstFilled(raw["ownerContactEmails"]),
     ownerContactPhones:
       document?.ownerContactPhones ??
-      pickFirstFilled((raw as any).ownerContactPhones),
+      pickFirstFilled(raw["ownerContactPhones"]),
     ownerRegistration:
-      document?.ownerRegistration ??
-      pickFirstFilled((raw as any).ownerRegistration),
-    ownerTaxId:
-      document?.ownerTaxId ?? pickFirstFilled((raw as any).ownerTaxId),
+      document?.ownerRegistration ?? pickFirstFilled(raw["ownerRegistration"]),
+    ownerTaxId: document?.ownerTaxId ?? pickFirstFilled(raw["ownerTaxId"]),
     ownerHeadOffice:
       document?.ownerHeadOffice ??
-      pickFirstFilled(
-        (raw as any).ownerHeadOffice,
-        resolvedOwner?.headquarters
-      ),
+      pickFirstFilled(raw["ownerHeadOffice"], resolvedOwner?.headquarters),
     ownerRepresentative:
       document?.ownerRepresentative ??
-      pickFirstFilled((raw as any).ownerRepresentative),
+      pickFirstFilled(raw["ownerRepresentative"]),
     ownerRepresentativeTitle:
       document?.ownerRepresentativeTitle ??
-      pickFirstFilled((raw as any).ownerRepresentativeTitle),
+      pickFirstFilled(raw["ownerRepresentativeTitle"]),
     partnerName,
     partnerAddress:
       document?.partnerAddress ??
-      pickFirstFilled(
-        (raw as any).partnerAddress,
-        resolvedPartner?.headquarters
-      ),
+      pickFirstFilled(raw["partnerAddress"], resolvedPartner?.headquarters),
     partnerEmail:
-      document?.partnerEmail ?? pickFirstFilled((raw as any).partnerEmail),
+      document?.partnerEmail ?? pickFirstFilled(raw["partnerEmail"]),
     partnerPhone:
-      document?.partnerPhone ?? pickFirstFilled((raw as any).partnerPhone),
+      document?.partnerPhone ?? pickFirstFilled(raw["partnerPhone"]),
     partnerRegistration:
       document?.partnerRegistration ??
-      pickFirstFilled((raw as any).partnerRegistration),
+      pickFirstFilled(raw["partnerRegistration"]),
     partnerTaxId:
-      document?.partnerTaxId ?? pickFirstFilled((raw as any).partnerTaxId),
+      document?.partnerTaxId ?? pickFirstFilled(raw["partnerTaxId"]),
     partnerHeadOffice:
       document?.partnerHeadOffice ??
-      pickFirstFilled(
-        (raw as any).partnerHeadOffice,
-        resolvedPartner?.headquarters
-      ),
+      pickFirstFilled(raw["partnerHeadOffice"], resolvedPartner?.headquarters),
     partnerRepresentative:
       document?.partnerRepresentative ??
-      pickFirstFilled((raw as any).partnerRepresentative),
+      pickFirstFilled(raw["partnerRepresentative"]),
     partnerRepresentativeTitle:
       document?.partnerRepresentativeTitle ??
-      pickFirstFilled((raw as any).partnerRepresentativeTitle),
+      pickFirstFilled(raw["partnerRepresentativeTitle"]),
     rentAmount,
     rentAmountText,
     tvaPercent,
@@ -1672,72 +1629,70 @@ function deriveBaseState(
     invoiceMonthMode,
     monthOfRent: document?.monthOfRent ?? inferredMonthOfRent ?? "",
     paymentDueDays:
-      document?.paymentDueDays ?? pickFirstFilled((raw as any).paymentDueDays),
+      document?.paymentDueDays ?? pickFirstFilled(raw["paymentDueDays"]),
     invoiceSendChannels:
       document?.invoiceSendChannels ??
-      pickFirstFilled((raw as any).invoiceSendChannels),
+      pickFirstFilled(raw["invoiceSendChannels"]),
     indexingMonth: document?.indexingMonth ?? inferredIndexingMonth ?? "",
     bankAccount:
       document?.bankAccount ??
-      pickFirstFilled((raw as any).bankAccount, resolvedOwner?.bankAccount),
-    bankName: document?.bankName ?? pickFirstFilled((raw as any).bankName),
+      pickFirstFilled(raw["bankAccount"], resolvedOwner?.bankAccount),
+    bankName: document?.bankName ?? pickFirstFilled(raw["bankName"]),
     guaranteeMultiplier:
       document?.guaranteeMultiplier ??
-      pickFirstFilled((raw as any).guaranteeMultiplier),
+      pickFirstFilled(raw["guaranteeMultiplier"]),
     guaranteeDueDate: defaultGuaranteeDueDate,
     guaranteeForms:
-      document?.guaranteeForms ?? pickFirstFilled((raw as any).guaranteeForms),
+      document?.guaranteeForms ?? pickFirstFilled(raw["guaranteeForms"]),
     guaranteeBoMultiplier:
       document?.guaranteeBoMultiplier ??
-      pickFirstFilled((raw as any).guaranteeBoMultiplier),
+      pickFirstFilled(raw["guaranteeBoMultiplier"]),
     utilityPaymentTerm:
       document?.utilityPaymentTerm ??
-      pickFirstFilled((raw as any).utilityPaymentTerm),
+      pickFirstFilled(raw["utilityPaymentTerm"]),
     latePaymentPenaltyPercent:
       document?.latePaymentPenaltyPercent ??
-      pickFirstFilled((raw as any).latePaymentPenaltyPercent),
+      pickFirstFilled(raw["latePaymentPenaltyPercent"]),
     latePaymentNotificationFee:
       document?.latePaymentNotificationFee ??
-      pickFirstFilled((raw as any).latePaymentNotificationFee),
+      pickFirstFilled(raw["latePaymentNotificationFee"]),
     evacuationFee:
-      document?.evacuationFee ?? pickFirstFilled((raw as any).evacuationFee),
-    storageFee:
-      document?.storageFee ?? pickFirstFilled((raw as any).storageFee),
+      document?.evacuationFee ?? pickFirstFilled(raw["evacuationFee"]),
+    storageFee: document?.storageFee ?? pickFirstFilled(raw["storageFee"]),
     nonPaymentTerminationDays:
       document?.nonPaymentTerminationDays ??
-      pickFirstFilled((raw as any).nonPaymentTerminationDays),
+      pickFirstFilled(raw["nonPaymentTerminationDays"]),
     dailyPenaltyAfterTermination:
       document?.dailyPenaltyAfterTermination ??
-      pickFirstFilled((raw as any).dailyPenaltyAfterTermination),
+      pickFirstFilled(raw["dailyPenaltyAfterTermination"]),
     denunciationNoticeDays:
       document?.denunciationNoticeDays ??
-      pickFirstFilled((raw as any).denunciationNoticeDays),
+      pickFirstFilled(raw["denunciationNoticeDays"]),
     denunciationLockMonths:
       document?.denunciationLockMonths ??
-      pickFirstFilled((raw as any).denunciationLockMonths),
+      pickFirstFilled(raw["denunciationLockMonths"]),
     denunciationPenaltyMonths:
       document?.denunciationPenaltyMonths ??
-      pickFirstFilled((raw as any).denunciationPenaltyMonths),
+      pickFirstFilled(raw["denunciationPenaltyMonths"]),
     denunciationPenaltyFixed:
       document?.denunciationPenaltyFixed ??
-      pickFirstFilled((raw as any).denunciationPenaltyFixed),
+      pickFirstFilled(raw["denunciationPenaltyFixed"]),
     abandonPenaltyDescription:
       document?.abandonPenaltyDescription ??
-      pickFirstFilled((raw as any).abandonPenaltyDescription),
+      pickFirstFilled(raw["abandonPenaltyDescription"]),
     overstayPenaltyPerDay:
       document?.overstayPenaltyPerDay ??
-      pickFirstFilled((raw as any).overstayPenaltyPerDay),
+      pickFirstFilled(raw["overstayPenaltyPerDay"]),
     confidentialityPenalty:
       document?.confidentialityPenalty ??
-      pickFirstFilled((raw as any).confidentialityPenalty),
+      pickFirstFilled(raw["confidentialityPenalty"]),
     forceMajeureNoticeDays:
       document?.forceMajeureNoticeDays ??
-      pickFirstFilled((raw as any).forceMajeureNoticeDays),
+      pickFirstFilled(raw["forceMajeureNoticeDays"]),
     signatureLocation:
-      document?.signatureLocation ??
-      pickFirstFilled((raw as any).signatureLocation),
+      document?.signatureLocation ?? pickFirstFilled(raw["signatureLocation"]),
     body: document?.body ?? "",
-    notes: document?.notes ?? pickFirstFilled((raw as any).notes),
+    notes: document?.notes ?? pickFirstFilled(raw["notes"]),
     correctionPercent,
   };
 
@@ -1754,7 +1709,7 @@ function deriveBaseState(
   }
 
   if (resolvedAsset) {
-    Object.assign(state, buildAssetPatchFromOption(resolvedAsset, state));
+    Object.assign(state, buildAssetPatchFromOption(resolvedAsset));
   }
 
   return state;
@@ -1984,7 +1939,7 @@ export default function WrittenContractForm({
         return prev;
       }
       const patchEntries = Object.entries(
-        buildAssetPatchFromOption(asset, prev)
+        buildAssetPatchFromOption(asset)
       ) as Array<[keyof EditorState, unknown]>;
       let changed = false;
       const next = { ...prev } as EditorState;
@@ -3131,27 +3086,24 @@ export default function WrittenContractForm({
                       </p>
                     ) : null}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-foreground/55">
-                    {state.ownerRegistration ? (
-                      <span className="whitespace-nowrap">
-                        ORC{" "}
-                        <span className="font-medium text-foreground/75">
-                          {state.ownerRegistration}
+                      {state.ownerRegistration ? (
+                        <span className="whitespace-nowrap">
+                          ORC{" "}
+                          <span className="font-medium text-foreground/75">
+                            {state.ownerRegistration}
+                          </span>
                         </span>
-                      </span>
-                    ) : null}
-                    {state.ownerTaxId ? (
-                      <span className="whitespace-nowrap">
-                        CIF{" "}
-                        <span className="font-medium text-foreground/75">
-                          {state.ownerTaxId}
+                      ) : null}
+                      {state.ownerTaxId ? (
+                        <span className="whitespace-nowrap">
+                          CIF{" "}
+                          <span className="font-medium text-foreground/75">
+                            {state.ownerTaxId}
+                          </span>
                         </span>
-                      </span>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </div>
-                  </div>
-
-                  
-                  
                 </div>
                 <div className="mt-3 grid gap-3 text-[12px] text-foreground/75 sm:grid-cols-3">
                   <div>
