@@ -98,7 +98,9 @@ export default async function RootLayout({
         </div>
         <div className="fixed bottom-4 left-4 z-[1000] pointer-events-none select-none text-[11px] font-medium text-foreground/70">
           <span className="inline-flex items-center gap-1 rounded-md border border-foreground/10 bg-background/80 px-3 py-1 shadow-sm backdrop-blur">
-            <span className="uppercase tracking-wide text-foreground/50">RentApp</span>
+            <span className="uppercase tracking-wide text-foreground/50">
+              RentApp
+            </span>
             <span>{badgeLabelParts.join(" • ")}</span>
           </span>
         </div>
