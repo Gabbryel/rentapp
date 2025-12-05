@@ -621,6 +621,19 @@ export default async function HomePage({
             partner: partnerNameResolved,
             error,
           });
+          if (issuedInvoices.length > 0) {
+            for (const issued of issuedInvoices.splice(0)) {
+              try {
+                await deleteInvoiceById(issued.id);
+              } catch (cleanupError) {
+                console.warn(
+                  "Nu am putut anula factura emisă parțial",
+                  issued.id,
+                  cleanupError
+                );
+              }
+            }
+          }
           publishToast(
             "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
             "error"
@@ -812,12 +825,12 @@ export default async function HomePage({
                 Aplică cursul
               </button>
               {validRateDate ? (
-                <a
+                <Link
                   href="/"
                   className="text-sm text-foreground/60 hover:text-foreground"
                 >
                   Revino la data curentă
-                </a>
+                </Link>
               ) : null}
             </div>
           </form>
@@ -1016,14 +1029,6 @@ export default async function HomePage({
                     )
                       ? d.contract.partners
                       : [];
-                    const sumShares = partners.reduce(
-                      (total, partner) =>
-                        total +
-                        (typeof partner.sharePercent === "number"
-                          ? partner.sharePercent
-                          : 0),
-                      0
-                    );
                     const partnerCount = partners.filter(
                       (partner) =>
                         typeof partner?.name === "string" &&
