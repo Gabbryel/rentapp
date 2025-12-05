@@ -6,6 +6,7 @@ export type AppVersion = {
   commit?: string; // short git sha from env if available
   build?: string; // vercel build id or similar ci build id
   env?: string; // deployment environment label
+  builtAt?: string; // ISO timestamp of the build/deploy moment
 };
 
 function readEnvVersion(): Pick<AppVersion, "commit" | "build" | "env"> {
@@ -21,5 +22,11 @@ function readEnvVersion(): Pick<AppVersion, "commit" | "build" | "env"> {
 export const getAppVersion = cache(async (): Promise<AppVersion> => {
   const base: AppVersion = { version: pkg.version };
   const extra = readEnvVersion();
-  return { ...base, ...extra };
+  const builtAt =
+    process.env.BUILD_TIMESTAMP ||
+    process.env.VERCEL_DEPLOYMENT_TIME ||
+    process.env.VERCEL_DEPLOYED_AT ||
+    process.env.DEPLOYMENT_TIMESTAMP ||
+    new Date().toISOString();
+  return { ...base, ...extra, builtAt };
 });

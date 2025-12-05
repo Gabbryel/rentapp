@@ -4,6 +4,7 @@ import "./globals.css";
 import NavbarGate from "@/app/components/navbar-gate";
 import Toaster from "@/app/components/toaster";
 import FlashGate from "@/app/components/flash-gate";
+import { getAppVersion } from "@/lib/version";
 
 const robotoCondensed = Roboto_Condensed({
   variable: "--font-roboto-condensed",
@@ -46,11 +47,30 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const version = await getAppVersion();
+  const builtAtIso = version.builtAt ?? new Date().toISOString();
+  let builtAtReadable = builtAtIso;
+  try {
+    const date = new Date(builtAtIso);
+    if (!Number.isNaN(date.getTime())) {
+      builtAtReadable = new Intl.DateTimeFormat("ro-RO", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+    }
+  } catch {}
+
+  const badgeLabelParts = [
+    `v${version.version}`,
+    builtAtReadable,
+    version.commit ? `commit ${version.commit}` : null,
+  ].filter(Boolean);
+
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
@@ -75,6 +95,12 @@ export default function RootLayout({
         <NavbarGate />
         <div id="app-root" className="w-full app-root-for-blur">
           {children}
+        </div>
+        <div className="fixed bottom-4 left-4 z-[1000] pointer-events-none select-none text-[11px] font-medium text-foreground/70">
+          <span className="inline-flex items-center gap-1 rounded-md border border-foreground/10 bg-background/80 px-3 py-1 shadow-sm backdrop-blur">
+            <span className="uppercase tracking-wide text-foreground/50">RentApp</span>
+            <span>{badgeLabelParts.join(" • ")}</span>
+          </span>
         </div>
         <Toaster />
         <FlashGate />

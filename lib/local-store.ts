@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const dataDir = path.join(process.cwd(), ".data");
+const memoryStore = new Map<string, unknown>();
 
 async function ensureDir() {
   try {
@@ -16,6 +17,9 @@ export async function readJson<T = unknown>(fileName: string, fallback: T): Prom
     const buf = await fs.readFile(filePath);
     return JSON.parse(String(buf)) as T;
   } catch {
+    if (memoryStore.has(fileName)) {
+      return memoryStore.get(fileName) as T;
+    }
     return fallback;
   }
 }
@@ -23,5 +27,14 @@ export async function readJson<T = unknown>(fileName: string, fallback: T): Prom
 export async function writeJson<T = unknown>(fileName: string, data: T): Promise<void> {
   await ensureDir();
   const filePath = path.join(dataDir, fileName);
-  await fs.writeFile(filePath, Buffer.from(JSON.stringify(data, null, 2)));
+  try {
+    await fs.writeFile(filePath, Buffer.from(JSON.stringify(data, null, 2)));
+    memoryStore.delete(fileName);
+  } catch (error) {
+    memoryStore.set(fileName, data);
+    console.warn("writeJson: filesystem write failed, using in-memory fallback", {
+      fileName,
+      error,
+    });
+  }
 }
