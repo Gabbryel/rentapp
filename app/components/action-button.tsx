@@ -100,11 +100,12 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         return;
       }
 
+      const form = event.currentTarget.form;
       void logClientDiagnostic("click", {
         dataset: { ...event.currentTarget.dataset },
-        hasForm: Boolean(event.currentTarget.form),
-        formMethod: event.currentTarget.form?.method ?? null,
-        formAction: event.currentTarget.form?.getAttribute("action") ?? null,
+        hasForm: Boolean(form),
+        formMethod: form?.method ?? null,
+        formAction: form?.getAttribute("action") ?? null,
       });
 
       setClicked(true);
@@ -137,6 +138,32 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
             })
           );
         }
+      }
+
+      if (form) {
+        if (typeof form.requestSubmit === "function") {
+          event.preventDefault();
+          try {
+            form.requestSubmit(event.currentTarget);
+            void logClientDiagnostic("requestSubmit", {
+              hasForm: true,
+              usedRequestSubmit: true,
+            });
+          } catch (error) {
+            void logClientDiagnostic("requestSubmit.error", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            form.submit();
+          }
+          return;
+        }
+        // Legacy fallback
+        form.submit();
+        void logClientDiagnostic("form.submit", {
+          hasForm: true,
+          usedRequestSubmit: false,
+        });
+        return;
       }
     },
     [clicked, successMessage, triggerStatsRefresh, optimisticToast]
