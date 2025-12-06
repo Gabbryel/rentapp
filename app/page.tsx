@@ -26,6 +26,7 @@ import type { Contract as ContractType } from "@/lib/schemas/contract";
 import type { Invoice } from "@/lib/schemas/invoice";
 import { publishToast } from "@/lib/sse";
 import { logAction } from "@/lib/audit";
+import { recordDiagnosticEvent } from "@/lib/diagnostics";
 
 // The client component itself contains its own loading skeletons.
 
@@ -68,19 +69,23 @@ type DueItem = {
   exchangeRateDate?: string;
 };
 
+const ISSUE_DUE_TAG = "home.issueDue";
+
 const debugIssueDue = (step: string, payload: Record<string, unknown> = {}) => {
+  const snapshot = {
+    tag: ISSUE_DUE_TAG,
+    step,
+    timestamp: new Date().toISOString(),
+    ...payload,
+  };
   try {
-    console.log(
-      JSON.stringify({
-        tag: "home.issueDue",
-        step,
-        timestamp: new Date().toISOString(),
-        ...payload,
-      })
-    );
+    console.log(JSON.stringify(snapshot));
   } catch (error) {
     console.log("home.issueDue debug failure", step, payload, error);
   }
+  try {
+    void recordDiagnosticEvent({ tag: ISSUE_DUE_TAG, step, context: payload });
+  } catch {}
 };
 
 const BILLING_TIMEZONE = process.env.BILLING_TIMEZONE || "Europe/Bucharest";
