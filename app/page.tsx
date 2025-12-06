@@ -68,10 +68,7 @@ type DueItem = {
   exchangeRateDate?: string;
 };
 
-const debugIssueDue = (
-  step: string,
-  payload: Record<string, unknown> = {}
-) => {
+const debugIssueDue = (step: string, payload: Record<string, unknown> = {}) => {
   try {
     console.log(
       JSON.stringify({
@@ -388,17 +385,29 @@ export default async function HomePage({
 
     debugIssueDue("start", {
       contractIdRaw:
-        typeof contractIdRaw === "string" ? contractIdRaw : String(contractIdRaw ?? ""),
+        typeof contractIdRaw === "string"
+          ? contractIdRaw
+          : String(contractIdRaw ?? ""),
       issuedAtRaw:
-        typeof issuedAtRaw === "string" ? issuedAtRaw : String(issuedAtRaw ?? ""),
+        typeof issuedAtRaw === "string"
+          ? issuedAtRaw
+          : String(issuedAtRaw ?? ""),
       partnerIdRaw:
-        typeof partnerIdRaw === "string" ? partnerIdRaw : String(partnerIdRaw ?? ""),
+        typeof partnerIdRaw === "string"
+          ? partnerIdRaw
+          : String(partnerIdRaw ?? ""),
       partnerNameRaw:
-        typeof partnerNameRaw === "string" ? partnerNameRaw : String(partnerNameRaw ?? ""),
+        typeof partnerNameRaw === "string"
+          ? partnerNameRaw
+          : String(partnerNameRaw ?? ""),
       sharePercentRaw:
-        typeof sharePercentRaw === "string" ? sharePercentRaw : String(sharePercentRaw ?? ""),
+        typeof sharePercentRaw === "string"
+          ? sharePercentRaw
+          : String(sharePercentRaw ?? ""),
       rateOverrideRaw:
-        typeof rateOverrideRaw === "string" ? rateOverrideRaw : String(rateOverrideRaw ?? ""),
+        typeof rateOverrideRaw === "string"
+          ? rateOverrideRaw
+          : String(rateOverrideRaw ?? ""),
       headerSnapshot,
     });
 
@@ -631,11 +640,11 @@ export default async function HomePage({
             error,
           }
         );
-            debugIssueDue("base-eur-calculation-failed", {
-              contractId,
-              issuedAt,
-              error: error instanceof Error ? error.message : String(error),
-            });
+        debugIssueDue("base-eur-calculation-failed", {
+          contractId,
+          issuedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       if (
@@ -660,11 +669,11 @@ export default async function HomePage({
               error,
             }
           );
-            debugIssueDue("abort.base-eur-missing", {
-              contractId,
-              issuedAt,
-              error: error instanceof Error ? error.message : String(error),
-            });
+          debugIssueDue("abort.base-eur-missing", {
+            contractId,
+            issuedAt,
+            error: error instanceof Error ? error.message : String(error),
+          });
           publishToast("Nu am putut calcula suma EUR pentru emitere.", "error");
           return;
         }
