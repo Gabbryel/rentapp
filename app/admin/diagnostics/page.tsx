@@ -8,6 +8,7 @@ import {
 
 const ISSUE_TAG = "home.issueDue";
 const PROXY_TAG = "proxy.issueDue";
+const CLIENT_TAG = "client.issueDue";
 
 function formatDate(iso: string): string {
   try {
@@ -72,9 +73,10 @@ function EventList({
 }
 
 export default async function DiagnosticsPage() {
-  const [issueEvents, proxyEvents] = await Promise.all([
+  const [issueEvents, proxyEvents, clientEvents] = await Promise.all([
     fetchDiagnosticEvents({ tag: ISSUE_TAG, limit: 200 }),
     fetchDiagnosticEvents({ tag: PROXY_TAG, limit: 200 }),
+    fetchDiagnosticEvents({ tag: CLIENT_TAG, limit: 200 }),
   ]);
 
   async function clearLogs() {
@@ -82,6 +84,7 @@ export default async function DiagnosticsPage() {
     await Promise.all([
       clearDiagnosticEvents(ISSUE_TAG),
       clearDiagnosticEvents(PROXY_TAG),
+      clearDiagnosticEvents(CLIENT_TAG),
     ]);
     revalidatePath("/admin/diagnostics");
   }
@@ -118,6 +121,7 @@ export default async function DiagnosticsPage() {
 
       <EventList title="Server action (home.issueDue)" events={issueEvents} />
       <EventList title="Proxy (proxy.issueDue)" events={proxyEvents} />
+      <EventList title="Client (client.issueDue)" events={clientEvents} />
     </div>
   );
 }

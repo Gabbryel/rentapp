@@ -35,6 +35,30 @@ function toNumber(value: string | undefined): number {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+async function logClientDiagnostic(
+  step: string,
+  context: Record<string, unknown>
+): Promise<void> {
+  try {
+    if (typeof fetch !== "function") return;
+    await fetch("/api/diagnostics/log", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        tag: "client.issueDue",
+        step,
+        context,
+      }),
+      keepalive: true,
+      cache: "no-store",
+    });
+  } catch {
+    // ignore logging failures on client
+  }
+}
+
 const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
   {
     children,
@@ -75,6 +99,14 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         event.stopPropagation();
         return;
       }
+
+      void logClientDiagnostic("click", {
+        dataset: { ...event.currentTarget.dataset },
+        hasForm: Boolean(event.currentTarget.form),
+        formMethod: event.currentTarget.form?.method ?? null,
+        formAction: event.currentTarget.form?.getAttribute("action") ?? null,
+      });
+
       setClicked(true);
       if (optimisticToast) {
         window.dispatchEvent(
