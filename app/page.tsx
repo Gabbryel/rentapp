@@ -7,6 +7,7 @@ import {
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
+import { headers } from "next/headers";
 import StatsCards from "@/app/components/stats-cards";
 import PdfModal from "./components/pdf-modal";
 import ActionButton from "@/app/components/action-button";
@@ -65,6 +66,24 @@ type DueItem = {
   sharePercent?: number;
   exchangeRateOverride?: number;
   exchangeRateDate?: string;
+};
+
+const debugIssueDue = (
+  step: string,
+  payload: Record<string, unknown> = {}
+) => {
+  try {
+    console.log(
+      JSON.stringify({
+        tag: "home.issueDue",
+        step,
+        timestamp: new Date().toISOString(),
+        ...payload,
+      })
+    );
+  } catch (error) {
+    console.log("home.issueDue debug failure", step, payload, error);
+  }
 };
 
 const BILLING_TIMEZONE = process.env.BILLING_TIMEZONE || "Europe/Bucharest";
@@ -351,12 +370,44 @@ export default async function HomePage({
     const partnerIdRaw = formData.get("partnerId");
     const partnerNameRaw = formData.get("partnerName");
     const sharePercentRaw = formData.get("sharePercent");
+    const rateOverrideRaw = formData.get("exchangeRateRON");
+
+    let headerSnapshot: Record<string, string | null> | null = null;
+    try {
+      const requestHeaders = await headers();
+      headerSnapshot = {
+        referer: requestHeaders.get("referer"),
+        forwardedFor: requestHeaders.get("x-forwarded-for"),
+        userAgent: requestHeaders.get("user-agent"),
+        vercelIp: requestHeaders.get("x-vercel-ip"),
+        host: requestHeaders.get("host"),
+      };
+    } catch {
+      headerSnapshot = null;
+    }
+
+    debugIssueDue("start", {
+      contractIdRaw:
+        typeof contractIdRaw === "string" ? contractIdRaw : String(contractIdRaw ?? ""),
+      issuedAtRaw:
+        typeof issuedAtRaw === "string" ? issuedAtRaw : String(issuedAtRaw ?? ""),
+      partnerIdRaw:
+        typeof partnerIdRaw === "string" ? partnerIdRaw : String(partnerIdRaw ?? ""),
+      partnerNameRaw:
+        typeof partnerNameRaw === "string" ? partnerNameRaw : String(partnerNameRaw ?? ""),
+      sharePercentRaw:
+        typeof sharePercentRaw === "string" ? sharePercentRaw : String(sharePercentRaw ?? ""),
+      rateOverrideRaw:
+        typeof rateOverrideRaw === "string" ? rateOverrideRaw : String(rateOverrideRaw ?? ""),
+      headerSnapshot,
+    });
 
     const contractId =
       typeof contractIdRaw === "string" ? contractIdRaw.trim() : "";
     const issuedAt = typeof issuedAtRaw === "string" ? issuedAtRaw.trim() : "";
 
     if (!contractId || !issuedAt) {
+      debugIssueDue("abort.missing-input", { contractId, issuedAt });
       publishToast(
         "Nu am primit datele necesare pentru emiterea facturii.",
         "error"
@@ -380,7 +431,6 @@ export default async function HomePage({
     const amountOverrideValue = parseNumericField(formData.get("amountEUR"));
     const sharePercentValue = parseNumericField(sharePercentRaw);
 
-    const rateOverrideRaw = formData.get("exchangeRateRON");
     const parsedRateOverride = parseNumericField(rateOverrideRaw);
 
     const partnerTokens = new Set<string>();
@@ -402,6 +452,7 @@ export default async function HomePage({
     }
 
     if (!contract) {
+      debugIssueDue("abort.contract-missing", { contractId });
       publishToast(
         "Contractul selectat nu mai există. Reîncarcă pagina și încearcă din nou.",
         "error"
@@ -409,12 +460,25 @@ export default async function HomePage({
       return;
     }
 
+    debugIssueDue("contract-loaded", {
+      contractId,
+      mode: contract.invoiceMonthMode,
+      rentType: contract.rentType,
+      partners: Array.isArray(contract.partners) ? contract.partners.length : 0,
+      hasRate: typeof contract.exchangeRateRON === "number",
+    });
+
     let workingContract: ContractType = contract;
     if (typeof parsedRateOverride === "number") {
       workingContract = {
         ...workingContract,
         exchangeRateRON: parsedRateOverride,
       };
+      debugIssueDue("rate-override-applied", {
+        contractId,
+        issuedAt,
+        override: parsedRateOverride,
+      });
     }
 
     if (
@@ -431,7 +495,23 @@ export default async function HomePage({
             ...workingContract,
             exchangeRateRON: fallbackRate.rate,
           };
+          debugIssueDue("rate-fetched", {
+            contractId,
+            issuedAt,
+            fallbackRate: fallbackRate.rate,
+            source: fallbackRate.source,
+          });
         } else {
+          debugIssueDue("abort.rate-missing", {
+            contractId,
+            issuedAt,
+            fallbackRate: fallbackRate
+              ? {
+                  rate: fallbackRate.rate ?? null,
+                  source: fallbackRate.source ?? null,
+                }
+              : null,
+          });
           publishToast(
             "Contractul nu are un curs RON/EUR valid. Actualizează contractul sau aplică un curs manual înainte de emitere.",
             "error"
@@ -442,6 +522,11 @@ export default async function HomePage({
         console.error("Nu am putut obține cursul RON/EUR pentru emitere", {
           contractId,
           error,
+        });
+        debugIssueDue("abort.rate-fetch-error", {
+          contractId,
+          issuedAt,
+          error: error instanceof Error ? error.message : String(error),
         });
         publishToast(
           "Nu am putut obține cursul RON/EUR. Încearcă din nou în câteva momente.",
@@ -514,6 +599,11 @@ export default async function HomePage({
               m
             );
             if (!include) {
+              debugIssueDue("abort.advance-blocked", {
+                contractId,
+                issuedAt,
+                reason: "advance rules excluded",
+              });
               publishToast(
                 "Regulile de facturare în avans au blocat emiterea pentru această lună.",
                 "info"
@@ -541,6 +631,11 @@ export default async function HomePage({
             error,
           }
         );
+            debugIssueDue("base-eur-calculation-failed", {
+              contractId,
+              issuedAt,
+              error: error instanceof Error ? error.message : String(error),
+            });
       }
 
       if (
@@ -565,6 +660,11 @@ export default async function HomePage({
               error,
             }
           );
+            debugIssueDue("abort.base-eur-missing", {
+              contractId,
+              issuedAt,
+              error: error instanceof Error ? error.message : String(error),
+            });
           publishToast("Nu am putut calcula suma EUR pentru emitere.", "error");
           return;
         }
@@ -614,12 +714,24 @@ export default async function HomePage({
           });
           const saved = await issueInvoiceAndGeneratePdf(invPart);
           issuedInvoices.push(saved);
+          debugIssueDue("partner-issued", {
+            contractId,
+            issuedAt,
+            partner: partnerNameResolved,
+            invoiceId: saved.id,
+          });
         } catch (error) {
           console.error("Emiterea facturii a eșuat", {
             contractId,
             issuedAt,
             partner: partnerNameResolved,
             error,
+          });
+          debugIssueDue("abort.issue-error", {
+            contractId,
+            issuedAt,
+            partner: partnerNameResolved,
+            error: error instanceof Error ? error.message : String(error),
           });
           if (issuedInvoices.length > 0) {
             for (const issued of issuedInvoices.splice(0)) {
@@ -643,6 +755,11 @@ export default async function HomePage({
       }
 
       if (issuedInvoices.length === 0) {
+        debugIssueDue("abort.partner-not-found", {
+          contractId,
+          issuedAt,
+          partnerTokens: Array.from(partnerTokens),
+        });
         publishToast(
           "Nu am putut identifica partenerul selectat pentru emitere. Reîncarcă pagina și încearcă din nou.",
           "error"
@@ -670,6 +787,7 @@ export default async function HomePage({
           contractForPartner.partner.trim().length > 0
         )
       ) {
+        debugIssueDue("abort.partner-missing", { contractId, issuedAt });
         publishToast(
           "Contractul nu are partener valid pentru emitere.",
           "error"
@@ -684,11 +802,21 @@ export default async function HomePage({
         });
         const saved = await issueInvoiceAndGeneratePdf(inv);
         issuedInvoices.push(saved);
+        debugIssueDue("single-issued", {
+          contractId,
+          issuedAt,
+          invoiceId: saved.id,
+        });
       } catch (error) {
         console.error("Emiterea facturii a eșuat", {
           contractId,
           issuedAt,
           error,
+        });
+        debugIssueDue("abort.issue-error", {
+          contractId,
+          issuedAt,
+          error: error instanceof Error ? error.message : String(error),
         });
         publishToast(
           "Nu am reușit să emit factura. Verifică datele contractului și încearcă din nou.",
@@ -699,6 +827,7 @@ export default async function HomePage({
     }
 
     if (issuedInvoices.length === 0) {
+      debugIssueDue("abort.no-invoices", { contractId, issuedAt });
       publishToast(
         "Nu s-a emis nicio factură pentru selecția curentă.",
         "error"
@@ -726,6 +855,13 @@ export default async function HomePage({
     } catch (error) {
       console.warn("Nu am putut salva logul de audit pentru emitere", error);
     }
+
+    debugIssueDue("success", {
+      contractId,
+      issuedAt,
+      invoiceIds: issuedInvoices.map((inv) => inv.id),
+      count: issuedInvoices.length,
+    });
 
     publishToast("Factura a fost emisă", "success");
     revalidatePath("/");
