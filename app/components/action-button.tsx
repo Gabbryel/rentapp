@@ -35,30 +35,6 @@ function toNumber(value: string | undefined): number {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-async function logClientDiagnostic(
-  step: string,
-  context: Record<string, unknown>
-): Promise<void> {
-  try {
-    if (typeof fetch !== "function") return;
-    await fetch("/api/diagnostics/log", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        tag: "client.issueDue",
-        step,
-        context,
-      }),
-      keepalive: true,
-      cache: "no-store",
-    });
-  } catch {
-    // ignore logging failures on client
-  }
-}
-
 const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
   {
     children,
@@ -100,14 +76,6 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         return;
       }
 
-      const form = event.currentTarget.form;
-      void logClientDiagnostic("click", {
-        dataset: { ...event.currentTarget.dataset },
-        hasForm: Boolean(form),
-        formMethod: form?.method ?? null,
-        formAction: form?.getAttribute("action") ?? null,
-      });
-
       setClicked(true);
       if (optimisticToast) {
         window.dispatchEvent(
@@ -140,29 +108,19 @@ const ActionButton = forwardRef<HTMLButtonElement, Props>(function ActionButton(
         }
       }
 
+      const form = event.currentTarget.form;
       if (form) {
         if (typeof form.requestSubmit === "function") {
           event.preventDefault();
           try {
             form.requestSubmit(event.currentTarget);
-            void logClientDiagnostic("requestSubmit", {
-              hasForm: true,
-              usedRequestSubmit: true,
-            });
-          } catch (error) {
-            void logClientDiagnostic("requestSubmit.error", {
-              message: error instanceof Error ? error.message : String(error),
-            });
+          } catch {
             form.submit();
           }
           return;
         }
         // Legacy fallback
         form.submit();
-        void logClientDiagnostic("form.submit", {
-          hasForm: true,
-          usedRequestSubmit: false,
-        });
         return;
       }
     },

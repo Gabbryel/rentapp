@@ -913,7 +913,7 @@ function createTemplateBody(state: EditorState): string {
     if (trimmed) {
       return `<strong>${escapeHtml(trimmed)}</strong>`;
     }
-    return `prin sistemul SmartBill sau pe e-mail la adresa: ${partnerEmail} și/sau prin mesaj WhatsApp la numărul de telefon: ${partnerPhone}`;
+    return `prin sistemul SPV e-Factura, SmartBill sau pe e-mail la adresa: ${partnerEmail} și/sau prin mesaj WhatsApp la numărul de telefon: ${partnerPhone}`;
   })();
 
   const lines: string[] = [];
@@ -943,15 +943,16 @@ function createTemplateBody(state: EditorState): string {
 
   lines.push(`<p>Cap. II Scopul contractului</p>`);
   lines.push(
-    `<p>Art. 2.1. Scopul acestui contract de închiriere (denumit în continuare CONTRACTUL) este de a pune în valoare toate activele societății noastre.</p>`
+    `<p>Art. 2.1. Scopul acestui contract de închiriere (denumit în continuare „Contractul”) este pentru Locator de a pune în valoare activele Locatorului iar pentru Locatar de a dobândi folosința unui spațiu pentru stabilirea sediului social și pentru desfășurarea activității sale comerciale.</p>`
   );
   lines.push(
-    `<p>Art. 2.2. Drepturile și obligațiile părților contractante decurg din prevederile Codului Civil Român.</p>`
+    `<p>Art. 2.2. Drepturile şi obligațiile părților contractante decurg din prevederile Codului Civil Roman și din prezentul Contract.</p>`
   );
 
   lines.push(`<p>Cap. III Obiectul contractului</p>`);
   lines.push(
-    `<p>Art. 3.1. În schimbul CHIRIEI, Locatorul pune la dispoziția LOCATARULUI SPAȚIUL care va fi folosit de către acesta cu destinația ${intendedUseValue}, cu respectarea normelor legale în vigoare. SPAȚIUL (${assetName}) are suprafața de ${assetSurfaceValue} mp și se află în ${assetAddress}</p>`
+    `<p>Art. 3.1.LOCATORUL închiriază LOCATARULUI spațiul (${assetName}) situat în ${assetAddress} cu suprafața de ${assetSurfaceValue} mp denumit în continuare „SPAȚIUL” in schimbul CHIRIEI prevăzute la art. 5.1 de mai jos. SPATIUL va fi desemnat ca sediu social și/sau punct de lucru al LOCATARULUI și va fi utilizat de acesta exclusiv, pentru activități cuprinse în codurile CAEN cuprinse în obiectul de activitate al LOCATARULUI (activitate declarată ${intendedUseValue}), cu respectarea tuturor condițiilor pentru desfășurarea în deplină legalitate a acestora.
+    </p>`
   );
 
   lines.push(`<p>Cap. IV Durata contractului</p>`);
@@ -986,7 +987,8 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATOR nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de ${invoiceIssueDayValue} a fiecărei luni.</p>`
   );
   lines.push(
-    `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, acesta va fi notificat prin executor judecătoresc ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare.</p>`
+    `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, începând cu pria zi următoare scadenței, Locatarul poate fi notificat de Locator, după cum va considera rezonabil, prin email sau prin executor judecătoresc, ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare, ce va fi facturată ca atare de către Locator și constituie obligație de plată a Locatarului.
+    </p>`
   );
   lines.push(
     `<p>Art. 5.6. De asemenea, începând cu ziua următoare datei de scadență, LOCATARUL va fi nevoit să plătească LOCATORULUI, de drept, fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități prealabile, penalități de ${latePaymentPenaltyPercentValue} pe zi (zi de întârziere) din suma datorată, cu prevederea expresă că valoarea penalităților va putea depăși valoarea sumei la care se aplică.</p>`
@@ -1032,10 +1034,16 @@ function createTemplateBody(state: EditorState): string {
   );
   lines.push(`<p>Art. 6.2. LOCATARUL se obligă la următoarele:</p>`);
   lines.push(
-    `<p>1. Locatarul are obligația de a menține Spațiul în stare de funcționare și să respecte toate prevederile legale în vigoare.</p>`
+    `<p>1. Locatarul are obligația de a menține Spațiul în stare de funcționare și să respecte toate prevederile legale în vigoare. </p>`
+  );
+  lines.push(
+    `<p>2. Să permită accesul Locatorului în programul de lucru al Locatarului pentru a controla starea Spaţiului în baza unei notificări prealabile de 2 zile.</p>`
   );
   lines.push(
     `<p>2. Locatarul înțelege că suspendarea activității de către organele statului nu constituie o situație care îl exonerează de plata chiriei.</p>`
+  );
+  lines.push(
+    `<p>2. Să permită Locatorului să realizeze lucrările interioare și/sau exterioare necesare pentru întreținerea corespunzătoare a Spațiului și/sau repararea acestuia, fără să poată solicita reducerea Chiriei ori să ceară denunțarea Contractului, câtă vreme poate utiliza spațiul în proporție de minim 70%. În cazul în care lucrările necesare a fi efectuate la interior impun suspendarea activității, timpul alocat lucrărilor va fi scăzut din chirie dacă depașește 2 zile lucrătoare. Orice astfel de lucrări trebuie să fie efectuate într-un termen maxim de 30 de zile</p>`
   );
   lines.push(
     `<p>3. Să nu facă modificări cu caracter permanent care ar influența structura de rezistență.</p>`
@@ -1044,7 +1052,13 @@ function createTemplateBody(state: EditorState): string {
     `<p>4. Să nu facă modificări la instalaţiile clădirii (apă, canalizarea, energie electrică, etc), fără avizul și aprobarea Locatorului și a organelor abilitate.</p>`
   );
   lines.push(
+    `<p>5. Să nu obtureze calea de acces în spaţiul ce rămane în folosinţa Locatorului, a altor proprietari și/sau utilizatori de orice fel.</p>`
+  );
+  lines.push(
     `<p>5. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`
+  );
+  lines.push(
+    `<p>5. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
   );
   lines.push(
     `<p>6. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
@@ -1080,7 +1094,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>16. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
   );
   lines.push(
-    `<p>17. Locatarul se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului contract și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a Spațiului în integralitatea lui sau doar în parte.</p>`
+    `<p>17.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
   );
   lines.push(
     `<p>18. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
@@ -1089,7 +1103,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>19. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
   );
   lines.push(
-    `<p>20. Prin prezentul contract, părțile convin asupra faptului că nu se aplică tacita relocațiune.</p>`
+    `<p>20. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
   );
   lines.push(
     `<p>21. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
@@ -1100,6 +1114,9 @@ function createTemplateBody(state: EditorState): string {
   lines.push(
     `<p>22. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
   );
+  lines.push(
+    `<p>22. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
+  );
 
   lines.push(`<p>CAP. 7. ÎNCETAREA CONTRACTULUI</p>`);
   lines.push(
@@ -1109,7 +1126,8 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 7.2. Locatarul poate solicita încetarea prezentului contract în cazul în care Locatorul nu își execută obligația de predare a Spaţiului.</p>`
   );
   lines.push(
-    `<p>Art. 7.3. Locatorul poate considera prezentul contract reziliat de plin drept fără nicio notificare prealabilă și/sau punere în întârziere și/sau intervenția instanțelor judecătorești sau a altei autorități în cazul în care Locatarul nu își execută oricare dintre obligațiile asumate prin prezentul CONTRACT. În caz de reziliere, Locatarul este ținut să achite o penalitate în valoare de ${abandonmentPenaltyValue}. Penalitatea este exigibilă imediat, fără intervenția instanțelor de judecată ori proceduri prealabile. Art. 5.5. este aplicabil în mod corespunzător.</p>`
+    `<p>Art. 7.3. Locatorul poate considera prezentul contract reziliat de plin drept fără nicio notificare prealabilă și/sau punere în întârziere și/sau intervenția instanțelor judecătorești sau a altei autorități în cazul în care Locatarul nu își execută oricare dintre obligațiile asumate prin prezentul CONTRACT. În caz de reziliere, Locatarul este ținut să achite o penalitate în valoare de ${abandonmentPenaltyValue}. Penalitatea este exigibilă imediat, fără intervenția instanțelor de judecată ori proceduri prealabile. Art. 5.5. și 5.8. sunt aplicabilw în mod corespunzător.
+    </p>`
   );
   lines.push(
     `<p>Art. 7.4. Locatorul poate denunța unilateral contractul oricând pe durata de valabilitate a acestuia fără a fi obligat să motiveze hotărârea, fără a fi obligat la despăgubiri către locatar fără nicio altă formalitate și/sau punere în întârziere și/sau intervenția instanțelor judecătorești și/sau a altor autorități. Locatorul este obligat să notifice Locatarului intenția sa cu 60 zile înainte de termenul la care Locatarul trebuie să elibereze Spațiul.</p>`
@@ -1139,6 +1157,9 @@ function createTemplateBody(state: EditorState): string {
   );
   lines.push(
     `<p>Art. 8.7. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`
+  );
+  lines.push(
+    `<p>Art. 8.8. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`
   );
 
   lines.push(
