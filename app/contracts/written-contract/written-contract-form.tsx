@@ -288,6 +288,8 @@ const MONTH_NAMES_RO = [
   "decembrie",
 ];
 
+const DEFAULT_GUARANTEE_FORMS = "transfer bancar, file CEC, Bilete la ordin";
+
 function formatMonthName(value?: string): string {
   if (!value) return "";
   const date = new Date(value);
@@ -997,10 +999,11 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 5.7. Locatarul nu va putea cere ca suma constituită drept „garanție” să fie considerată plată în avans și astfel să considere că nu a fost în întârziere la plata facturilor emise de către locator.</p>`
   );
   lines.push(
-    `<p>Art. 5.8. (1) În cazul în care Locatarul din orice motiv întârzie cu mai mult de ${nonPaymentTerminationDaysValue} zile calendaristice constituirea garanției, efectuarea plății chiriei și/sau a cheltuielilor cu utilitățile sau întreținere integral sau parțial, Locatorul poate să considere contractul încetat de plin drept fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități. În plus Locatorul are dreptul să rețină garanția cu titlu de clauză penală, fiind agreat că aceasta nu va fi folosită pentru acoperirea facturilor restante. În cazul în care motivul rezilierii a fost neconstituirea garanției, penalitatea va fi în valoare a 5 (cinci) chirii și este scadentă imediat simultan cu încetarea prezentului CONTRACT, în baza notificării rezilierii de drept transmisă de Locator, fără nicio altă formalitate ori procedură prealabilă.</p>`
+    `<p>Art. 5.8. (1)  În cazul în care Locatarul din orice motiv întârzie cu mai mult de 15 zile calendaristice constituirea garanției, efectuarea plății chiriei și/sau a cheltuielilor cu utilitățile sau întreținere integral sau parțial, Locatorul poate să considere contractul încetat de plin drept fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități. În plus Locatarul va achita o penalitate în valoare de numărul de luni rămase din perioada contractuală x chiria lunară iar Locatorul va avea dreptul să rețină garanția cu titlu de clauză penală, fiind agreat că aceasta nu va fi folosită pentru acoperirea facturilor restante. În cazul în care motivul rezilierii a fost neconstituirea garanției, penalitatea va fi în valoare a 5 (cinci) chirii și este scadentă imediat simultan cu încetarea prezentului CONTRACT, în baza notificării rezilierii de drept transmisă de Locator, fără nicio altă formalitate ori procedură prealabilă. Toate sumele sunt exigibile imediat, fără nicio altă notifcare prealabilă sau intervenția instanțelor de judecată.
+    </p>`
   );
   lines.push(
-    `<p>(2) Fără a aduce atingere prevederilor de mai sus, în cazul în care LOCATARUL din orice motiv întârzie efectuarea integrală sau parțială a plății facturilor de chirie și/sau cheltuielile cu utilitățile sau întreținere, în termen de 24 de ore de la data primirii notificării LOCATORULUI privind rezilierea CONTRACTULUI, pe lângă celelalte remedii prevăzute de prezentul contract, LOCATARUL recunoaște că LOCATORUL va avea următoarele drepturi fără a fi necesară vreo autorizație prealabilă din partea unei instanțe sau îndeplinirea vreunei alte formalități:</p>`
+    `<p>(2)  Fără a aduce atingere prevederilor de mai sus, în cazul în care LOCATARUL din orice motiv întârzie efectuarea integrală sau parțială a plății facturilor de chirie și/sau cheltuielile cu utilitățile sau întreținere, în termen de 24 de ore de la data primirii notificării LOCATORULUI privind rezilierea CONTRACTULUI, pe lângă celelalte remedii prevăzute de prezentul contract, LOCATARUL recunoaște că LOCATORUL va avea următoarele drepturi fără a fi necesară vreo autorizație prealabilă din partea unei instanțe sau îndeplinirea vreunei alte formalități:</p>`
   );
   lines.push(
     `<p>a) să înceteze furnizarea de utilități (apă, energie electrică, energie termică) cu preaviz de 24 de ore transmis prin orice mijloc electronic: sms, WhatsApp, email;</p>`
@@ -1057,65 +1060,62 @@ function createTemplateBody(state: EditorState): string {
   lines.push(
     `<p>8. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`
   );
+  // lines.push(
+  //   `<p>9. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
+  // );
   lines.push(
-    `<p>9. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
+    `<p>9. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
   );
   lines.push(
-    `<p>10. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
+    `<p>10. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`
   );
   lines.push(
-    `<p>11. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`
+    `<p>11. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`
   );
   lines.push(
-    `<p>12. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`
+    `<p>12. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`
   );
   lines.push(
-    `<p>13. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`
+    `<p>13. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`
   );
   lines.push(
-    `<p>14. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`
+    `<p>14. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`
   );
   lines.push(
-    `<p>15. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`
+    `<p>15. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`
+  );
+  // lines.push(
+  //   `<p>17. Să execute pe propria cheltuială lucrările de amenajare necesare desfășurării activităților sale fără ca Locatorul să poată fi obligat la despăgubiri indiferent de situație, de costul acestora ori de momentul și cauza încetării Contractului.</p>`
+  // );
+  lines.push(
+    `<p>16. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`
   );
   lines.push(
-    `<p>16. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`
+    `<p>17. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`
   );
   lines.push(
-    `<p>17. Să execute pe propria cheltuială lucrările de amenajare necesare desfășurării activităților sale fără ca Locatorul să poată fi obligat la despăgubiri indiferent de situație, de costul acestora ori de momentul și cauza încetării Contractului.</p>`
+    `<p>18. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
   );
   lines.push(
-    `<p>18. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`
+    `<p>19.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
   );
   lines.push(
-    `<p>19. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`
+    `<p>20. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
   );
   lines.push(
-    `<p>20. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
+    `<p>21. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
   );
   lines.push(
-    `<p>21.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
+    `<p>22. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
   );
   lines.push(
-    `<p>22. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
+    `<p>23. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
   );
   lines.push(
-    `<p>23. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
+    `<p>24. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
   );
   lines.push(
-    `<p>24. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
-  );
-  lines.push(
-    `<p>25. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
-  );
-  lines.push(
-    `<p>    (2) În caz că Locatarul nu respectă această clauză de la 25.1 de mai sus, privind respectarea termenului de preaviz sau a perioadei în care are dreptul de denunțare, Locatarul va datora Locatorului ${denunciationPenaltyFixedValue} cu titlu de penalitate, exigibilă imediat, fără notificare prealabilă ori intervenția instanțelor de judecată și garanția va fi reținută cu titlu de clauză penală în plus față de restul penalităților deja stipulate.</p>`
-  );
-  lines.push(
-    `<p>26. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
-  );
-  lines.push(
-    `<p>27. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
+    `<p>25. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
   );
 
   lines.push(`<p>CAP. 7. ÎNCETAREA CONTRACTULUI</p>`);
@@ -1166,9 +1166,9 @@ function createTemplateBody(state: EditorState): string {
     `<p>Prezentul CONTRACT s-a încheiat la ${signatureLocationValue}, astăzi ${contractSignedAtValue} în două exemplare, câte unul pentru fiecare parte contractantă.</p>`
   );
 
-  lines.push(`<p>${ownerName} - LOCATOR<br />prin ${ownerAdministrators}</p>`);
+  lines.push(`<p>${ownerName} - LOCATOR<br /> prin ${ownerAdministrators}</p>`);
   lines.push(
-    `<p>${partnerName} - LOCATAR<br />prin ${partnerRepresentatives}</p>`
+    `<p>${partnerName} - LOCATAR<br /> prin ${partnerRepresentatives}</p>`
   );
 
   return lines.join("\n");
@@ -1555,6 +1555,13 @@ function deriveBaseState(
     ""
   ).trim();
 
+  const guaranteeForms = (() => {
+    const fromDocument = document?.guaranteeForms;
+    const fromData = pickFirstFilled(raw["guaranteeForms"]);
+    const value = fromDocument ?? fromData;
+    return value && value.trim() ? value : DEFAULT_GUARANTEE_FORMS;
+  })();
+
   const state: EditorState = {
     id: document?.id,
     contractId: contractIdRaw ? contractIdRaw : undefined,
@@ -1663,8 +1670,7 @@ function deriveBaseState(
       document?.guaranteeMultiplier ??
       pickFirstFilled(raw["guaranteeMultiplier"]),
     guaranteeDueDate: defaultGuaranteeDueDate,
-    guaranteeForms:
-      document?.guaranteeForms ?? pickFirstFilled(raw["guaranteeForms"]),
+    guaranteeForms,
     guaranteeBoMultiplier:
       document?.guaranteeBoMultiplier ??
       pickFirstFilled(raw["guaranteeBoMultiplier"]),
@@ -2881,6 +2887,7 @@ export default function WrittenContractForm({
                 </label>
                 <input
                   value={state.guaranteeMultiplier}
+                  defaultValue={3}
                   onChange={onFieldChange("guaranteeMultiplier")}
                   className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                 />
