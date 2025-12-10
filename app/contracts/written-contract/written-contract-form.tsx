@@ -1040,82 +1040,82 @@ function createTemplateBody(state: EditorState): string {
     `<p>2. Să permită accesul Locatorului în programul de lucru al Locatarului pentru a controla starea Spaţiului în baza unei notificări prealabile de 2 zile.</p>`
   );
   lines.push(
-    `<p>2. Locatarul înțelege că suspendarea activității de către organele statului nu constituie o situație care îl exonerează de plata chiriei.</p>`
+    `<p>3. Locatarul înțelege că suspendarea activității de către organele statului nu constituie o situație care îl exonerează de plata chiriei.</p>`
   );
   lines.push(
-    `<p>2. Să permită Locatorului să realizeze lucrările interioare și/sau exterioare necesare pentru întreținerea corespunzătoare a Spațiului și/sau repararea acestuia, fără să poată solicita reducerea Chiriei ori să ceară denunțarea Contractului, câtă vreme poate utiliza spațiul în proporție de minim 70%. În cazul în care lucrările necesare a fi efectuate la interior impun suspendarea activității, timpul alocat lucrărilor va fi scăzut din chirie dacă depașește 2 zile lucrătoare. Orice astfel de lucrări trebuie să fie efectuate într-un termen maxim de 30 de zile</p>`
+    `<p>4. Să permită Locatorului să realizeze lucrările interioare și/sau exterioare necesare pentru întreținerea corespunzătoare a Spațiului și/sau repararea acestuia, fără să poată solicita reducerea Chiriei ori să ceară denunțarea Contractului, câtă vreme poate utiliza spațiul în proporție de minim 70%. În cazul în care lucrările necesare a fi efectuate la interior impun suspendarea activității, timpul alocat lucrărilor va fi scăzut din chirie dacă depașește 2 zile lucrătoare. Orice astfel de lucrări trebuie să fie efectuate într-un termen maxim de 30 de zile</p>`
   );
   lines.push(
-    `<p>3. Să nu facă modificări cu caracter permanent care ar influența structura de rezistență.</p>`
+    `<p>5. Să nu facă modificări cu caracter permanent care ar influența structura de rezistență.</p>`
   );
   lines.push(
-    `<p>4. Să nu facă modificări la instalaţiile clădirii (apă, canalizarea, energie electrică, etc), fără avizul și aprobarea Locatorului și a organelor abilitate.</p>`
+    `<p>6. Să nu facă modificări la instalaţiile clădirii (apă, canalizarea, energie electrică, etc), fără avizul și aprobarea Locatorului și a organelor abilitate.</p>`
   );
   lines.push(
-    `<p>5. Să nu obtureze calea de acces în spaţiul ce rămane în folosinţa Locatorului, a altor proprietari și/sau utilizatori de orice fel.</p>`
+    `<p>7. Să nu obtureze calea de acces în spaţiul ce rămane în folosinţa Locatorului, a altor proprietari și/sau utilizatori de orice fel.</p>`
   );
   lines.push(
-    `<p>5. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`
+    `<p>8. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`
   );
   lines.push(
-    `<p>5. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
+    `<p>9. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
   );
   lines.push(
-    `<p>6. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
+    `<p>10. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
   );
   lines.push(
-    `<p>7. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`
+    `<p>11. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`
   );
   lines.push(
-    `<p>8. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`
+    `<p>12. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`
   );
   lines.push(
-    `<p>9. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`
+    `<p>13. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`
   );
   lines.push(
-    `<p>10. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`
+    `<p>14. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`
   );
   lines.push(
-    `<p>11. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`
+    `<p>15. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`
   );
   lines.push(
-    `<p>12. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`
+    `<p>16. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`
   );
   lines.push(
-    `<p>13. Să execute pe propria cheltuială lucrările de amenajare necesare desfășurării activităților sale fără ca Locatorul să poată fi obligat la despăgubiri indiferent de situație, de costul acestora ori de momentul și cauza încetării Contractului.</p>`
+    `<p>17. Să execute pe propria cheltuială lucrările de amenajare necesare desfășurării activităților sale fără ca Locatorul să poată fi obligat la despăgubiri indiferent de situație, de costul acestora ori de momentul și cauza încetării Contractului.</p>`
   );
   lines.push(
-    `<p>14. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`
+    `<p>18. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`
   );
   lines.push(
-    `<p>15. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`
+    `<p>19. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`
   );
   lines.push(
-    `<p>16. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
+    `<p>20. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
   );
   lines.push(
-    `<p>17.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
+    `<p>21.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
   );
   lines.push(
-    `<p>18. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
+    `<p>22. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
   );
   lines.push(
-    `<p>19. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
+    `<p>23. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
   );
   lines.push(
-    `<p>20. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
+    `<p>24. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
   );
   lines.push(
-    `<p>21. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
+    `<p>25. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
   );
   lines.push(
-    `<p>(2) În caz că Locatarul nu respectă această clauză de la 21.1 de mai sus, privind respectarea termenului de preaviz sau a perioadei în care are dreptul de denunțare, Locatarul va datora Locatorului ${denunciationPenaltyFixedValue} cu titlu de penalitate, exigibilă imediat, fără notificare prealabilă ori intervenția instanțelor de judecată și garanția va fi reținută cu titlu de clauză penală în plus față de restul penalităților deja stipulate.</p>`
+    `<p>    (2) În caz că Locatarul nu respectă această clauză de la 25.1 de mai sus, privind respectarea termenului de preaviz sau a perioadei în care are dreptul de denunțare, Locatarul va datora Locatorului ${denunciationPenaltyFixedValue} cu titlu de penalitate, exigibilă imediat, fără notificare prealabilă ori intervenția instanțelor de judecată și garanția va fi reținută cu titlu de clauză penală în plus față de restul penalităților deja stipulate.</p>`
   );
   lines.push(
-    `<p>22. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
+    `<p>26. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
   );
   lines.push(
-    `<p>22. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
+    `<p>27. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
   );
 
   lines.push(`<p>CAP. 7. ÎNCETAREA CONTRACTULUI</p>`);
@@ -1153,13 +1153,13 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 8.6. Părțile vor lua măsuri tehnice și organizatorice adecvate în vederea asigurării unui nivel corespunzător de securitate a datelor cu caracter personal, în acord cu prevederile Regulamentului 697/2016, în scopul și temeiul legal pentru care s-a perfectat prezentul Contract.</p>`
   );
   lines.push(
-    `<p>Art. 8.6. Litigiile care se pot naște între părți cu privire la executarea prezentului contract vor fi soluționate pe cale amiabilă, iar în cazul în care acest lucru nu este posibil instanța competentă este cea de pe raza sectorului 2 al municipiului București.</p>`
+    `<p>Art. 8.7. Litigiile care se pot naște între părți cu privire la executarea prezentului contract vor fi soluționate pe cale amiabilă, iar în cazul în care acest lucru nu este posibil instanța competentă este cea de pe raza sectorului 2 al municipiului București.</p>`
   );
   lines.push(
-    `<p>Art. 8.7. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`
+    `<p>Art. 8.8. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`
   );
   lines.push(
-    `<p>Art. 8.8. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`
+    `<p>Art. 8.9. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`
   );
 
   lines.push(
