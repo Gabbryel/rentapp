@@ -288,7 +288,16 @@ const MONTH_NAMES_RO = [
   "decembrie",
 ];
 
-const DEFAULT_GUARANTEE_FORMS = "transfer bancar, file CEC, Bilete la ordin";
+const DEFAULT_GUARANTEE_FORMS = "CEC, transfer bancar";
+const DEFAULT_GUARANTEE_MULTIPLIER = "3";
+const DEFAULT_GUARANTEE_BO_MULTIPLIER = "6";
+const DEFAULT_LATE_PAYMENT_NOTIFICATION_FEE = "300";
+const DEFAULT_LATE_PAYMENT_PENALTY_PERCENT = "2";
+const DEFAULT_NON_PAYMENT_TERMINATION_DAYS = "15";
+const DEFAULT_EVACUATION_FEE = "1000 euro";
+const DEFAULT_STORAGE_FEE = "minim 1000 euro";
+const DEFAULT_DENUNCIATION_NOTICE_DAYS = "180";
+const DEFAULT_BANK_NAME = "Banca Transilvania";
 
 function formatMonthName(value?: string): string {
   if (!value) return "";
@@ -920,17 +929,17 @@ function createTemplateBody(state: EditorState): string {
 
   const lines: string[] = [];
 
-  const ownerBlockParts = [
-    ownerName,
-    `Email: ${ownerEmails}`,
-    `Telefon: ${ownerPhones}`,
-    `Sediu: ${ownerHeadOffice}`,
-    `Adresă corespondență: ${ownerAddress}`,
-    `ORC: ${ownerRegistration}`,
-    `CIF: ${ownerTaxId}`,
-    `Reprezentant: ${ownerAdministrators}`,
-  ];
-  lines.push(`<p>${ownerBlockParts.join("<br />")}</p>`);
+  // const ownerBlockParts = [
+  //   ownerName,
+  //   `Email: ${ownerEmails}`,
+  //   `Telefon: ${ownerPhones}`,
+  //   `Sediu: ${ownerHeadOffice}`,
+  //   `Adresă corespondență: ${ownerAddress}`,
+  //   `ORC: ${ownerRegistration}`,
+  //   `CIF: ${ownerTaxId}`,
+  //   `Reprezentant: ${ownerAdministrators}`,
+  // ];
+  // lines.push(`<p>${ownerBlockParts.join("<br />")}</p>`);
 
   lines.push(`<p>Cap. I Părțile contractante</p>`);
   lines.push(
@@ -953,7 +962,7 @@ function createTemplateBody(state: EditorState): string {
 
   lines.push(`<p>Cap. III Obiectul contractului</p>`);
   lines.push(
-    `<p>Art. 3.1.LOCATORUL închiriază LOCATARULUI spațiul (${assetName}) situat în ${assetAddress} cu suprafața de ${assetSurfaceValue} mp denumit în continuare „SPAȚIUL” in schimbul CHIRIEI prevăzute la art. 5.1 de mai jos. SPATIUL va fi desemnat ca sediu social și/sau punct de lucru al LOCATARULUI și va fi utilizat de acesta exclusiv, pentru activități cuprinse în codurile CAEN cuprinse în obiectul de activitate al LOCATARULUI (activitate declarată ${intendedUseValue}), cu respectarea tuturor condițiilor pentru desfășurarea în deplină legalitate a acestora.
+    `<p>Art. 3.1. LOCATORUL închiriază LOCATARULUI spațiul (${assetName}) situat în ${assetAddress} cu suprafața de ${assetSurfaceValue} mp denumit în continuare „SPAȚIUL” in schimbul CHIRIEI prevăzute la art. 5.1 de mai jos. SPAȚIUL va fi desemnat ca sediu social și/sau punct de lucru al LOCATARULUI și va fi utilizat de acesta exclusiv, pentru activități cuprinse în codurile CAEN cuprinse în obiectul de activitate al LOCATARULUI (activitate declarată ${intendedUseValue}), cu respectarea tuturor condițiilor pentru desfășurarea în deplină legalitate a acestora.
     </p>`
   );
 
@@ -976,7 +985,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>Părțile stabilesc ca aceste mijloace de comunicare să fie folosite și recunoscute prin prezentul contract. Chiria se va indexa în luna ${indexingMonthValue} a fiecărui an cu inflația la euro înregistrată în anul precedent, modificarea chiriei urmând a se aplica de la data de 1 a lunii următoare.</p>`
   );
   lines.push(
-    `<p>Art. 5.2. LOCATARUL va constitui o garanție de bună execuție a obligațiilor ce îi revin cu valoarea egală cu ${guaranteeMultiplierValue} chirii (chiria lunară x ${guaranteeMultiplierValue}) la data de ${guaranteeDueDateValue}. Forma de garanție poate fi: ${guaranteeFormsValue}. În cazul biletelor la ordin, acestea trebuie să acopere cuantumul a ${guaranteeBoMultiplierValue} chirii, câte un bilet la ordin pentru fiecare lună.</p>`
+    `<p>Art. 5.2. LOCATARUL va constitui o garanție de bună execuție a obligațiilor ce îi revin cu valoarea egală cu ${guaranteeMultiplierValue} chirii (chiria lunară x ${guaranteeMultiplierValue}) la data de ${guaranteeDueDateValue}. Forma de garanție poate fi: ${guaranteeFormsValue}.</p>`
   );
   lines.push(`<p>Art. 5.3.  Utilitățile. </p>`);
   lines.push(
@@ -1103,19 +1112,16 @@ function createTemplateBody(state: EditorState): string {
     `<p>20. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
   );
   lines.push(
-    `<p>21. În cazul în care Locatarul nu eliberează Spațiul în termen de 24 de ore de la data încetării contractului, Locatarul va fi obligat să achite Locatorului o chirie de ${overstayPenaltyValue} de euro/zi. Noua chirie se va factura imediat ce a expirat termenul de eliberare/evacuare a Spațiului, și este exigibilă fără intervenția instanțelor și fără nicio altă formalitate prealabilă.</p>`
+    `<p>21. Prin prezentul Contract, Părțile stabilesc că tacita relocațiune nu va produce efecte în situația în care Locatarul nu eliberează spațiul în termen de maximum 24 de ore de la încetarea contractului, indiferent de motivul încetării acestuia, fie prin reziliere, fie prin ajungerea la termen. În asemenea caz, chiria datorată va fi de ${overstayPenaltyValue} euro/zi.</p>`
   );
   lines.push(
-    `<p>22. Prin prezentul CONTRACT, PĂRȚILE convin asupra faptului că efectele tacitei relocațiuni nu își vor face efectele în caz de refuz de eliberare/evacuare a SPAȚIULUI din partea LOCATARULUI atunci când CONTRACTUL a fost reziliat sau durata de valabilitate a ajuns la termenul final. Chiria în acest caz va fi de ${overstayPenaltyValue} euro/zi.</p>`
+    `<p>22. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
   );
   lines.push(
-    `<p>23. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
+    `<p>23. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
   );
   lines.push(
-    `<p>24. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
-  );
-  lines.push(
-    `<p>25. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
+    `<p>24. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
   );
 
   lines.push(`<p>CAP. 7. ÎNCETAREA CONTRACTULUI</p>`);
@@ -1200,6 +1206,59 @@ function buildPrintableDocument(state: EditorState): string {
       ).replace(/\n+/g, "<br />")}</p></div>`
     : "";
 
+  const formatHeaderField = (value?: string | null) => {
+    const trimmed = (value ?? "").trim();
+    return trimmed ? escapeHtml(trimmed) : "—";
+  };
+
+  const representativeLabel = (() => {
+    const name = (state.ownerRepresentative ?? "").trim();
+    const title = (state.ownerRepresentativeTitle ?? "").trim();
+    if (name && title) return `${escapeHtml(name)} · ${escapeHtml(title)}`;
+    if (name) return escapeHtml(name);
+    if (title) return escapeHtml(title);
+    return "—";
+  })();
+
+  const bankDetailsHeader = (() => {
+    const account = (state.bankAccount ?? "").trim();
+    const bank = (state.bankName ?? "").trim();
+    if (account && bank) return `${escapeHtml(account)} · ${escapeHtml(bank)}`;
+    if (account) return escapeHtml(account);
+    if (bank) return escapeHtml(bank);
+    return "—";
+  })();
+
+  const ownerHeaderHtml = `
+    <div class="owner-header">
+      <div class="owner-header__name">${formatHeaderField(
+        state.ownerName
+      )}</div>
+      <div class="owner-header__grid">
+        <div><span class="label">ORC</span><span>${formatHeaderField(
+          state.ownerRegistration
+        )}</span></div>
+        <div><span class="label">CIF</span><span>${formatHeaderField(
+          state.ownerTaxId
+        )}</span></div>
+        <div><span class="label">Reprezentant</span><span>${representativeLabel}</span></div>
+        <div><span class="label">Email</span><span>${formatHeaderField(
+          state.ownerContactEmails
+        )}</span></div>
+        <div><span class="label">Telefon</span><span>${formatHeaderField(
+          state.ownerContactPhones
+        )}</span></div>
+        <div><span class="label">IBAN / Bancă</span><span>${bankDetailsHeader}</span></div>
+        <div><span class="label">Sediu social</span><span>${formatHeaderField(
+          state.ownerHeadOffice
+        )}</span></div>
+        <div><span class="label">Adresă corespondență</span><span>${formatHeaderField(
+          state.ownerAddress
+        )}</span></div>
+      </div>
+    </div>
+  `;
+
   return `<!doctype html>
 <html lang="ro">
   <head>
@@ -1257,6 +1316,10 @@ function buildPrintableDocument(state: EditorState): string {
       .document-body p {
         margin: 0 0 5mm;
       }
+      /* Hide the first paragraph in the printable contract body (requested) */
+      .document-body p:first-of-type {
+        display: none;
+      }
       .document-body ul,
       .document-body ol {
         padding-left: 18mm;
@@ -1267,6 +1330,34 @@ function buildPrintableDocument(state: EditorState): string {
       }
       strong {
         font-weight: 400;
+      }
+      .owner-header {
+        margin: 10mm 0 8mm;
+        padding: 8mm;
+        border: 1px solid #d4d4d8;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+      }
+      .owner-header__name {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin: 0 0 5mm;
+      }
+      .owner-header__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 4mm 6mm;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .owner-header__grid .label {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        margin-bottom: 1mm;
       }
       .document-notes {
         margin-top: 14mm;
@@ -1303,6 +1394,7 @@ function buildPrintableDocument(state: EditorState): string {
           ? `<div class="document-meta">${docInfoParts.join(" &bull; ")}</div>`
           : ""
       }
+      ${ownerHeaderHtml}
       <div class="document-body">${bodyHtml}</div>
       ${notesHtml}
     </main>
@@ -1555,11 +1647,71 @@ function deriveBaseState(
     ""
   ).trim();
 
+  const bankName = (() => {
+    const value = document?.bankName ?? pickFirstFilled(raw["bankName"]);
+    return value && value.trim() ? value : DEFAULT_BANK_NAME;
+  })();
+
   const guaranteeForms = (() => {
     const fromDocument = document?.guaranteeForms;
     const fromData = pickFirstFilled(raw["guaranteeForms"]);
     const value = fromDocument ?? fromData;
     return value && value.trim() ? value : DEFAULT_GUARANTEE_FORMS;
+  })();
+
+  const guaranteeMultiplier = (() => {
+    const value =
+      document?.guaranteeMultiplier ??
+      pickFirstFilled(raw["guaranteeMultiplier"]);
+    return value && value.trim() ? value : DEFAULT_GUARANTEE_MULTIPLIER;
+  })();
+
+  const guaranteeBoMultiplier = (() => {
+    const value =
+      document?.guaranteeBoMultiplier ??
+      pickFirstFilled(raw["guaranteeBoMultiplier"]);
+    return value && value.trim() ? value : DEFAULT_GUARANTEE_BO_MULTIPLIER;
+  })();
+
+  const latePaymentNotificationFee = (() => {
+    const value =
+      document?.latePaymentNotificationFee ??
+      pickFirstFilled(raw["latePaymentNotificationFee"]);
+    return value && value.trim()
+      ? value
+      : DEFAULT_LATE_PAYMENT_NOTIFICATION_FEE;
+  })();
+
+  const latePaymentPenaltyPercent = (() => {
+    const value =
+      document?.latePaymentPenaltyPercent ??
+      pickFirstFilled(raw["latePaymentPenaltyPercent"]);
+    return value && value.trim() ? value : DEFAULT_LATE_PAYMENT_PENALTY_PERCENT;
+  })();
+
+  const nonPaymentTerminationDays = (() => {
+    const value =
+      document?.nonPaymentTerminationDays ??
+      pickFirstFilled(raw["nonPaymentTerminationDays"]);
+    return value && value.trim() ? value : DEFAULT_NON_PAYMENT_TERMINATION_DAYS;
+  })();
+
+  const evacuationFee = (() => {
+    const value =
+      document?.evacuationFee ?? pickFirstFilled(raw["evacuationFee"]);
+    return value && value.trim() ? value : DEFAULT_EVACUATION_FEE;
+  })();
+
+  const storageFee = (() => {
+    const value = document?.storageFee ?? pickFirstFilled(raw["storageFee"]);
+    return value && value.trim() ? value : DEFAULT_STORAGE_FEE;
+  })();
+
+  const denunciationNoticeDays = (() => {
+    const value =
+      document?.denunciationNoticeDays ??
+      pickFirstFilled(raw["denunciationNoticeDays"]);
+    return value && value.trim() ? value : DEFAULT_DENUNCIATION_NOTICE_DAYS;
   })();
 
   const state: EditorState = {
@@ -1665,36 +1817,23 @@ function deriveBaseState(
     bankAccount:
       document?.bankAccount ??
       pickFirstFilled(raw["bankAccount"], resolvedOwner?.bankAccount),
-    bankName: document?.bankName ?? pickFirstFilled(raw["bankName"]),
-    guaranteeMultiplier:
-      document?.guaranteeMultiplier ??
-      pickFirstFilled(raw["guaranteeMultiplier"]),
+    bankName,
+    guaranteeMultiplier,
     guaranteeDueDate: defaultGuaranteeDueDate,
     guaranteeForms,
-    guaranteeBoMultiplier:
-      document?.guaranteeBoMultiplier ??
-      pickFirstFilled(raw["guaranteeBoMultiplier"]),
+    guaranteeBoMultiplier,
     utilityPaymentTerm:
       document?.utilityPaymentTerm ??
       pickFirstFilled(raw["utilityPaymentTerm"]),
-    latePaymentPenaltyPercent:
-      document?.latePaymentPenaltyPercent ??
-      pickFirstFilled(raw["latePaymentPenaltyPercent"]),
-    latePaymentNotificationFee:
-      document?.latePaymentNotificationFee ??
-      pickFirstFilled(raw["latePaymentNotificationFee"]),
-    evacuationFee:
-      document?.evacuationFee ?? pickFirstFilled(raw["evacuationFee"]),
-    storageFee: document?.storageFee ?? pickFirstFilled(raw["storageFee"]),
-    nonPaymentTerminationDays:
-      document?.nonPaymentTerminationDays ??
-      pickFirstFilled(raw["nonPaymentTerminationDays"]),
+    latePaymentPenaltyPercent,
+    latePaymentNotificationFee,
+    evacuationFee,
+    storageFee,
+    nonPaymentTerminationDays,
     dailyPenaltyAfterTermination:
       document?.dailyPenaltyAfterTermination ??
       pickFirstFilled(raw["dailyPenaltyAfterTermination"]),
-    denunciationNoticeDays:
-      document?.denunciationNoticeDays ??
-      pickFirstFilled(raw["denunciationNoticeDays"]),
+    denunciationNoticeDays,
     denunciationLockMonths:
       document?.denunciationLockMonths ??
       pickFirstFilled(raw["denunciationLockMonths"]),
