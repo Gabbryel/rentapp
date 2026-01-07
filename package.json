@@ -13,6 +13,7 @@
     "partners:backfill": "tsx scripts/backfill-partner-ids.ts",
     "contracts:update:rate": "tsx scripts/update-exchange-rate.ts",
     "exchange:bt:refresh": "tsx scripts/refresh-bt-rate.ts",
+    "inflation:seed:db": "tsx scripts/seed-hicp-fallback-to-mongo.ts",
     "migrate:remove-indexing": "tsx scripts/migrate-remove-indexing-inflation-fields.ts",
     "migrate:remove-notification-indexing": "tsx scripts/migrate-remove-notification-indexing-fields.ts",
     "migrate:contracts:rename-fields": "tsx scripts/migrate-contract-rename-amount-indexing.ts",

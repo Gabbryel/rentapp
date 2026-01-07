@@ -7,7 +7,9 @@ import {
   updateScanTitleAction,
   deleteScanAction,
   updateVatPercentAction,
+  issueIndexingNoticeAction,
   type ScanActionState,
+  type IndexingNoticeState,
 } from "./actions";
 import YearlyInvoicesCard from "../yearly/YearlyInvoicesCard";
 
@@ -20,6 +22,13 @@ type Props = {
   children?: React.ReactNode;
   wrapChildrenInCard?: boolean;
   currentVatPercent?: number | null;
+  indexingInflation?: {
+    percent: number;
+    fromMonth: string;
+    toMonth: string;
+    deltaAmount?: number | null;
+  } | null;
+  currentRent?: number | null;
 };
 
 export default function ManageContractScans({
@@ -31,6 +40,8 @@ export default function ManageContractScans({
   children,
   wrapChildrenInCard = true,
   currentVatPercent,
+  indexingInflation,
+  currentRent,
 }: Props) {
   const [addState, addAction] = useActionState<ScanActionState, FormData>(
     addScanAction,
@@ -48,6 +59,10 @@ export default function ManageContractScans({
     updateVatPercentAction,
     { ok: false }
   );
+  const [indexingState, issueIndexingAction] = useActionState<
+    IndexingNoticeState,
+    FormData
+  >(issueIndexingNoticeAction, { ok: false });
   const [msg, setMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -57,6 +72,10 @@ export default function ManageContractScans({
   React.useEffect(() => {
     if (vatState.message) setMsg(vatState.message);
   }, [vatState.message]);
+
+  React.useEffect(() => {
+    if (indexingState.message) setMsg(indexingState.message);
+  }, [indexingState.message]);
 
   const [open, setOpen] = React.useState(false);
   return (
@@ -107,6 +126,58 @@ export default function ManageContractScans({
                 mongoConfigured={mongoConfigured}
               />
             ) : null}
+            {/* Card: indexări */}
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
+              <div className="text-[11px] uppercase tracking-wide text-white/60">
+                Indexări
+              </div>
+              <p className="text-xs text-white/70">
+                Emite o notificare de indexare pentru parteneri folosind ultimii
+                12 luni de HICP (zona euro).
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+                {indexingInflation ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 rounded bg-white/5 px-2 py-1 font-medium text-white">
+                      {`+${indexingInflation.percent.toFixed(2)}%`}
+                    </span>
+                    <span className="text-white/50">
+                      {indexingInflation.fromMonth} →{" "}
+                      {indexingInflation.toMonth}
+                    </span>
+                    {typeof indexingInflation.deltaAmount === "number" &&
+                    typeof currentRent === "number" ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-1 text-emerald-100">
+                        {`Impact: ${indexingInflation.deltaAmount.toFixed(
+                          2
+                        )} EUR / ${currentRent.toFixed(2)} EUR`}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-amber-100">
+                    Indicele de inflație nu este disponibil acum.
+                  </span>
+                )}
+              </div>
+              <form
+                action={issueIndexingAction}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <input type="hidden" name="contractId" value={id} />
+                <button
+                  className="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
+                  disabled={!indexingInflation}
+                >
+                  Emite notificare
+                </button>
+                {indexingInflation ? null : (
+                  <span className="text-xs text-white/60">
+                    Încearcă din nou după reîmprospătare.
+                  </span>
+                )}
+              </form>
+            </div>
             {/* Card: TVA contract */}
             <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
               <div className="text-[11px] uppercase tracking-wide text-white/60">

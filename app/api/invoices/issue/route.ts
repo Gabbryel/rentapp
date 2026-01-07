@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchContractById } from "@/lib/contracts";
 import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/invoices";
+import { resolveBilledPeriodDate } from "@/lib/contracts";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,12 @@ export async function POST(req: Request) {
     const contract = await fetchContractById(contractId);
     if (!contract) return NextResponse.json({ error: "Contract inexistent" }, { status: 404 });
     // computeInvoiceFromContract will validate amount/rate; call directly
-    const inv = computeInvoiceFromContract({ contract, issuedAt, number: body.number });
+    const inv = computeInvoiceFromContract({
+      contract,
+      issuedAt,
+      number: body.number,
+      billedAt: resolveBilledPeriodDate(contract, issuedAt),
+    });
     const saved = await issueInvoiceAndGeneratePdf(inv);
     return NextResponse.json(saved, { status: 201 });
   } catch (e: unknown) {

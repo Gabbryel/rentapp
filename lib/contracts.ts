@@ -1171,9 +1171,11 @@ export function computeInvoiceFromContract(opts: {
   issuedAt: string; // YYYY-MM-DD
   number?: string;
   amountEUROverride?: number; // for yearly entries or special cases
+  billedAt?: string; // optional billing period anchor (YYYY-MM-DD)
 }): Invoice {
   const c = opts.contract;
   const dueDays = typeof c.paymentDueDays === "number" ? c.paymentDueDays : 0;
+  const billedPeriodDate = resolveBilledPeriodDate(c, opts.issuedAt, opts.billedAt);
   // Determine EUR amount
   const parseMD = (iso: string) => {
     const d = new Date(iso);
@@ -1188,10 +1190,10 @@ export function computeInvoiceFromContract(opts: {
     const yi = list.find((r) => r.month === m && r.day === day);
     amountEUR = yi?.amountEUR ?? rentAmountAtDate(c, opts.issuedAt);
   } else {
-    amountEUR = rentAmountAtDate(c, opts.issuedAt);
+    amountEUR = rentAmountAtDate(c, billedPeriodDate);
   }
   if (!(typeof amountEUR === "number" && amountEUR > 0)) {
-    throw new Error("Nu se poate calcula suma EUR pentru data emiterii");
+    throw new Error("Nu se poate calcula suma EUR pentru perioada facturată");
   }
   const rate = Number(c.exchangeRateRON ?? 0);
   if (!(rate > 0)) {
@@ -1229,6 +1231,25 @@ export function computeInvoiceFromContract(opts: {
     updatedAt: nowIso,
   });
   return inv;
+}
+
+export function resolveBilledPeriodDate(
+  contract: ContractType,
+  issuedAt: string,
+  billedAtOverride?: string
+): string {
+  if (billedAtOverride) return billedAtOverride;
+  const issuedAtDate = new Date(`${issuedAt}T00:00:00Z`);
+  if (Number.isNaN(issuedAtDate.getTime())) {
+    throw new Error("Data emiterii este invalidă");
+  }
+  if (contract.rentType === "yearly") return issuedAt;
+  const invoiceMonthMode = (contract as any).invoiceMonthMode === "next" ? "next" : "current";
+  const offsetMonths = invoiceMonthMode === "next" ? 1 : 0;
+  const billed = new Date(
+    Date.UTC(issuedAtDate.getUTCFullYear(), issuedAtDate.getUTCMonth() + offsetMonths, 1)
+  );
+  return billed.toISOString().slice(0, 10);
 }
 
 // Return the EUR rent amount effective on the given ISO date (YYYY-MM-DD)

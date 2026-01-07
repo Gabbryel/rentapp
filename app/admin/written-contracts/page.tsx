@@ -89,6 +89,19 @@ function formatDateTime(iso?: string | null): string {
   }
 }
 
+function getSignedMeta(signed: boolean): StatusMeta {
+  return signed
+    ? {
+        label: "Semnat",
+        badgeClass:
+          "border border-emerald-500/30 bg-emerald-500/15 text-emerald-700",
+      }
+    : {
+        label: "Nesemnat",
+        badgeClass: "border border-amber-500/30 bg-amber-500/15 text-amber-800",
+      };
+}
+
 function formatPeriod(document: WrittenContract): string {
   const hasStart = Boolean(document.contractStartDate);
   const hasEnd = Boolean(document.contractEndDate);
@@ -216,6 +229,7 @@ export default async function AdminWrittenContractsPage() {
           <div className="mt-8 space-y-4 sm:hidden">
             {enriched.map(({ document, status }) => {
               const meta = STATUS_META[status];
+              const signedMeta = getSignedMeta(document.signed);
               const period = formatPeriod(document);
               return (
                 <div
@@ -269,6 +283,16 @@ export default async function AdminWrittenContractsPage() {
                         {formatDateTime(document.updatedAt)}
                       </dd>
                     </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-foreground/60">Semnat</dt>
+                      <dd className="text-right text-foreground/80">
+                        <span
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signedMeta.badgeClass}`}
+                        >
+                          {signedMeta.label}
+                        </span>
+                      </dd>
+                    </div>
                   </dl>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <WrittenContractPreviewButton
@@ -319,6 +343,7 @@ export default async function AdminWrittenContractsPage() {
                   <th className="px-4 py-3 font-medium">Partener</th>
                   <th className="px-4 py-3 font-medium">Proprietar</th>
                   <th className="px-4 py-3 font-medium">Perioadă</th>
+                  <th className="px-4 py-3 font-medium">Semnat</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Actualizat</th>
                   <th className="px-4 py-3 font-medium text-right">Acțiuni</th>
@@ -327,6 +352,7 @@ export default async function AdminWrittenContractsPage() {
               <tbody>
                 {enriched.map(({ document, status }) => {
                   const meta = STATUS_META[status];
+                  const signedMeta = getSignedMeta(document.signed);
                   const period = formatPeriod(document);
                   return (
                     <tr
@@ -355,6 +381,13 @@ export default async function AdminWrittenContractsPage() {
                         {document.ownerName || "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">{period}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signedMeta.badgeClass}`}
+                        >
+                          {signedMeta.label}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${meta.badgeClass}`}

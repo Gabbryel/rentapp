@@ -19,6 +19,7 @@ import {
   invalidateYearInvoicesCache,
 } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
+import { resolveBilledPeriodDate } from "@/lib/contracts";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import { getDailyEurRon, getEurRonForDate } from "@/lib/exchange";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
@@ -228,8 +229,12 @@ export default async function HomePage({
           continue; // suppressed by rules (no overlap, ends day 1/2, etc.)
         }
         // Use next month base even when fraction === 1 to have a concrete override
-        const nextMonthDate = new Date(year, month, 1);
-        const nextIso = nextMonthDate.toISOString().slice(0, 10);
+        const nextYearVal = month === 12 ? year + 1 : year;
+        const nextMonthVal = month === 12 ? 1 : month + 1;
+        const nextIso = `${nextYearVal}-${String(nextMonthVal).padStart(
+          2,
+          "0"
+        )}-01`;
         const base = rentAmountAtDate(c, nextIso);
         if (typeof base === "number") {
           amountEUROverride =
@@ -520,8 +525,12 @@ export default async function HomePage({
               );
               return;
             }
-            const nextMonthDate = new Date(y, m, 1);
-            const nextIso = nextMonthDate.toISOString().slice(0, 10);
+            const nextYearVal = m === 12 ? y + 1 : y;
+            const nextMonthVal = m === 12 ? 1 : m + 1;
+            const nextIso = `${nextYearVal}-${String(nextMonthVal).padStart(
+              2,
+              "0"
+            )}-01`;
             const base = rentAmountAtDate(workingContract, nextIso);
             if (typeof base === "number") {
               baseEUR =
@@ -551,9 +560,14 @@ export default async function HomePage({
         )
       ) {
         try {
+          const billedAt = resolveBilledPeriodDate(
+            baseContractForCalc,
+            issuedAt
+          );
           const baseInv = computeInvoiceFromContract({
             contract: baseContractForCalc,
             issuedAt,
+            billedAt,
           });
           baseEUR = baseInv.amountEUR;
         } catch (error) {
@@ -610,6 +624,7 @@ export default async function HomePage({
           const invPart = computeInvoiceFromContract({
             contract: contractForPartner,
             issuedAt,
+            billedAt: resolveBilledPeriodDate(contractForPartner, issuedAt),
             amountEUROverride: amountForPartner,
           });
           const saved = await issueInvoiceAndGeneratePdf(invPart);
@@ -680,6 +695,7 @@ export default async function HomePage({
         const inv = computeInvoiceFromContract({
           contract: contractForPartner,
           issuedAt,
+          billedAt: resolveBilledPeriodDate(contractForPartner, issuedAt),
           amountEUROverride: amountOverrideValue,
         });
         const saved = await issueInvoiceAndGeneratePdf(inv);
@@ -973,10 +989,14 @@ export default async function HomePage({
                         )
                       : makeIssuedKey(d.contract.id, d.issuedAt, "");
                     const listKey = matchingKey ?? fallbackKey;
+                    const billedAt = resolveBilledPeriodDate(
+                      d.contract,
+                      d.issuedAt
+                    );
                     const amtEUR =
                       typeof d.amountEUR === "number"
                         ? d.amountEUR
-                        : rentAmountAtDate(d.contract, d.issuedAt);
+                        : rentAmountAtDate(d.contract, billedAt);
                     const rateOverrideItem =
                       typeof d.exchangeRateOverride === "number"
                         ? d.exchangeRateOverride

@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { fetchContractById, upsertContract } from "@/lib/contracts";
+import {
+  currentRentAmount,
+  fetchContractById,
+  upsertContract,
+} from "@/lib/contracts";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
 import { ContractSchema } from "@/lib/schemas/contract";
+import { getEuroInflationPercent } from "@/lib/inflation";
 
 export type ScanActionState = { ok: boolean; message?: string };
+export type IndexingNoticeState = { ok: boolean; message?: string };
 
 function isAcceptableScanUrl(url: string): boolean {
   try {
@@ -86,6 +92,61 @@ export async function addScanAction(_: ScanActionState, formData: FormData): Pro
     const msg = e && typeof e === "object" && "message" in e ? String((e as any).message) : String(e);
     return { ok: false, message: msg };
   }
+}
+
+export async function issueIndexingNoticeAction(
+  _: IndexingNoticeState,
+  formData: FormData
+): Promise<IndexingNoticeState> {
+  const contractId = String(formData.get("contractId") || "");
+  if (!contractId) return { ok: false, message: "ID contract lipsă" };
+  const contract = await fetchContractById(contractId);
+  if (!contract) return { ok: false, message: "Contract inexistent" };
+
+  const rent = currentRentAmount(contract);
+  if (typeof rent !== "number") {
+    return { ok: false, message: "Chiria curentă nu este disponibilă." };
+  }
+
+  const twelveMonthsAgo = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12);
+    return d;
+  })();
+
+  // Try cache-first, then force refresh to mitigate temporary ECB outages
+  let inflation = await getEuroInflationPercent({ from: twelveMonthsAgo });
+  if (!inflation) {
+    inflation = await getEuroInflationPercent({ from: twelveMonthsAgo, forceRefresh: true });
+  }
+  if (!inflation) {
+    return {
+      ok: false,
+      message: "Indicele de inflație nu este disponibil acum. Încearcă din nou mai târziu.",
+    };
+  }
+
+  const deltaPercent = inflation.percent;
+  const deltaAmount = (rent * deltaPercent) / 100;
+
+  await logAction({
+    action: "indexing.notice.issue",
+    targetType: "contract",
+    targetId: contractId,
+    meta: {
+      rentEUR: rent,
+      deltaPercent,
+      deltaAmountEUR: deltaAmount,
+      fromMonth: inflation.fromMonth,
+      toMonth: inflation.toMonth,
+    },
+  });
+
+  revalidatePath(`/contracts/${contractId}`);
+  return {
+    ok: true,
+    message: `Notificare emisă: +${deltaPercent.toFixed(2)}% (+${deltaAmount.toFixed(2)} EUR)`,
+  };
 }
 
 export async function updateScanTitleAction(_: ScanActionState, formData: FormData): Promise<ScanActionState> {

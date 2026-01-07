@@ -72,6 +72,33 @@ export async function getWrittenContractById(
   return found ? WrittenContractSchema.parse(found) : null;
 }
 
+export async function listWrittenContractsByContractId(
+  contractId: string
+): Promise<WrittenContract[]> {
+  if (!contractId) return [];
+  if (process.env.MONGODB_URI) {
+    try {
+      const db = await getDb();
+      const docs = await db
+        .collection<WrittenContract>(COLLECTION)
+        .find({ contractId }, { projection: { _id: 0 } })
+        .sort({ updatedAt: -1 })
+        .toArray();
+      return docs.map((doc) => WrittenContractSchema.parse(doc));
+    } catch (error) {
+      console.warn(
+        "Mongo indisponibil (listWrittenContractsByContractId), fallback local.",
+        error
+      );
+    }
+  }
+  const local = await readJson<WrittenContract[]>(FILE_NAME, []);
+  return local
+    .filter((doc) => doc.contractId === contractId)
+    .map((doc) => WrittenContractSchema.parse(doc))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 export async function upsertWrittenContract(
   input: UpsertInput
 ): Promise<WrittenContract> {

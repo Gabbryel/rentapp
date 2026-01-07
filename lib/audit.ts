@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import type { Contract } from "@/lib/schemas/contract";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { ObjectId } from "mongodb";
 
 export async function logAction(input: Omit<AuditLog, "at" | "userEmail"> & { userEmail?: string | null }) {
   if (!process.env.MONGODB_URI) return;
@@ -33,6 +34,59 @@ export async function listLogsByUser(userEmail: string, limit = 100) {
     .collection<AuditLog>("audit_logs")
     .find({ userEmail }, { sort: { at: -1 }, limit })
     .toArray();
+}
+
+export type IndexingNotice = AuditLog & { _id?: ObjectId; id?: string };
+
+export async function fetchIndexingNoticeById(id: string): Promise<IndexingNotice | null> {
+  if (!process.env.MONGODB_URI) return null;
+  const db = await getDb();
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return null;
+  }
+  const row = await db.collection<IndexingNotice>("audit_logs").findOne({ _id });
+  if (!row) return null;
+  return { ...row, id: row._id ? String(row._id) : row.id };
+}
+
+export async function listIndexingNotices(contractId: string): Promise<Array<IndexingNotice>> {
+  if (!process.env.MONGODB_URI) return [];
+  const db = await getDb();
+  const rows = await db
+    .collection<IndexingNotice>("audit_logs")
+    .find({ action: "indexing.notice.issue", targetType: "contract", targetId: contractId }, { sort: { at: -1 } })
+    .toArray();
+  return rows.map((r) => ({ ...r, id: r._id ? String(r._id) : r.id }));
+}
+
+export async function updateIndexingNoticeMeta(id: string, patch: Record<string, unknown>) {
+  if (!process.env.MONGODB_URI) return;
+  const db = await getDb();
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return;
+  }
+  const existing = await db.collection<IndexingNotice>("audit_logs").findOne({ _id });
+  if (!existing) return;
+  const nextMeta = { ...(existing.meta || {}), ...patch };
+  await db.collection<IndexingNotice>("audit_logs").updateOne({ _id }, { $set: { meta: nextMeta } });
+}
+
+export async function deleteIndexingNotice(id: string) {
+  if (!process.env.MONGODB_URI) return;
+  const db = await getDb();
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return;
+  }
+  await db.collection("audit_logs").deleteOne({ _id });
 }
 
 export function computeDiffContract(prev: Partial<Contract> | null | undefined, next: Contract) {

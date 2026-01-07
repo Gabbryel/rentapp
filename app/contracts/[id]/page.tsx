@@ -7,19 +7,35 @@ import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import ActionButton from "@/app/components/action-button";
+import IndexingNoticePrint from "./IndexingNoticePrint";
+import IndexingNoticeEditor from "./IndexingNoticeEditor";
 import {
   effectiveEndDate,
   fetchContractById,
   upsertContract,
   currentRentAmount,
+  resolveBilledPeriodDate,
 } from "@/lib/contracts";
-import { logAction } from "@/lib/audit";
+import type { WrittenContract } from "@/lib/schemas/written-contract";
+import { listWrittenContractsByContractId } from "@/lib/written-contracts";
+import { getEuroInflationPercent } from "@/lib/inflation";
+import { fetchPartnerById } from "@/lib/partners";
+import {
+  logAction,
+  fetchIndexingNoticeById,
+  listIndexingNotices,
+  updateIndexingNoticeMeta,
+  deleteIndexingNotice,
+} from "@/lib/audit";
+import { sendMail } from "@/lib/email";
+
 import {
   listInvoicesForContract,
   computeInvoiceFromContract,
   issueInvoiceAndGeneratePdf,
   deleteInvoiceById,
   updateInvoiceNumber,
+  invalidateYearInvoicesCache,
 } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import {
@@ -31,43 +47,77 @@ import {
 } from "@/lib/deposits";
 import { publishToast } from "@/lib/sse";
 
-const RO_MONTHS_SHORT = [
-  "ian.",
-  "feb.",
-  "mar.",
-  "apr.",
-  "mai",
-  "iun.",
-  "iul.",
-  "aug.",
-  "sept.",
-  "oct.",
-  "nov.",
-  "dec.",
-];
-
-function fmt(iso: string) {
-  if (!iso) return "";
-  const s = String(iso).slice(0, 10);
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return s;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d))
-    return s;
-  const monthName = RO_MONTHS_SHORT[Math.max(0, Math.min(11, mo - 1))];
-  return `${String(d).padStart(2, "0")} ${monthName} ${y}`;
+function escapeHtml(input: unknown) {
+  return String(input ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-// Actions
+function toEmailHtmlParagraphs(text: string) {
+  const normalized = String(text ?? "").replace(/\r\n/g, "\n");
+  const blocks = normalized.split(/\n\s*\n/g);
+  const nonEmpty = blocks.filter((b) => b.trim().length > 0);
+  const paragraphs = (nonEmpty.length > 0 ? nonEmpty : [""]).map((block) => {
+    const withBreaks = escapeHtml(block).replace(/\n/g, "<br/>");
+    return `<p style="margin:0 0 12px 0;">${withBreaks}</p>`;
+  });
+  return paragraphs.join("");
+}
+
+function normalizeIsoDate(value: unknown): string | null {
+  const s = String(value ?? "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+function latestWrittenContractEnd(
+  writtenContracts: WrittenContract[]
+): string | null {
+  const ends = writtenContracts
+    .map((wc) => normalizeIsoDate((wc as any)?.contractEndDate))
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  return ends.length > 0 ? ends[ends.length - 1] : null;
+}
+
+function resolveEndDateWithWritten(
+  baseEnd: unknown,
+  writtenEnd: unknown
+): string {
+  const base = normalizeIsoDate(baseEnd);
+  const written = normalizeIsoDate(writtenEnd);
+  if (base && written) {
+    return new Date(written) > new Date(base) ? written : base;
+  }
+  return base ?? written ?? "";
+}
+
+function fmt(value: unknown): string {
+  const iso = String(value ?? "");
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("ro-RO", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 async function saveIndexing(formData: FormData) {
   "use server";
-  const contractId = String(formData.get("contractId") || "");
+  const contractId = String(formData.get("contractId") || "").trim();
   if (!contractId) return;
-  const forecastDate = String(formData.get("forecastDate") || "");
-  const actualDate = String(formData.get("actualDate") || "");
-  const document = String(formData.get("document") || "");
+
+  const forecastDate = String(formData.get("forecastDate") || "").trim();
+  const actualDate = String(formData.get("actualDate") || "").trim();
+  const document = String(formData.get("document") || "").trim();
   const done = String(formData.get("done") || "") === "1";
   const newRentAmount = (() => {
     const raw = formData.get("newRentAmount");
@@ -77,40 +127,608 @@ async function saveIndexing(formData: FormData) {
     }
     return undefined;
   })();
+
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(forecastDate)) return;
+  if (actualDate && !iso.test(actualDate)) return;
+
   const existing = await fetchContractById(contractId);
   if (!existing) return;
-  const documentNormalized = document.trim();
+
   const current = Array.isArray((existing as any).indexingDates)
-    ? ((existing as any).indexingDates as any[])
+    ? ((existing as any).indexingDates as any[]) ?? []
     : [];
-  let found = false;
-  const idxs = current.map((it) => {
-    if (it && it.forecastDate === forecastDate) {
-      found = true;
-      return {
-        ...it,
-        actualDate: actualDate || it.actualDate || undefined,
-        document:
-          documentNormalized.length > 0 ? documentNormalized : it.document,
-        newRentAmount:
-          typeof newRentAmount === "number" ? newRentAmount : it.newRentAmount,
-        done: done || it.done,
-      };
-    }
-    return it;
-  });
-  if (!found && forecastDate) {
-    idxs.push({
+
+  let updated = false;
+  const next = current.map((row: any) => {
+    if (String(row?.forecastDate).slice(0, 10) !== forecastDate) return row;
+    updated = true;
+    return {
+      ...row,
       forecastDate,
-      actualDate: actualDate || undefined,
-      document: documentNormalized.length > 0 ? documentNormalized : undefined,
-      newRentAmount,
+      actualDate: actualDate || row?.actualDate || "",
+      document: document || row?.document || "",
       done,
+      ...(typeof newRentAmount === "number" ? { newRentAmount } : {}),
+    };
+  });
+
+  if (!updated) {
+    next.push({
+      forecastDate,
+      actualDate: actualDate || "",
+      document,
+      done,
+      ...(typeof newRentAmount === "number" ? { newRentAmount } : {}),
     });
   }
-  let patch: any = { indexingDates: idxs };
-  // rent amount is now derived from rentHistory; do not write rentAmountEuro on Contract
-  await upsertContract({ ...(existing as any), ...patch } as any);
+
+  await upsertContract({ ...(existing as any), indexingDates: next } as any);
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function sendIndexingNoticeEmailAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  const to = String(formData.get("to") || "").trim();
+  const subjectRaw = String(formData.get("subject") || "").trim();
+  const messageRaw = String(formData.get("message") || "").trim();
+  const validFromRaw = String(formData.get("validFrom") || "").trim();
+
+  if (!contractId || !noticeId) return;
+  if (!to) {
+    publishToast("Email destinatar lipsă.", "error");
+    return;
+  }
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) return;
+
+  const notice = await fetchIndexingNoticeById(noticeId);
+  if (
+    !notice ||
+    notice.action !== "indexing.notice.issue" ||
+    notice.targetType !== "contract" ||
+    notice.targetId !== contractId
+  ) {
+    publishToast("Notificarea de indexare nu a fost găsită.", "error");
+    return;
+  }
+
+  const meta = (notice as any).meta || {};
+  const fromMonth = String(meta.fromMonth || meta.from || "?");
+  const toMonth = String(meta.toMonth || meta.to || "?");
+  const deltaPercent =
+    typeof meta.deltaPercent === "number" ? meta.deltaPercent : undefined;
+  const deltaAmountEUR =
+    typeof meta.deltaAmountEUR === "number" ? meta.deltaAmountEUR : undefined;
+  const rentEUR = typeof meta.rentEUR === "number" ? meta.rentEUR : undefined;
+  const storedNewRentEUR =
+    typeof meta.newRentEUR === "number" ? meta.newRentEUR : undefined;
+  const storedValidFrom =
+    typeof meta.validFrom === "string" ? String(meta.validFrom) : "";
+  const source = meta.source ? String(meta.source) : "";
+
+  const validFrom = (() => {
+    const raw = (validFromRaw || storedValidFrom || "").trim();
+    if (!raw) return "";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const newRentEUR = (() => {
+    if (typeof storedNewRentEUR === "number") return storedNewRentEUR;
+    if (typeof rentEUR !== "number") return undefined;
+    if (typeof deltaAmountEUR === "number") return rentEUR + deltaAmountEUR;
+    if (typeof deltaPercent === "number")
+      return rentEUR * (1 + deltaPercent / 100);
+    return undefined;
+  })();
+
+  if (!validFrom) {
+    publishToast("Data de început a noii chirii este invalidă.", "error");
+    return;
+  }
+  if (
+    typeof newRentEUR !== "number" ||
+    !Number.isFinite(newRentEUR) ||
+    newRentEUR <= 0
+  ) {
+    publishToast("Nu pot calcula chiria nouă (date lipsă).", "error");
+    return;
+  }
+
+  const subject =
+    subjectRaw ||
+    `Notificare indexare chirie – ${String(
+      (contract as any).name || contract.id
+    )}`;
+
+  const ownerName = String((contract as any).owner || "").trim();
+  const contractName = String((contract as any).name || contract.id).trim();
+  const partnerName = String((contract as any).partner || "").trim();
+  const issuedAt = notice.at
+    ? new Date(notice.at).toISOString().slice(0, 10)
+    : "";
+
+  const introMessage =
+    messageRaw ||
+    `Bună ziua,\n\nVă transmitem notificarea de indexare a chiriei conform contractului.\n\nVă rugăm să confirmați primirea acestui mesaj.`;
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f3f4f6;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:20px 20px 12px 20px;border-bottom:1px solid #e5e7eb;">
+                <div style="font-family:Arial, sans-serif;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Notificare</div>
+                <div style="font-family:Arial, sans-serif;font-size:18px;font-weight:700;color:#111827;margin-top:4px;">Indexare chirie</div>
+                <div style="font-family:Arial, sans-serif;font-size:12px;color:#6b7280;margin-top:6px;">Emisă: <strong style="color:#111827;">${escapeHtml(
+                  issuedAt || "—"
+                )}</strong></div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 20px;font-family:Arial, sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+                ${toEmailHtmlParagraphs(introMessage)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 20px 18px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+                  <tr>
+                    <td colspan="2" style="padding:12px 14px;background:#f9fafb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Detalii</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;width:38%;">Partener</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
+                      partnerName || "—"
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Contract</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
+                      contractName
+                    )}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Perioadă de referință</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
+                      fromMonth
+                    )} → ${escapeHtml(toMonth)}${
+    source ? ` <span style="color:#6b7280">(${escapeHtml(source)})</span>` : ""
+  }</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Indexare</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
+                      deltaPercent !== undefined
+                        ? `+${deltaPercent.toFixed(2)}%`
+                        : "n/a"
+                    )}${
+    deltaAmountEUR !== undefined
+      ? ` • ${escapeHtml(deltaAmountEUR.toFixed(2))} EUR`
+      : ""
+  }</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Chirie la emitere</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
+                      rentEUR !== undefined ? rentEUR.toFixed(2) : "—"
+                    )} EUR</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Chirie după indexare (începând cu ${escapeHtml(
+                      validFrom
+                    )})</td>
+                    <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;"><strong>${escapeHtml(
+                      newRentEUR.toFixed(2)
+                    )} EUR</strong></td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 20px 20px 20px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">
+                Cu stimă,<nobr></nobr><br/>
+                <strong style="color:#111827;">${escapeHtml(
+                  ownerName || "Echipa"
+                )}</strong>
+              </td>
+            </tr>
+          </table>
+          <div style="max-width:640px;font-family:Arial, sans-serif;font-size:11px;color:#9ca3af;margin-top:10px;">Acest email a fost generat din aplicația RentApp.</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const textLines: string[] = [];
+  textLines.push(subject);
+  textLines.push("");
+  textLines.push(introMessage);
+  textLines.push("");
+  textLines.push(`Partener: ${partnerName || "—"}`);
+  textLines.push(`Contract: ${contractName}`);
+  textLines.push(
+    `Perioadă: ${fromMonth} -> ${toMonth}${source ? ` (${source})` : ""}`
+  );
+  textLines.push(
+    `Indexare: ${
+      deltaPercent !== undefined ? `+${deltaPercent.toFixed(2)}%` : "n/a"
+    }${
+      deltaAmountEUR !== undefined ? ` (${deltaAmountEUR.toFixed(2)} EUR)` : ""
+    }`
+  );
+  textLines.push(
+    `Chirie la emitere: ${rentEUR !== undefined ? rentEUR.toFixed(2) : "—"} EUR`
+  );
+  textLines.push(
+    `Chirie după indexare (începând cu ${validFrom}): ${newRentEUR.toFixed(
+      2
+    )} EUR`
+  );
+  textLines.push("");
+  textLines.push(`Cu stimă, ${ownerName || "Echipa"}`);
+
+  await sendMail({ to, subject, text: textLines.join("\n"), html });
+
+  const existingIndexingDates = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as any[]) ?? []
+    : [];
+
+  let appliedIndexing: { kind: "update" | "insert"; before?: any } | null =
+    null;
+  let updatedAny = false;
+  const nextIndexingDates = existingIndexingDates.map((row: any) => {
+    const forecast = String(row?.forecastDate || "").slice(0, 10);
+    const actual = String(row?.actualDate || "").slice(0, 10);
+    if (forecast === validFrom || actual === validFrom) {
+      updatedAny = true;
+      if (!appliedIndexing) {
+        appliedIndexing = {
+          kind: "update",
+          before: {
+            forecastDate: row?.forecastDate,
+            actualDate: row?.actualDate,
+            document: row?.document,
+            newRentAmount: row?.newRentAmount,
+            done: row?.done,
+            appliedByNoticeId: row?.appliedByNoticeId,
+          },
+        };
+      }
+      return {
+        ...row,
+        forecastDate: forecast || validFrom,
+        actualDate: validFrom,
+        document: row?.document || "Indexare (email)",
+        newRentAmount: newRentEUR,
+        done: true,
+        appliedByNoticeId: noticeId,
+      };
+    }
+    return row;
+  });
+
+  if (!updatedAny) {
+    appliedIndexing = { kind: "insert" };
+    nextIndexingDates.push({
+      forecastDate: validFrom,
+      actualDate: validFrom,
+      document: "Indexare (email)",
+      newRentAmount: newRentEUR,
+      done: true,
+      appliedByNoticeId: noticeId,
+    });
+  }
+
+  await upsertContract({
+    ...(contract as any),
+    indexingDates: nextIndexingDates,
+  } as any);
+  await updateIndexingNoticeMeta(noticeId, {
+    newRentEUR,
+    validFrom,
+    appliedIndexing,
+  });
+
+  await logAction({
+    action: "indexing.notice.email",
+    targetType: "contract",
+    targetId: contractId,
+    meta: { noticeId, to, subject, validFrom, newRentEUR },
+  });
+
+  publishToast("Email trimis către partener.", "success");
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function issueIndexingNoticeAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  if (!contractId) return;
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) return;
+
+  const rent = currentRentAmount(contract);
+  if (typeof rent !== "number") {
+    publishToast("Chiria curentă nu este disponibilă.", "error");
+    return;
+  }
+
+  const twelveMonthsAgo = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12);
+    return d;
+  })();
+
+  let inflation = await getEuroInflationPercent({ from: twelveMonthsAgo });
+  if (!inflation) {
+    inflation = await getEuroInflationPercent({
+      from: twelveMonthsAgo,
+      forceRefresh: true,
+    });
+  }
+
+  if (!inflation) {
+    publishToast(
+      "Indicele HICP nu este disponibil acum. Încearcă din nou mai târziu.",
+      "error"
+    );
+    return;
+  }
+
+  const deltaPercent = inflation.percent;
+  const deltaAmountEUR = (rent * deltaPercent) / 100;
+  const newRentEUR = rent + deltaAmountEUR;
+
+  await logAction({
+    action: "indexing.notice.issue",
+    targetType: "contract",
+    targetId: contractId,
+    meta: {
+      rentEUR: rent,
+      deltaPercent,
+      deltaAmountEUR,
+      newRentEUR,
+      fromMonth: inflation.fromMonth,
+      toMonth: inflation.toMonth,
+      source: (inflation as any).source,
+    },
+  });
+
+  publishToast("Notificare de indexare emisă.", "success");
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function deleteIndexingNoticeAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  if (!contractId || !noticeId) return;
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) return;
+
+  const notice = await fetchIndexingNoticeById(noticeId);
+  if (
+    !notice ||
+    notice.action !== "indexing.notice.issue" ||
+    notice.targetType !== "contract" ||
+    notice.targetId !== contractId
+  ) {
+    publishToast("Notificarea de indexare nu a fost găsită.", "error");
+    return;
+  }
+
+  const meta = (notice as any).meta || {};
+  const appliedIndexing = meta?.appliedIndexing as
+    | { kind: "update" | "insert"; before?: any }
+    | undefined;
+  const validFrom =
+    typeof meta.validFrom === "string"
+      ? String(meta.validFrom).slice(0, 10)
+      : "";
+  const newRentEUR =
+    typeof meta.newRentEUR === "number" ? meta.newRentEUR : undefined;
+
+  let rollbackAttempted = false;
+  let rollbackChanged = false;
+  let rollbackGuaranteed = false;
+  let rollbackUsedHeuristic = false;
+  let rollbackErrored = false;
+
+  try {
+    rollbackAttempted = true;
+    const existingIndexingDates = Array.isArray((contract as any).indexingDates)
+      ? ((contract as any).indexingDates as any[]) ?? []
+      : [];
+
+    const byNoticeId = (row: any) =>
+      String(row?.appliedByNoticeId || "").trim() === noticeId;
+    const hasLinkedRow = existingIndexingDates.some(byNoticeId);
+    const hasRestoreSnapshot =
+      appliedIndexing?.kind === "update" && Boolean(appliedIndexing.before);
+
+    // Rollback is "guaranteed" only when we have an explicit linkage and/or snapshot.
+    rollbackGuaranteed = hasRestoreSnapshot || hasLinkedRow;
+
+    const heuristicMatchInserted = (row: any) => {
+      if (!validFrom) return false;
+      const actual = String(row?.actualDate || "").slice(0, 10);
+      const forecast = String(row?.forecastDate || "").slice(0, 10);
+      const amount =
+        typeof row?.newRentAmount === "number" ? row.newRentAmount : undefined;
+      if (actual !== validFrom && forecast !== validFrom) return false;
+      if (typeof newRentEUR === "number" && typeof amount === "number") {
+        if (Math.abs(amount - newRentEUR) > 0.01) return false;
+      }
+      const doc = String(row?.document || "");
+      return (
+        doc.includes("Indexare") ||
+        doc.includes("indexare") ||
+        Boolean(newRentEUR)
+      );
+    };
+
+    let changed = false;
+    let nextIndexingDates = existingIndexingDates;
+
+    if (appliedIndexing?.kind === "update" && appliedIndexing.before) {
+      const before = appliedIndexing.before;
+      nextIndexingDates = existingIndexingDates.map((row: any) => {
+        if (!byNoticeId(row)) return row;
+        changed = true;
+        const restored: any = { ...row };
+        if (before.forecastDate !== undefined)
+          restored.forecastDate = before.forecastDate;
+        else delete restored.forecastDate;
+        if (before.actualDate !== undefined)
+          restored.actualDate = before.actualDate;
+        else delete restored.actualDate;
+        if (before.document !== undefined) restored.document = before.document;
+        else delete restored.document;
+        if (before.newRentAmount !== undefined)
+          restored.newRentAmount = before.newRentAmount;
+        else delete restored.newRentAmount;
+        if (before.done !== undefined) restored.done = before.done;
+        else delete restored.done;
+        if (before.appliedByNoticeId !== undefined)
+          restored.appliedByNoticeId = before.appliedByNoticeId;
+        else delete restored.appliedByNoticeId;
+        return restored;
+      });
+    }
+
+    // If we don't have a restore snapshot, remove any row explicitly linked to this notice.
+    if (!hasRestoreSnapshot) {
+      const filtered = nextIndexingDates.filter((row: any) => {
+        if (byNoticeId(row)) {
+          changed = true;
+          return false;
+        }
+        return true;
+      });
+      nextIndexingDates = filtered;
+    }
+
+    // Older notices (no appliedByNoticeId / appliedIndexing): best-effort rollback only if unambiguous.
+    if (!hasRestoreSnapshot && !hasLinkedRow) {
+      const candidates = nextIndexingDates.filter(heuristicMatchInserted);
+      if (candidates.length === 1) {
+        const candidate = candidates[0];
+        nextIndexingDates = nextIndexingDates.filter(
+          (row: any) => row !== candidate
+        );
+        changed = true;
+        rollbackUsedHeuristic = true;
+      }
+    }
+
+    if (changed) {
+      rollbackChanged = true;
+      await upsertContract({
+        ...(contract as any),
+        indexingDates: nextIndexingDates,
+      } as any);
+    }
+  } catch {
+    // Best-effort rollback; still proceed with deleting the notice.
+    rollbackErrored = true;
+  }
+
+  await deleteIndexingNotice(noticeId);
+  publishToast("Notificarea de indexare a fost ștearsă.", "success");
+
+  if (!rollbackGuaranteed) {
+    if (!rollbackAttempted || rollbackErrored) {
+      publishToast(
+        "Atenție: nu am putut restaura automat chiria (notificare veche sau eroare). Verifică manual indexările/chiria.",
+        "info"
+      );
+    } else if (!rollbackChanged) {
+      publishToast(
+        "Atenție: notificarea a fost ștearsă, dar chiria nu poate fi restaurată automat pentru notificări vechi. Verifică manual indexările/chiria.",
+        "info"
+      );
+    } else if (rollbackUsedHeuristic) {
+      publishToast(
+        "Atenție: rollback-ul chiriei a fost făcut best-effort (notificare veche). Te rog verifică chiria curentă.",
+        "info"
+      );
+    }
+  }
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function updateIndexingNoticeAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  if (!contractId || !noticeId) return;
+
+  const notice = await fetchIndexingNoticeById(noticeId);
+  if (
+    !notice ||
+    notice.action !== "indexing.notice.issue" ||
+    notice.targetType !== "contract" ||
+    notice.targetId !== contractId
+  ) {
+    publishToast("Notificarea de indexare nu a fost găsită.", "error");
+    return;
+  }
+
+  const fromMonth = String(formData.get("fromMonth") || "").trim();
+  const toMonth = String(formData.get("toMonth") || "").trim();
+  const note = String(formData.get("note") || "").trim();
+  const deltaPercent = (() => {
+    const raw = String(formData.get("deltaPercent") || "").trim();
+    if (!raw) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  })();
+  const deltaAmountEUR = (() => {
+    const raw = String(formData.get("deltaAmountEUR") || "").trim();
+    if (!raw) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  })();
+
+  const prevMeta = (notice as any).meta || {};
+  const rentEUR =
+    typeof prevMeta.rentEUR === "number" ? prevMeta.rentEUR : undefined;
+  const newRentEUR = (() => {
+    if (typeof prevMeta.newRentEUR === "number") return prevMeta.newRentEUR;
+    if (typeof rentEUR !== "number") return undefined;
+    if (typeof deltaAmountEUR === "number") return rentEUR + deltaAmountEUR;
+    if (typeof deltaPercent === "number")
+      return rentEUR * (1 + deltaPercent / 100);
+    return undefined;
+  })();
+
+  await updateIndexingNoticeMeta(noticeId, {
+    fromMonth: fromMonth || undefined,
+    toMonth: toMonth || undefined,
+    deltaPercent,
+    deltaAmountEUR,
+    note: note || undefined,
+    ...(typeof newRentEUR === "number" ? { newRentEUR } : {}),
+  });
+
+  publishToast("Notificarea a fost actualizată.", "success");
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -185,6 +803,7 @@ async function issueInvoice(formData: FormData) {
         contract,
         issuedAt,
         amountEUROverride: amountOverride,
+        billedAt: resolveBilledPeriodDate(contract, issuedAt),
       });
       const baseEUR = amountOverride ?? baseInv.amountEUR;
       for (const p of partners) {
@@ -195,6 +814,7 @@ async function issueInvoice(formData: FormData) {
           contract,
           issuedAt,
           amountEUROverride: baseEUR * share,
+          billedAt: resolveBilledPeriodDate(contract, issuedAt),
         });
         // Override partner on the invoice
         const patched = {
@@ -209,6 +829,7 @@ async function issueInvoice(formData: FormData) {
         contract,
         issuedAt,
         amountEUROverride: amountOverride,
+        billedAt: resolveBilledPeriodDate(contract, issuedAt),
       });
       await issueInvoiceAndGeneratePdf(invoiceData);
     }
@@ -430,6 +1051,8 @@ async function addExtension(formData: FormData) {
   if (!iso.test(docDate) || !iso.test(extendedUntil)) return;
   const existing = await fetchContractById(contractId);
   if (!existing) return;
+  const writtenContracts = await listWrittenContractsByContractId(contractId);
+  const latestWrittenEnd = latestWrittenContractEnd(writtenContracts);
   const norm = (s: string) => String(s).slice(0, 10);
   const newEntry = {
     docDate: norm(docDate),
@@ -439,7 +1062,9 @@ async function addExtension(formData: FormData) {
 
   // Server-side guardrails against common mistakes
   const signedAt = new Date(existing.signedAt);
-  const currentEffectiveEnd = new Date(effectiveEndDate(existing));
+  const currentEffectiveEnd = new Date(
+    resolveEndDateWithWritten(effectiveEndDate(existing), latestWrittenEnd)
+  );
   const until = new Date(newEntry.extendedUntil);
   const docDt = new Date(newEntry.docDate);
 
@@ -576,10 +1201,71 @@ export default async function ContractPage({
   const { id } = await params;
   const contract = await fetchContractById(id);
   if (!contract) return notFound();
+  const primaryPartnerId =
+    (contract as any).partnerId ||
+    (Array.isArray((contract as any).partners)
+      ? (contract as any).partners?.[0]?.id
+      : undefined);
+  const partner = primaryPartnerId
+    ? await fetchPartnerById(String(primaryPartnerId))
+    : null;
+  const partnerEmail =
+    partner?.representatives?.find((r) => r?.primary && r?.email)?.email ||
+    partner?.representatives?.find((r) => r?.email)?.email ||
+    "";
   const invoices = await listInvoicesForContract(contract.id);
+  const indexingNotices = await listIndexingNotices(contract.id);
+  const writtenContracts = await listWrittenContractsByContractId(contract.id);
+  const currentRentValue = currentRentAmount(contract);
+  const twelveMonthsAgo = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12);
+    return d;
+  })();
+  let inflation = await getEuroInflationPercent({ from: twelveMonthsAgo });
+  if (!inflation) {
+    inflation = await getEuroInflationPercent({
+      from: twelveMonthsAgo,
+      forceRefresh: true,
+    });
+  }
+
+  const inflationDeltaAmount =
+    inflation && typeof currentRentValue === "number"
+      ? currentRentValue * (inflation.percent / 100)
+      : null;
+
+  const latestWrittenContract = (() => {
+    const enriched = writtenContracts.map((doc) => {
+      const updatedAtMs = new Date(doc.updatedAt).getTime();
+      return {
+        doc,
+        updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+      };
+    });
+    enriched.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+    return enriched[0]?.doc ?? null;
+  })();
+
+  const writtenContractLinkHref = latestWrittenContract
+    ? `/contracts/written-contract?writtenContractId=${encodeURIComponent(
+        latestWrittenContract.id
+      )}`
+    : `/contracts/written-contract?contractId=${encodeURIComponent(
+        contract.id
+      )}`;
+
+  const writtenContractSignedBadgeClass = latestWrittenContract?.signed
+    ? "border border-emerald-500/30 bg-emerald-500/15 text-emerald-700"
+    : "border border-amber-500/30 bg-amber-500/15 text-amber-800";
+
+  const contractEnd = resolveEndDateWithWritten(
+    effectiveEndDate(contract),
+    latestWrittenContract?.contractEndDate ?? null
+  );
 
   const today = new Date();
-  const isExpired = new Date(effectiveEndDate(contract)) < today;
+  const isExpired = new Date(contractEnd) < today;
 
   const invoiceMonthMode =
     (contract as any).invoiceMonthMode === "next" ? "next" : "current";
@@ -595,7 +1281,7 @@ export default async function ContractPage({
         ? new Date(today.getFullYear(), today.getMonth() + 1, day)
         : base;
     const start = new Date(contract.startDate);
-    const end = new Date(effectiveEndDate(contract));
+    const end = new Date(contractEnd);
     if (target >= start && target <= end)
       dueAt = target.toISOString().slice(0, 10);
   }
@@ -697,7 +1383,7 @@ export default async function ContractPage({
   // Ensure a stable last point: cap at effective contract end date rather than today to avoid hydration drift
   if (series.length > 0) {
     const last = series[series.length - 1];
-    const capISO = String(effectiveEndDate(contract));
+    const capISO = String(contractEnd);
     if (last.date !== capISO) series.push({ date: capISO, value: last.value });
   }
 
@@ -830,6 +1516,14 @@ export default async function ContractPage({
             </Link>
           ) : null}
           <Link
+            href={writtenContractLinkHref}
+            className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
+          >
+            {latestWrittenContract
+              ? "Contract scris"
+              : "Generează contract scris"}
+          </Link>
+          <Link
             href={`/contracts/${contract.id}/pdf`}
             className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/5"
           >
@@ -914,9 +1608,7 @@ export default async function ContractPage({
                   </div>
                   <div>
                     <span className="block text-foreground/60">Expiră</span>
-                    <span className="font-medium">
-                      {fmt(effectiveEndDate(contract))}
-                    </span>
+                    <span className="font-medium">{fmt(contractEnd)}</span>
                   </div>
                   {(() => {
                     const arr = Array.isArray(
@@ -976,6 +1668,60 @@ export default async function ContractPage({
                 </div>
               </div>
 
+              <div
+                id="written-contract-link"
+                className="rounded-md border border-foreground/10 bg-foreground/5 px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1 text-xs">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
+                      Contract scris
+                    </div>
+                    {latestWrittenContract ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
+                              latestWrittenContract.id
+                            )}`}
+                            className="font-semibold hover:underline"
+                          >
+                            {latestWrittenContract.title || "Document scris"}
+                          </Link>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${writtenContractSignedBadgeClass}`}
+                          >
+                            {latestWrittenContract.signed
+                              ? "Semnat"
+                              : "Nesemnat"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-foreground/60">
+                          {latestWrittenContract.documentNumber ? (
+                            <span className="rounded bg-foreground/10 px-2 py-0.5">
+                              {latestWrittenContract.documentNumber}
+                            </span>
+                          ) : null}
+                          <span className="rounded bg-foreground/10 px-2 py-0.5">
+                            Actualizat {fmt(latestWrittenContract.updatedAt)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-foreground/60">
+                        Nu există un document scris asociat încă.
+                      </div>
+                    )}
+                  </div>
+                  <Link
+                    href={writtenContractLinkHref}
+                    className="shrink-0 rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/10"
+                  >
+                    {latestWrittenContract ? "Deschide" : "Generează"}
+                  </Link>
+                </div>
+              </div>
+
               <div id="contract-billing">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
                   Facturare
@@ -1030,6 +1776,55 @@ export default async function ContractPage({
                         {(contract as any).irregularInvoices.length} facturi/an
                       </span>
                     )}
+                </div>
+              </div>
+
+              <div
+                id="contract-indexing-notice"
+                className="rounded-md border border-foreground/10 bg-foreground/5 px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1 text-xs">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
+                      Indexări
+                    </div>
+                    {inflation ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2 text-foreground/80">
+                          <span className="rounded bg-foreground/10 px-2 py-0.5 font-semibold">
+                            +{inflation.percent.toFixed(2)}% HICP 12m
+                          </span>
+                          <span className="text-foreground/60">
+                            ({inflation.fromMonth} → {inflation.toMonth})
+                          </span>
+                        </div>
+                        {typeof inflationDeltaAmount === "number" ? (
+                          <div className="text-foreground/70">
+                            Majorare estimată: {inflationDeltaAmount.toFixed(2)}{" "}
+                            EUR
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="text-foreground/60">
+                        Indicele HICP nu este disponibil momentan.
+                      </div>
+                    )}
+                  </div>
+                  <form action={issueIndexingNoticeAction} className="shrink-0">
+                    <input
+                      type="hidden"
+                      name="contractId"
+                      value={contract.id}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={!inflation}
+                    >
+                      Emite notificare
+                    </button>
+                  </form>
                 </div>
               </div>
 
@@ -1541,6 +2336,19 @@ export default async function ContractPage({
                 ? (contract as any).tvaPercent
                 : null
             }
+            indexingInflation={
+              inflation
+                ? {
+                    percent: inflation.percent,
+                    fromMonth: inflation.fromMonth,
+                    toMonth: inflation.toMonth,
+                    deltaAmount: inflationDeltaAmount,
+                  }
+                : null
+            }
+            currentRent={
+              typeof currentRentValue === "number" ? currentRentValue : null
+            }
             wrapChildrenInCard={false}
           >
             {/* Gestionează contract (mutat în manage-contract-section) */}
@@ -1762,7 +2570,7 @@ export default async function ContractPage({
                     name="docDate"
                     type="date"
                     min={String(contract.signedAt)}
-                    max={String(effectiveEndDate(contract))}
+                    max={String(contractEnd)}
                     className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
                     required
                   />
@@ -1783,7 +2591,7 @@ export default async function ContractPage({
                   <input
                     name="extendedUntil"
                     type="date"
-                    min={String(effectiveEndDate(contract))}
+                    min={String(contractEnd)}
                     className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
                     required
                   />
@@ -2127,6 +2935,304 @@ export default async function ContractPage({
                   </details>
                 );
               })()}
+
+              <div className="rounded-xl border border-foreground/10 bg-foreground/5 p-4 mt-4">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-foreground/60">
+                      Notificări de indexare
+                    </div>
+                    <p className="text-xs text-foreground/60">
+                      Istoric notificări trimise și detalii despre aplicare.
+                    </p>
+                  </div>
+                  {process.env.MONGODB_URI && indexingNotices.length > 0 ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-foreground/10 px-3 py-1 text-[11px] font-semibold text-foreground/80">
+                      <span
+                        className="h-2 w-2 rounded-full bg-foreground/40"
+                        aria-hidden
+                      />
+                      {indexingNotices.length} emise
+                    </span>
+                  ) : null}
+                </div>
+                {!process.env.MONGODB_URI ? (
+                  <div className="text-xs text-foreground/70">
+                    Vizualizarea notificărilor necesită MongoDB activ pentru
+                    audit.
+                  </div>
+                ) : indexingNotices.length === 0 ? (
+                  <div className="text-xs text-foreground/70">
+                    Nicio notificare emisă pentru acest contract.
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-xs">
+                    {indexingNotices.map((notice) => {
+                      const meta = (notice as any).meta || {};
+                      const issuedAt = notice.at
+                        ? fmt(new Date(notice.at).toISOString().slice(0, 10))
+                        : "";
+                      const fromMonth = meta.fromMonth || meta.from || "";
+                      const toMonth = meta.toMonth || meta.to || "";
+                      const deltaPercent =
+                        typeof meta.deltaPercent === "number"
+                          ? meta.deltaPercent
+                          : undefined;
+                      const deltaAmountEUR =
+                        typeof meta.deltaAmountEUR === "number"
+                          ? meta.deltaAmountEUR
+                          : undefined;
+                      const rentEUR =
+                        typeof meta.rentEUR === "number"
+                          ? meta.rentEUR
+                          : undefined;
+                      const validFrom =
+                        typeof meta.validFrom === "string"
+                          ? meta.validFrom
+                          : "";
+                      const newRentEUR =
+                        typeof meta.newRentEUR === "number"
+                          ? meta.newRentEUR
+                          : typeof rentEUR === "number" &&
+                            typeof deltaAmountEUR === "number"
+                          ? rentEUR + deltaAmountEUR
+                          : typeof rentEUR === "number" &&
+                            typeof deltaPercent === "number"
+                          ? rentEUR * (1 + deltaPercent / 100)
+                          : undefined;
+                      const source = meta.source as string | undefined;
+                      const note =
+                        typeof meta.note === "string" ? meta.note : "";
+
+                      const defaultEmailSubject = `Notificare indexare chirie – ${String(
+                        (contract as any).name || contract.id
+                      )}`;
+                      const defaultEmailMessage = `Bună ziua,\n\nVă transmitem notificarea de indexare a chiriei conform contractului.\n\nDetaliile sunt incluse mai jos. Vă rugăm să confirmați primirea acestui mesaj.`;
+                      return (
+                        <article
+                          key={
+                            notice.id ||
+                            String((notice as any)._id) ||
+                            String(notice.at)
+                          }
+                          className="rounded-xl border border-foreground/10 bg-background/60 p-4"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-foreground/70">
+                                <span className="inline-flex items-center rounded-full bg-foreground/10 px-2 py-1 text-[10px] font-semibold text-foreground/80">
+                                  Notificare indexare
+                                </span>
+                                <span className="text-foreground/60">
+                                  Emis {issuedAt || "—"}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+                                {deltaPercent !== undefined ? (
+                                  <span className="inline-flex items-center rounded-lg bg-emerald-500/10 px-3 py-2 text-emerald-400">
+                                    +{deltaPercent.toFixed(2)}%
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-lg bg-foreground/10 px-3 py-2 text-foreground/80">
+                                    Indice necunoscut
+                                  </span>
+                                )}
+                                {deltaAmountEUR !== undefined ? (
+                                  <span className="inline-flex items-center rounded-lg bg-foreground/5 px-3 py-2 text-foreground/80">
+                                    {deltaAmountEUR.toFixed(2)} EUR
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-foreground/70">
+                                <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1">
+                                  {fromMonth || "?"} → {toMonth || "?"}
+                                </span>
+                                {source ? (
+                                  <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-foreground/70">
+                                    {source}
+                                  </span>
+                                ) : null}
+                                {rentEUR !== undefined ? (
+                                  <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-foreground/70">
+                                    Chirie la emitere: {rentEUR.toFixed(2)} EUR
+                                  </span>
+                                ) : null}
+                                {newRentEUR !== undefined ? (
+                                  <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-foreground/70">
+                                    Chirie după indexare
+                                    {validFrom
+                                      ? ` (începând cu ${fmt(
+                                          String(validFrom).slice(0, 10)
+                                        )})`
+                                      : ""}
+                                    : {newRentEUR.toFixed(2)} EUR
+                                  </span>
+                                ) : null}
+                                {validFrom ? (
+                                  <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-foreground/70">
+                                    Valabil de la:{" "}
+                                    {fmt(String(validFrom).slice(0, 10))}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {note ? (
+                                <div className="rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 text-[11px] text-foreground/80">
+                                  {note}
+                                </div>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-3 sm:mt-1">
+                              <IndexingNoticePrint
+                                notice={{
+                                  id: notice.id ?? String((notice as any)._id),
+                                  at: notice.at
+                                    ? new Date(notice.at).toISOString()
+                                    : undefined,
+                                  meta: meta as Record<string, unknown>,
+                                  userEmail: notice.userEmail,
+                                  contractName:
+                                    (contract as any).name || contract.id,
+                                }}
+                              />
+                              <form
+                                action={deleteIndexingNoticeAction}
+                                className="mt-0"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="noticeId"
+                                  value={
+                                    notice.id ?? String((notice as any)._id)
+                                  }
+                                />
+                                <input
+                                  type="hidden"
+                                  name="contractId"
+                                  value={contract.id}
+                                />
+                                <button className="text-[11px] text-red-500 underline-offset-2 hover:text-red-600 hover:underline">
+                                  Șterge
+                                </button>
+                              </form>
+                            </div>
+                          </div>
+                          <IndexingNoticeEditor
+                            action={updateIndexingNoticeAction}
+                            noticeId={notice.id ?? String((notice as any)._id)}
+                            contractId={contract.id}
+                            initialFromMonth={fromMonth}
+                            initialToMonth={toMonth}
+                            initialPercent={deltaPercent}
+                            initialAmount={deltaAmountEUR}
+                            rentEUR={rentEUR}
+                            initialNote={note}
+                          />
+
+                          <details className="mt-3 rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2">
+                            <summary className="cursor-pointer select-none text-[11px] font-semibold text-foreground/80">
+                              Trimite email către partener
+                            </summary>
+                            <div className="mt-3">
+                              {!partnerEmail ? (
+                                <div className="mb-2 text-[11px] text-foreground/70">
+                                  Nu există un email setat pentru partener (poți
+                                  introduce manual mai jos).
+                                </div>
+                              ) : null}
+                              <form
+                                action={sendIndexingNoticeEmailAction}
+                                className="grid grid-cols-1 gap-2 sm:grid-cols-6"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="contractId"
+                                  value={contract.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="noticeId"
+                                  value={
+                                    notice.id ?? String((notice as any)._id)
+                                  }
+                                />
+                                <div className="space-y-1 sm:col-span-2">
+                                  <label className="block text-foreground/60 text-[11px]">
+                                    Către
+                                  </label>
+                                  <input
+                                    name="to"
+                                    type="email"
+                                    defaultValue={partnerEmail}
+                                    placeholder="email@partener.ro"
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-[11px]"
+                                  />
+                                </div>
+                                <div className="space-y-1 sm:col-span-4">
+                                  <label className="block text-foreground/60 text-[11px]">
+                                    Subiect
+                                  </label>
+                                  <input
+                                    name="subject"
+                                    type="text"
+                                    maxLength={200}
+                                    defaultValue={defaultEmailSubject}
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-[11px]"
+                                  />
+                                </div>
+                                <div className="space-y-1 sm:col-span-6">
+                                  <label className="block text-foreground/60 text-[11px]">
+                                    Data început valabilitate (chirie nouă)
+                                  </label>
+                                  <input
+                                    name="validFrom"
+                                    type="date"
+                                    defaultValue={
+                                      String(validFrom || "").slice(0, 10) ||
+                                      (notice.at
+                                        ? new Date(notice.at)
+                                            .toISOString()
+                                            .slice(0, 10)
+                                        : "")
+                                    }
+                                    className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1 text-[11px]"
+                                  />
+                                </div>
+
+                                <div className="space-y-1 sm:col-span-6">
+                                  <label className="block text-foreground/60 text-[11px]">
+                                    Mesaj (editabil)
+                                  </label>
+                                  <textarea
+                                    name="message"
+                                    defaultValue={defaultEmailMessage}
+                                    rows={4}
+                                    className="w-full resize-y rounded-md border border-foreground/20 bg-background px-2 py-1 text-[11px]"
+                                  />
+                                  <div className="text-[11px] text-foreground/60">
+                                    Emailul va include automat și un rezumat al
+                                    indexării (+%, EUR, perioadă, chirie la
+                                    emitere, chirie după indexare și data de
+                                    început.
+                                  </div>
+                                </div>
+                                <div className="sm:col-span-6 flex justify-end">
+                                  <button className="rounded-md border border-foreground/20 bg-background px-3 py-1.5 text-[11px] font-semibold hover:bg-foreground/5">
+                                    Trimite email
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </details>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               <div
                 id="contract-deposits-list"

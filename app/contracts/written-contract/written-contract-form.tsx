@@ -86,6 +86,7 @@ type EditorState = {
   contractSignedAt?: string;
   contractStartDate?: string;
   contractEndDate?: string;
+  signed: boolean;
   assetName?: string;
   assetAddress?: string;
   spaceSurface: string;
@@ -161,6 +162,7 @@ const EDITOR_STATE_KEYS = [
   "contractSignedAt",
   "contractStartDate",
   "contractEndDate",
+  "signed",
   "assetName",
   "assetAddress",
   "spaceSurface",
@@ -1312,9 +1314,13 @@ function buildPrintableDocument(state: EditorState): string {
       .document-body {
         font-size: 13px;
         line-height: 1.55;
+        text-align: justify;
+        text-justify: inter-word;
       }
       .document-body p {
         margin: 0 0 5mm;
+        text-align: justify;
+        text-justify: inter-word;
       }
       /* Hide the first paragraph in the printable contract body (requested) */
       .document-body p:first-of-type {
@@ -1409,9 +1415,21 @@ function mapPrefillToState(
   const flag = data["__writtenContract"];
   if (flag === true) {
     for (const key of EDITOR_STATE_KEYS) {
-      const raw = data[key];
-      if (typeof raw === "string") {
-        mapped[key] = raw;
+      const k = key as EditorStateKey;
+      const raw = data[k];
+      if (key === "signed") {
+        if (typeof raw === "boolean") {
+          mapped.signed = raw;
+          continue;
+        }
+        if (typeof raw === "string") {
+          const normalized = raw.trim().toLowerCase();
+          mapped.signed = normalized === "true";
+          continue;
+        }
+      }
+      if (key !== "signed" && typeof raw === "string") {
+        mapped[key as Exclude<EditorStateKey, "signed">] = raw;
       }
     }
     if (!mapped.intendedUse) {
@@ -1423,7 +1441,10 @@ function mapPrefillToState(
     return mapped;
   }
 
-  const copyIfString = (source: string, target: EditorStateKey) => {
+  const copyIfString = (
+    source: string,
+    target: Exclude<EditorStateKey, "signed">
+  ) => {
     const raw = data[source];
     if (typeof raw === "string" && raw.trim()) {
       mapped[target] = raw.trim();
@@ -1489,6 +1510,13 @@ function mapPrefillToState(
     )} de euro + TVA ${tvaPercentForText} ${tvaTypeForText}`;
   } else if (typeof rentRaw === "string" && rentRaw.trim()) {
     mapped.rentAmount = rentRaw.trim();
+  }
+
+  const signedRaw = data["signed"];
+  if (typeof signedRaw === "boolean") {
+    mapped.signed = signedRaw;
+  } else if (typeof signedRaw === "string" && signedRaw.trim()) {
+    mapped.signed = signedRaw.trim().toLowerCase() === "true";
   }
 
   return mapped;
@@ -1576,6 +1604,22 @@ function deriveBaseState(
     document?.contractStartDate ?? getString(raw["startDate"]);
   const contractEndDateDefault =
     document?.contractEndDate ?? getString(raw["endDate"]);
+
+  const signed = (() => {
+    if (typeof document?.signed === "boolean") {
+      return document.signed;
+    }
+    const rawSigned = raw["signed"];
+    if (typeof rawSigned === "boolean") {
+      return rawSigned;
+    }
+    if (typeof rawSigned === "string" && rawSigned.trim()) {
+      const normalized = rawSigned.trim().toLowerCase();
+      if (normalized === "true") return true;
+      if (normalized === "false") return false;
+    }
+    return Boolean(contractSignedAtDefault);
+  })();
 
   const startMonthName = formatMonthName(contractStartDateDefault);
   const invoiceMonthModeRaw = getString(raw["invoiceMonthMode"]);
@@ -1723,6 +1767,7 @@ function deriveBaseState(
     contractSignedAt: contractSignedAtDefault,
     contractStartDate: contractStartDateDefault,
     contractEndDate: contractEndDateDefault,
+    signed,
     assetName:
       document?.assetName ?? resolvedAsset?.name ?? getString(raw["asset"]),
     assetAddress:
@@ -2217,6 +2262,18 @@ export default function WrittenContractForm({
       }
     };
 
+  const onCheckboxChange =
+    (key: "signed") => (event: ChangeEvent<HTMLInputElement>) => {
+      const checked = event.target.checked;
+      setState((prev) => {
+        const next = { ...prev, [key]: checked } as EditorState;
+        if (!bodyDirtyRef.current) {
+          next.body = createTemplateBody(next);
+        }
+        return next;
+      });
+    };
+
   const payload = useMemo(
     () => ({
       id: state.id,
@@ -2227,6 +2284,7 @@ export default function WrittenContractForm({
       contractSignedAt: state.contractSignedAt,
       contractStartDate: state.contractStartDate,
       contractEndDate: state.contractEndDate,
+      signed: state.signed,
       assetName: state.assetName,
       assetAddress: state.assetAddress,
       spaceSurface: state.spaceSurface,
@@ -2867,6 +2925,20 @@ export default function WrittenContractForm({
                 onChange={onFieldChange("contractSignedAt")}
                 className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-foreground/70">
+                <input
+                  type="checkbox"
+                  checked={state.signed}
+                  onChange={onCheckboxChange("signed")}
+                  className="h-4 w-4 rounded border border-foreground/30 bg-transparent"
+                />
+                Contract semnat
+              </label>
+              <p className="text-[11px] text-foreground/60">
+                Marchează dacă documentul are toate semnăturile necesare.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">

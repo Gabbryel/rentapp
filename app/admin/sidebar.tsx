@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { href: "/admin/owners", label: "Proprietari" },
   { href: "/admin/invoices", label: "Facturi" },
   { href: "/admin/assets", label: "Assets" },
+  { href: "/admin/inflation", label: "Inflație" },
   { href: "/admin/users", label: "Utilizatori" },
   { href: "/admin/invites", label: "Invitații" },
   { href: "/admin/notifications", label: "Notificări" },
