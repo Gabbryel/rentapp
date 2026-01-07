@@ -1069,6 +1069,12 @@ export async function updateContractsExchangeRate(newRate: number, onlyActive = 
 // Invoices logic (moved from lib/invoices.ts)
 // =============================================================
 
+const INVOICE_MONGO_CONFIGURED = Boolean(process.env.MONGODB_URI);
+// In production with Mongo configured, never fall back to local JSON for invoices.
+// Mixing stores can make invoices appear to "roll back" when a transient DB error occurs.
+const ALLOW_INVOICE_LOCAL_FALLBACK =
+  !INVOICE_MONGO_CONFIGURED || process.env.NODE_ENV !== "production";
+
 export async function createInvoice(inv: Invoice) {
   InvoiceSchema.parse(inv);
   if (!process.env.MONGODB_URI) {
@@ -1083,7 +1089,7 @@ export async function createInvoice(inv: Invoice) {
 }
 
 export async function fetchInvoicesByContract(contractId: string): Promise<Invoice[]> {
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all.filter((x) => x.contractId === contractId).sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
   }
@@ -1095,7 +1101,8 @@ export async function fetchInvoicesByContract(contractId: string): Promise<Invoi
       .sort({ issuedAt: 1 })
       .toArray();
     return docs.map((d) => InvoiceSchema.parse(d));
-  } catch {
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all.filter((x) => x.contractId === contractId).sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
   }
@@ -1113,7 +1120,7 @@ export async function fetchInvoicesByPartner(partnerId: string): Promise<Invoice
 }
 
 export async function fetchInvoiceById(id: string): Promise<Invoice | null> {
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find((x) => x.id === id);
     return found ? InvoiceSchema.parse(found) : null;
@@ -1122,7 +1129,8 @@ export async function fetchInvoiceById(id: string): Promise<Invoice | null> {
     const db = await getDb();
     const doc = await db.collection<Invoice>("invoices").findOne({ id }, { projection: { _id: 0 } });
     return doc ? InvoiceSchema.parse(doc) : null;
-  } catch {
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find((x) => x.id === id);
     return found ? InvoiceSchema.parse(found) : null;
@@ -1758,13 +1766,15 @@ export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice>
     if (dupe) return dupe;
   } catch {}
   // Persist invoice, generate PDF, save PDF, update invoice with url
-  let useMongo = Boolean(process.env.MONGODB_URI);
+  let useMongo = INVOICE_MONGO_CONFIGURED;
   let db: Awaited<ReturnType<typeof getDb>> | null = null;
   if (useMongo) {
     try {
       db = await getDb();
-    } catch {
-      // Fallback to local store when DB is not reachable
+    } catch (error) {
+      // In production, never silently fall back to local store when Mongo is configured.
+      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
+      // Dev-only fallback to local store when DB is not reachable
       useMongo = false;
       db = null;
     }
@@ -1822,7 +1832,7 @@ export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice>
 }
 
 export async function listInvoicesForContract(contractId: string): Promise<Invoice[]> {
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   }
@@ -1834,7 +1844,8 @@ export async function listInvoicesForContract(contractId: string): Promise<Invoi
       .sort({ issuedAt: -1 })
       .toArray();
     return docs.map((d) => InvoiceSchema.parse(d));
-  } catch {
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   }
@@ -1845,7 +1856,7 @@ export async function findInvoiceByContractAndDate(
   contractId: string,
   issuedAt: string
 ): Promise<Invoice | null> {
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
     return found ? InvoiceSchema.parse(found) : null;
@@ -1856,7 +1867,8 @@ export async function findInvoiceByContractAndDate(
       .collection<Invoice>("invoices")
       .findOne({ contractId, issuedAt }, { projection: { _id: 0 } });
     return doc ? InvoiceSchema.parse(doc) : null;
-  } catch {
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
     return found ? InvoiceSchema.parse(found) : null;
@@ -1870,7 +1882,7 @@ export async function findInvoiceByContractPartnerAndDate(
   issuedAt: string
 ): Promise<Invoice | null> {
   const partnerKey = String(partnerIdOrName || "");
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find(
       (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
@@ -1886,7 +1898,8 @@ export async function findInvoiceByContractPartnerAndDate(
         { projection: { _id: 0 } }
       );
     return doc ? InvoiceSchema.parse(doc) : null;
-  } catch {
+    } catch (error) {
+      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     const found = all.find(
       (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
@@ -1905,7 +1918,7 @@ export async function listInvoicesForMonth(year: number, month: number): Promise
   const nextYear = month === 12 ? year + 1 : year;
   const endExclusive = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
 
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all
       .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
@@ -1919,7 +1932,8 @@ export async function listInvoicesForMonth(year: number, month: number): Promise
       .sort({ issuedAt: 1 })
       .toArray();
     return docs.map((d) => InvoiceSchema.parse(d));
-  } catch {
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     const all = await readJson<Invoice[]>("invoices.json", []);
     return all
       .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
@@ -1944,7 +1958,7 @@ export async function fetchInvoicesForYear(year: number): Promise<Invoice[]> {
   const start = `${String(year).padStart(4, "0")}-01-01`;
   const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
   let data: Invoice[] = [];
-  if (!process.env.MONGODB_URI) {
+  if (!INVOICE_MONGO_CONFIGURED) {
     const all = await readJson<Invoice[]>("invoices.json", []);
     data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
   } else {
@@ -1958,7 +1972,8 @@ export async function fetchInvoicesForYear(year: number): Promise<Invoice[]> {
         )
         .toArray();
       data = docs.map((d) => InvoiceSchema.parse(d));
-    } catch {
+    } catch (error) {
+      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
       const all = await readJson<Invoice[]>("invoices.json", []);
       data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
     }
