@@ -4,6 +4,10 @@ import {
   effectiveEndDate,
   rentAmountAtDate,
 } from "@/lib/contracts";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Directly import the client component; Next.js will handle the client/server boundary.
 // (Avoid dynamic(... { ssr:false }) in a Server Component – not permitted in Next 15.)
 import Link from "next/link";
