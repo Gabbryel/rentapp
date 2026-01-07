@@ -352,6 +352,14 @@ export default async function HomePage({
     }
   }
 
+  // Count how many due items exist per (contractId, issuedAt) base key.
+  // Used to avoid ambiguous "base key" matching for multi-partner invoices.
+  const dueCountsByBase = new Map<string, number>();
+  for (const item of due) {
+    const baseKey = makeIssuedKey(item.contract.id, item.issuedAt, "");
+    dueCountsByBase.set(baseKey, (dueCountsByBase.get(baseKey) ?? 0) + 1);
+  }
+
   async function issueDue(formData: FormData) {
     "use server";
 
@@ -975,10 +983,10 @@ export default async function HomePage({
                         d.issuedAt,
                         ""
                       );
-                      const baseCount = issuedCountsByBase.get(baseKey) ?? 0;
+                      const dueBaseCount = dueCountsByBase.get(baseKey) ?? 0;
                       if (
                         issuedByKey.has(baseKey) &&
-                        (!hasSpecificToken || baseCount === 1)
+                        (!hasSpecificToken || dueBaseCount === 1)
                       ) {
                         matchingKey = baseKey;
                       }
