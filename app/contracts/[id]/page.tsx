@@ -3347,7 +3347,7 @@ export default async function ContractPage({
                   </div>
                 ) : (
                   <div className="space-y-3 text-xs">
-                    {indexingNotices.map((notice) => {
+                    {indexingNotices.map((notice: any) => {
                       const meta = (notice as any).meta || {};
                       const issuedAt = notice.at
                         ? fmt(new Date(notice.at).toISOString().slice(0, 10))
