@@ -16,8 +16,12 @@ export default function AssetScans({
   scans: { url: string; title?: string }[];
   assetName: string;
   assetId?: string;
-  editScanAction?: (formData: FormData) => Promise<{ ok: boolean; message?: string }>;
-  deleteScanAction?: (formData: FormData) => Promise<{ ok: boolean; message?: string }>;
+  editScanAction?: (
+    formData: FormData
+  ) => Promise<{ ok: boolean; message?: string }>;
+  deleteScanAction?: (
+    formData: FormData
+  ) => Promise<{ ok: boolean; message?: string }>;
 }) {
   const router = useRouter();
   const [openIdx, setOpenIdx] = React.useState<number | null>(null);
@@ -92,7 +96,13 @@ export default function AssetScans({
                   </svg>
                 </IconButton>
                 {editScanAction && assetId && (
-                  <IconButton ariaLabel="Editează" onClick={() => { setEditingIdx(editingIdx === idx ? null : idx); setEditTitle(s.title || ""); }}>
+                  <IconButton
+                    ariaLabel="Editează"
+                    onClick={() => {
+                      setEditingIdx(editingIdx === idx ? null : idx);
+                      setEditTitle(s.title || "");
+                    }}
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -110,7 +120,10 @@ export default function AssetScans({
                   </IconButton>
                 )}
                 {deleteScanAction && assetId && (
-                  <IconButton ariaLabel="Șterge" onClick={() => setDeletingIdx(idx)}>
+                  <IconButton
+                    ariaLabel="Șterge"
+                    onClick={() => setDeletingIdx(idx)}
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -130,7 +143,7 @@ export default function AssetScans({
                 )}
               </div>
             </div>
-            
+
             {/* Inline Edit Form */}
             {editingIdx === idx && editScanAction && assetId && (
               <div className="border-t border-foreground/10 px-3 py-3 bg-foreground/5">
@@ -154,7 +167,10 @@ export default function AssetScans({
                   <input type="hidden" name="id" value={assetId} />
                   <input type="hidden" name="index" value={String(idx)} />
                   <div>
-                    <label htmlFor={`scanTitle-${idx}`} className="block text-xs font-medium mb-1">
+                    <label
+                      htmlFor={`scanTitle-${idx}`}
+                      className="block text-xs font-medium mb-1"
+                    >
                       Titlu
                     </label>
                     <input
@@ -171,7 +187,10 @@ export default function AssetScans({
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => { setEditingIdx(null); setEditTitle(""); }}
+                      onClick={() => {
+                        setEditingIdx(null);
+                        setEditTitle("");
+                      }}
                       className="rounded-md border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
                     >
                       Anulează
@@ -250,50 +269,51 @@ export default function AssetScans({
         ))}
       </div>
 
-      {/* Delete Modal */
+      {/* Delete Modal */}
       <Modal
         open={deletingIdx !== null}
         onClose={() => setDeletingIdx(null)}
         title="Șterge scan"
       >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (deleteScanAction && assetId) {
-                const formData = new FormData(e.currentTarget);
-                const res = await deleteScanAction(formData);
-                if (res.ok) {
-                  setDeletingIdx(null);
-                  router.refresh();
-                } else if (res.message) {
-                  alert(res.message);
-                }
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (deleteScanAction && assetId) {
+              const formData = new FormData(e.currentTarget);
+              const res = await deleteScanAction(formData);
+              if (res.ok) {
+                setDeletingIdx(null);
+                router.refresh();
+              } else if (res.message) {
+                alert(res.message);
               }
-            }}
-            className="space-y-4"
-          >
-            <input type="hidden" name="id" value={assetId} />
-            <input type="hidden" name="index" value={String(deletingIdx)} />
-            <p className="text-sm text-foreground/80">
-              Ești sigur că vrei să ștergi acest scan? Această acțiune nu poate fi anulată.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeletingIdx(null)}
-                className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/5"
-              >
-                Anulează
-              </button>
-              <button
-                type="submit"
-                className="rounded-md bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
-              >
-                Șterge
-              </button>
-            </div>
-          </form>
-        </Modal>
+            }
+          }}
+          className="space-y-4"
+        >
+          <input type="hidden" name="id" value={assetId} />
+          <input type="hidden" name="index" value={String(deletingIdx)} />
+          <p className="text-sm text-foreground/80">
+            Ești sigur că vrei să ștergi acest scan? Această acțiune nu poate fi
+            anulată.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setDeletingIdx(null)}
+              className="rounded-md border border-foreground/20 px-3 py-2 text-sm hover:bg-foreground/5"
+            >
+              Anulează
+            </button>
+            <button
+              type="submit"
+              className="rounded-md bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
+            >
+              Șterge
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
