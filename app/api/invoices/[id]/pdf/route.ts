@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { renderInvoicePdf, fetchInvoiceById, computeInvoiceFromContract } from "@/lib/invoices";
+import { renderInvoicePdf, fetchInvoiceById, computeInvoiceFromContract } from "@/lib/contracts";
 import { fetchContractById } from "@/lib/contracts";
 import { saveBufferAsUpload } from "@/lib/storage";
 import { getDb } from "@/lib/mongodb";

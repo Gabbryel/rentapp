@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/mongodb";
+import { normalizeIsoDate } from "@/lib/utils/date";
 
 type RateDoc = {
   key: "EURRON";
@@ -71,17 +72,6 @@ export async function getDailyEurRon(options?: { forceRefresh?: boolean }) {
   memCache.set(requestedDate, { rate, date });
   if (date !== requestedDate) memCache.set(date, { rate, date });
   return { rate, date, source: "bnr" as const };
-}
-
-function normalizeIsoDate(input: string | null | undefined): string | null {
-  if (!input) return null;
-  const raw = String(input).trim();
-  if (!raw) return null;
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export async function getEurRonForDate(

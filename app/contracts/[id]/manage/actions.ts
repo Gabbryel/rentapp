@@ -16,11 +16,7 @@ import {
 } from "@/lib/deposits";
 import { logAction } from "@/lib/audit";
 import { publishToast } from "@/lib/sse";
-
-function normalizeIsoDate(value: unknown): string | null {
-  const s = String(value ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
-}
+import { normalizeIsoDate } from "@/lib/utils/date";
 
 function latestWrittenContractEnd(writtenContracts: WrittenContract[]): string | null {
   const ends = writtenContracts

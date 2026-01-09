@@ -5,7 +5,7 @@ import { sendMail } from "@/lib/email";
 // Twilio SMS: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, TWILIO_TO (comma-separated recipients)
 // Signal (via signal-cli REST API): SIGNAL_REST_URL, SIGNAL_FROM, SIGNAL_TO (comma-separated recipients)
 
-export async function deliverEmail(to: string[] | string, subject: string, text: string) {
+async function deliverEmail(to: string[] | string, subject: string, text: string) {
   try {
     await sendMail({ to, subject, text });
   } catch (e) {
@@ -13,7 +13,7 @@ export async function deliverEmail(to: string[] | string, subject: string, text:
   }
 }
 
-export async function deliverSlack(text: string) {
+async function deliverSlack(text: string) {
   const url = process.env.SLACK_WEBHOOK_URL;
   if (!url) return;
   try {
@@ -23,7 +23,7 @@ export async function deliverSlack(text: string) {
   }
 }
 
-export async function deliverSms(text: string) {
+async function deliverSms(text: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM;
@@ -47,7 +47,7 @@ export async function deliverSms(text: string) {
   }
 }
 
-export async function deliverSignal(text: string) {
+async function deliverSignal(text: string) {
   const base = process.env.SIGNAL_REST_URL; // e.g. http://localhost:8080
   const from = process.env.SIGNAL_FROM; // signal number
   const toList = (process.env.SIGNAL_TO || "").split(",").map((s) => s.trim()).filter(Boolean);

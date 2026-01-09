@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { escapeHtml } from "@/lib/utils/html";
 
 export type IndexingNoticePrintable = {
   id?: string;
@@ -26,15 +27,6 @@ export type IndexingNoticePrintable = {
   }>;
 };
 
-function escapeHtml(input: unknown) {
-  const s = String(input ?? "");
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 function fmtDate(dateIso?: string) {
   if (!dateIso) return "";
   const d = new Date(`${dateIso.slice(0, 10)}T00:00:00Z`);

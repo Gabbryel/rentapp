@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchContracts, effectiveEndDate, currentRentAmount, rentAmountAtDate } from "@/lib/contracts";
-import { fetchInvoicesForYearFresh } from "@/lib/invoices";
+import { fetchInvoicesForYearFresh } from "@/lib/contracts";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
 import type { Invoice } from "@/lib/schemas/invoice";

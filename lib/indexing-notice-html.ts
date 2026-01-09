@@ -2,15 +2,7 @@
  * Server-side utility to generate indexing notice HTML
  */
 
-function escapeHtml(input: unknown) {
-  const s = String(input ?? "");
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+import { escapeHtml } from "@/lib/utils/html";
 
 function fmtDate(dateIso?: string) {
   if (!dateIso) return "";

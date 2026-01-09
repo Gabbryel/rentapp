@@ -43,7 +43,7 @@ import {
   deleteInvoiceById,
   updateInvoiceNumber,
   invalidateYearInvoicesCache,
-} from "@/lib/invoices";
+} from "@/lib/contracts";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import {
   createDeposit,
@@ -53,15 +53,8 @@ import {
   toggleDepositDeposited,
 } from "@/lib/deposits";
 import { publishToast } from "@/lib/sse";
-
-function escapeHtml(input: unknown) {
-  return String(input ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from "@/lib/utils/html";
+import { normalizeIsoDate } from "@/lib/utils/date";
 
 function toEmailHtmlParagraphs(text: string) {
   const normalized = String(text ?? "").replace(/\r\n/g, "\n");
@@ -72,11 +65,6 @@ function toEmailHtmlParagraphs(text: string) {
     return `<p style="margin:0 0 12px 0;">${withBreaks}</p>`;
   });
   return paragraphs.join("");
-}
-
-function normalizeIsoDate(value: unknown): string | null {
-  const s = String(value ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
 function latestWrittenContractEnd(

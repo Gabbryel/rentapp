@@ -201,7 +201,7 @@ export async function sendMail({ to, subject, text, html, attachments }: Mail): 
     rejected: [...(result.rejected as string[]), ...invalidEmails.map(r => r.email)],
     response: result.response,
     messageId: result.messageId,
-    envelope: result.envelope,
+    envelope: result.envelope as { from: string; to: string[] },
     smtpServer,
     smtpPort,
     smtpSecure,

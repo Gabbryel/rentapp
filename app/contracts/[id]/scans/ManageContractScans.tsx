@@ -557,12 +557,11 @@ export default function ManageContractScans({
                                     </button>
                                   </form>
                                 )}
-                              {(meta.appliedManually ||
-                                meta.appliedIndexing) && (
+                              {meta.appliedManually || meta.appliedIndexing ? (
                                 <span className="text-xs text-green-400">
                                   ✓ Aplicat
                                 </span>
-                              )}
+                              ) : null}
                               {deleteIndexingNoticeAction && (
                                 <button
                                   type="button"

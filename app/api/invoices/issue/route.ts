@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchContractById } from "@/lib/contracts";
-import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/invoices";
+import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/contracts";
 import { resolveBilledPeriodDate } from "@/lib/contracts";
 
 export async function POST(req: Request) {

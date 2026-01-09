@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { escapeHtml } from "@/lib/utils/html";
 import {
   useActionState,
   useCallback,
@@ -260,15 +261,6 @@ function formatSurfaceMp(value: number): string {
     minimumFractionDigits: isInteger ? 0 : 2,
     maximumFractionDigits: isInteger ? 0 : 2,
   })} mp`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function normalizeHtml(value: string): string {

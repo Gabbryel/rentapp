@@ -21,7 +21,7 @@ import {
   listInvoicesForMonth,
   deleteInvoiceById,
   invalidateYearInvoicesCache,
-} from "@/lib/invoices";
+} from "@/lib/contracts";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import { resolveBilledPeriodDate } from "@/lib/contracts";
 import ConfirmSubmit from "@/app/components/confirm-submit";
@@ -362,7 +362,6 @@ export default async function HomePage({
 
   async function issueDue(formData: FormData) {
     "use server";
-
     const contractIdRaw = formData.get("contractId");
     const issuedAtRaw = formData.get("issuedAt");
     const partnerIdRaw = formData.get("partnerId");

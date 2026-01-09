@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchInvoiceById, computeInvoiceFromContract } from "@/lib/invoices";
+import { fetchInvoiceById, computeInvoiceFromContract } from "@/lib/contracts";
 import { fetchContractById } from "@/lib/contracts";
 
 function fmtEUR(n: number) {
