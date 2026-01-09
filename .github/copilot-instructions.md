@@ -57,3 +57,7 @@ This is a Next.js 15 app-router project for managing rental contracts and invoic
 - Tests: many `lib/**` functions accept an injected DB (e.g., `fetchContractsByAssetId(assetId, injectedDb)`).
 
 Questions or gaps (e.g., invoice numbering nuances, new API routes, or edge-cases around advance billing)? Ask and we’ll expand these notes.
+
+## Copilot instructions for this repo
+
+Ask yourself if you understand the task! If not, ask for clarification.

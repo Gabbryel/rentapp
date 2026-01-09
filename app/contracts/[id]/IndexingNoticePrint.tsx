@@ -8,6 +8,22 @@ export type IndexingNoticePrintable = {
   meta?: Record<string, unknown> | null;
   userEmail?: string | null;
   contractName?: string;
+  sendHistory?: Array<{
+    sentAt: string;
+    to: string;
+    subject?: string;
+    validFrom?: string;
+    newRentEUR?: number;
+    deltaPercent?: number;
+    messageId?: string;
+    serverResponse?: string;
+    accepted?: string[];
+    rejected?: string[];
+    smtpServer?: string;
+    smtpPort?: number;
+    smtpSecure?: boolean;
+    smtpUser?: string;
+  }>;
 };
 
 function escapeHtml(input: unknown) {
@@ -157,6 +173,152 @@ ${ownerName}`;
 
     const title = `Notificare indexare – ${notice.contractName || ""}`.trim();
 
+    // Build delivery information section
+    const sendHistoryHtml =
+      notice.sendHistory && notice.sendHistory.length > 0
+        ? `
+      <div class="delivery-section">
+        <h3>Informații despre livrare</h3>
+        ${notice.sendHistory
+          .map((send, idx) => {
+            const sentDate = new Date(send.sentAt);
+            const sentFormatted = sentDate.toLocaleString("ro-RO", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            });
+
+            return `
+          <div class="delivery-entry">
+            <div class="delivery-header">Trimitere #${idx + 1} – ${escapeHtml(
+              sentFormatted
+            )}</div>
+            <div class="delivery-grid">
+              <div class="delivery-row">
+                <span class="label">Destinatar:</span>
+                <span class="value">${escapeHtml(send.to)}</span>
+              </div>
+              ${
+                send.subject
+                  ? `
+              <div class="delivery-row">
+                <span class="label">Subiect:</span>
+                <span class="value">${escapeHtml(send.subject)}</span>
+              </div>`
+                  : ""
+              }
+              ${
+                send.validFrom
+                  ? `
+              <div class="delivery-row">
+                <span class="label">Valabil de la:</span>
+                <span class="value">${escapeHtml(send.validFrom)}</span>
+              </div>`
+                  : ""
+              }
+              ${
+                send.newRentEUR
+                  ? `
+              <div class="delivery-row">
+                <span class="label">Chirie nouă:</span>
+                <span class="value">${send.newRentEUR.toFixed(2)} EUR</span>
+              </div>`
+                  : ""
+              }
+              ${
+                send.deltaPercent
+                  ? `
+              <div class="delivery-row">
+                <span class="label">Procent indexare:</span>
+                <span class="value">+${send.deltaPercent.toFixed(2)}%</span>
+              </div>`
+                  : ""
+              }
+            </div>
+            
+            ${
+              send.smtpServer || send.messageId || send.serverResponse
+                ? `
+            <div class="server-section">
+              <div class="server-header">Detalii tehnice server</div>
+              <div class="delivery-grid">
+                ${
+                  send.smtpServer
+                    ? `
+                <div class="delivery-row">
+                  <span class="label">Server SMTP:</span>
+                  <span class="value mono">${escapeHtml(send.smtpServer)}:${
+                        send.smtpPort
+                      }${send.smtpSecure ? " (SSL)" : ""}</span>
+                </div>`
+                    : ""
+                }
+                ${
+                  send.smtpUser
+                    ? `
+                <div class="delivery-row">
+                  <span class="label">Utilizator:</span>
+                  <span class="value mono">${escapeHtml(send.smtpUser)}</span>
+                </div>`
+                    : ""
+                }
+                ${
+                  send.messageId
+                    ? `
+                <div class="delivery-row">
+                  <span class="label">Message ID:</span>
+                  <span class="value mono small">${escapeHtml(
+                    send.messageId
+                  )}</span>
+                </div>`
+                    : ""
+                }
+                ${
+                  send.accepted && send.accepted.length > 0
+                    ? `
+                <div class="delivery-row">
+                  <span class="label success">✓ Acceptat:</span>
+                  <span class="value mono">${escapeHtml(
+                    send.accepted.join(", ")
+                  )}</span>
+                </div>`
+                    : ""
+                }
+                ${
+                  send.rejected && send.rejected.length > 0
+                    ? `
+                <div class="delivery-row">
+                  <span class="label error">✗ Respins:</span>
+                  <span class="value mono">${escapeHtml(
+                    send.rejected.join(", ")
+                  )}</span>
+                </div>`
+                    : ""
+                }
+                ${
+                  send.serverResponse
+                    ? `
+                <div class="delivery-row">
+                  <span class="label">Răspuns server:</span>
+                  <span class="value mono small">${escapeHtml(
+                    send.serverResponse
+                  )}</span>
+                </div>`
+                    : ""
+                }
+              </div>
+            </div>`
+                : ""
+            }
+          </div>`;
+          })
+          .join("")}
+      </div>`
+        : "";
+
     return `<!DOCTYPE html>
 <html>
   <head>
@@ -175,6 +337,83 @@ ${ownerName}`;
       .wrap { max-width: 820px; margin: 0 auto; }
       .doc { white-space: pre-wrap; font-size: 14px; line-height: 1.55; }
       .meta { margin-top: 14px; font-size: 12px; color: #6b7280; }
+      
+      .delivery-section {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 2px solid #e5e7eb;
+      }
+      .delivery-section h3 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #374151;
+      }
+      .delivery-entry {
+        margin-bottom: 20px;
+        padding: 16px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        page-break-inside: avoid;
+      }
+      .delivery-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .delivery-grid {
+        display: grid;
+        gap: 8px;
+      }
+      .delivery-row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 12px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .label {
+        font-weight: 500;
+        color: #6b7280;
+      }
+      .label.success {
+        color: #059669;
+      }
+      .label.error {
+        color: #dc2626;
+      }
+      .value {
+        color: #111827;
+        word-break: break-word;
+      }
+      .value.mono {
+        font-family: 'Courier New', monospace;
+      }
+      .value.small {
+        font-size: 10px;
+      }
+      .server-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px dashed #d1d5db;
+      }
+      .server-header {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7280;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      @media print {
+        body { padding: 16px; }
+        .delivery-entry { page-break-inside: avoid; }
+      }
     </style>
   </head>
   <body>
@@ -183,6 +422,7 @@ ${ownerName}`;
       <div class="meta">Perioadă: ${escapeHtml(fromMonth)} → ${escapeHtml(
       toMonth
     )}</div>
+      ${sendHistoryHtml}
     </div>
   </body>
 </html>`;

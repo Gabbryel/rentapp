@@ -131,6 +131,39 @@ export async function deleteScanByUrl(url?: string | null) {
   return { deleted: false as const, reason: "external-or-unsupported" as const };
 }
 
+export async function getFileSizeByUrl(url?: string | null): Promise<number | null> {
+  if (!url) return null;
+  
+  if (url.startsWith("/api/uploads/")) {
+    // GridFS-backed
+    const id = url.replace("/api/uploads/", "").split(/[?#]/)[0];
+    try {
+      const db = await getDb();
+      const bucket = new GridFSBucket(db, { bucketName: "uploads" });
+      const files = await bucket.find({ _id: new ObjectId(id) }).toArray();
+      if (files.length > 0 && files[0].length) {
+        return files[0].length;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+  
+  if (url.startsWith("/uploads/")) {
+    try {
+      const rel = url.replace(/^\//, "");
+      const filePath = path.join(process.cwd(), "public", rel);
+      const stats = await fs.stat(filePath);
+      return stats.size;
+    } catch {
+      return null;
+    }
+  }
+  
+  return null;
+}
+
 function inferExt(mime: string | null | undefined): string | null {
   if (!mime) return null;
   switch (mime) {

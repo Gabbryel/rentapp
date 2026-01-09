@@ -142,7 +142,7 @@ ${ownerName}`;
 
 type Props = {
   id: string;
-  scans: { url: string; title?: string }[];
+  scans: { url: string; title?: string; fileSize?: number | null }[];
   mongoConfigured: boolean;
   rentType?: "monthly" | "yearly";
   irregularInvoices?: { month: number; day: number; amountEUR: number }[];
@@ -189,6 +189,7 @@ type Props = {
   deleteIndexingNoticeAction?: (formData: FormData) => Promise<void>;
   sendIndexingNoticeEmailAction?: (formData: FormData) => Promise<void>;
   sendIndexingNoticeToAdminsAction?: (formData: FormData) => Promise<void>;
+  applyIndexingNoticeAction?: (formData: FormData) => Promise<void>;
   updateNextIndexingDateAction?: (formData: FormData) => Promise<void>;
   saveEditedNotificationAction?: (formData: FormData) => Promise<void>;
   nextIndexingDate?: string;
@@ -234,6 +235,7 @@ export default function ManageContractScans({
   deleteIndexingNoticeAction,
   sendIndexingNoticeEmailAction,
   sendIndexingNoticeToAdminsAction,
+  applyIndexingNoticeAction,
   updateNextIndexingDateAction,
   saveEditedNotificationAction,
   nextIndexingDate,
@@ -429,6 +431,7 @@ export default function ManageContractScans({
                       : "";
                     const fromMonth = String(meta.fromMonth || meta.from || "");
                     const toMonth = String(meta.toMonth || meta.to || "");
+                    const validFrom = String(meta.validFrom || "");
                     const deltaPercent =
                       typeof meta.deltaPercent === "number"
                         ? meta.deltaPercent
@@ -524,6 +527,42 @@ export default function ManageContractScans({
                               >
                                 Print
                               </button>
+                              {applyIndexingNoticeAction &&
+                                !meta.appliedManually &&
+                                !meta.appliedIndexing && (
+                                  <form
+                                    action={applyIndexingNoticeAction}
+                                    style={{ display: "inline" }}
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="noticeId"
+                                      value={noticeId}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="contractId"
+                                      value={id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="validFrom"
+                                      value={validFrom}
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="text-xs text-blue-300 underline-offset-2 hover:underline"
+                                    >
+                                      Validează
+                                    </button>
+                                  </form>
+                                )}
+                              {(meta.appliedManually ||
+                                meta.appliedIndexing) && (
+                                <span className="text-xs text-green-400">
+                                  ✓ Aplicat
+                                </span>
+                              )}
                               {deleteIndexingNoticeAction && (
                                 <button
                                   type="button"
@@ -545,39 +584,216 @@ export default function ManageContractScans({
                           {/* Send History */}
                           {Array.isArray((notice as any).sendHistory) &&
                             (notice as any).sendHistory.length > 0 && (
-                              <div className="mt-2 rounded border border-white/10 bg-white/5 px-2 py-2">
-                                <div className="text-[10px] font-semibold uppercase tracking-wide text-white/40 mb-1.5">
+                              <details className="mt-2 rounded border border-white/10 bg-white/5 px-2 py-2">
+                                <summary className="text-[10px] font-semibold uppercase tracking-wide text-white/40 mb-1.5 cursor-pointer hover:text-white/60">
                                   Istoric trimiteri (
                                   {(notice as any).sendHistory.length})
-                                </div>
-                                <div className="space-y-1">
+                                </summary>
+                                <div className="space-y-2 mt-1.5">
                                   {(notice as any).sendHistory.map(
                                     (send: any, idx: number) => (
                                       <div
                                         key={idx}
-                                        className="flex items-center justify-between text-xs text-white/70"
+                                        className="rounded border border-white/5 bg-white/[0.02] p-2 space-y-1.5"
                                       >
-                                        <span className="truncate flex-1 mr-2">
-                                          {send.to}
-                                        </span>
-                                        <span className="text-[11px] text-white/50 shrink-0">
-                                          {send.sentAt
-                                            ? new Date(
-                                                send.sentAt
-                                              ).toLocaleString("ro-RO", {
-                                                year: "numeric",
-                                                month: "2-digit",
-                                                day: "2-digit",
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                              })
-                                            : "—"}
-                                        </span>
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="flex-1 min-w-0 space-y-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-medium text-white/80 truncate">
+                                                {send.to}
+                                              </span>
+                                              <span className="text-[10px] text-white/40 shrink-0">
+                                                {send.sentAt
+                                                  ? new Date(
+                                                      send.sentAt
+                                                    ).toLocaleString("ro-RO", {
+                                                      year: "numeric",
+                                                      month: "2-digit",
+                                                      day: "2-digit",
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                    })
+                                                  : "—"}
+                                              </span>
+                                            </div>
+                                            {send.subject && (
+                                              <div className="text-[11px] text-white/60 truncate">
+                                                {send.subject}
+                                              </div>
+                                            )}
+                                            {(send.validFrom ||
+                                              send.newRentEUR ||
+                                              send.deltaPercent) && (
+                                              <div className="flex flex-wrap gap-2 text-[10px] text-white/50">
+                                                {send.validFrom && (
+                                                  <span>
+                                                    Valabil: {send.validFrom}
+                                                  </span>
+                                                )}
+                                                {send.newRentEUR && (
+                                                  <span>
+                                                    Chirie: {send.newRentEUR}{" "}
+                                                    EUR
+                                                  </span>
+                                                )}
+                                                {send.deltaPercent && (
+                                                  <span>
+                                                    +
+                                                    {send.deltaPercent.toFixed(
+                                                      2
+                                                    )}
+                                                    %
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
+                                            {/* Server delivery information */}
+                                            {(send.smtpServer ||
+                                              send.messageId ||
+                                              send.serverResponse) && (
+                                              <details className="text-[10px] text-white/40 mt-1">
+                                                <summary className="cursor-pointer hover:text-white/60">
+                                                  Detalii server
+                                                </summary>
+                                                <div className="mt-1 space-y-0.5 pl-2 border-l border-white/10">
+                                                  {send.smtpServer && (
+                                                    <div>
+                                                      <span className="text-white/30">
+                                                        Server:{" "}
+                                                      </span>
+                                                      <span className="font-mono">
+                                                        {send.smtpServer}:
+                                                        {send.smtpPort}
+                                                      </span>
+                                                      {send.smtpSecure && (
+                                                        <span className="text-emerald-400 ml-1">
+                                                          (SSL)
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  {send.smtpUser && (
+                                                    <div>
+                                                      <span className="text-white/30">
+                                                        User:{" "}
+                                                      </span>
+                                                      <span className="font-mono">
+                                                        {send.smtpUser}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {send.messageId && (
+                                                    <div>
+                                                      <span className="text-white/30">
+                                                        Message ID:{" "}
+                                                      </span>
+                                                      <span className="font-mono text-[9px] break-all">
+                                                        {send.messageId}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {send.accepted &&
+                                                    send.accepted.length >
+                                                      0 && (
+                                                      <div>
+                                                        <span className="text-emerald-400">
+                                                          ✓ Acceptat:{" "}
+                                                        </span>
+                                                        <span className="font-mono">
+                                                          {send.accepted.join(
+                                                            ", "
+                                                          )}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  {send.rejected &&
+                                                    send.rejected.length >
+                                                      0 && (
+                                                      <div>
+                                                        <span className="text-red-400">
+                                                          ✗ Respins:{" "}
+                                                        </span>
+                                                        <span className="font-mono">
+                                                          {send.rejected.join(
+                                                            ", "
+                                                          )}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  {(send as any)
+                                                    .preValidationFailures &&
+                                                    (send as any)
+                                                      .preValidationFailures
+                                                      .length > 0 && (
+                                                      <div className="mt-1 p-1 bg-red-500/10 rounded border border-red-500/20">
+                                                        <div className="text-red-400 text-[9px] font-semibold mb-0.5">
+                                                          ⚠ Validare DNS eșuată:
+                                                        </div>
+                                                        {(
+                                                          (send as any)
+                                                            .preValidationFailures as string[]
+                                                        ).map(
+                                                          (
+                                                            failure: string,
+                                                            idx: number
+                                                          ) => (
+                                                            <div
+                                                              key={idx}
+                                                              className="text-red-300 text-[9px] font-mono"
+                                                            >
+                                                              {failure}
+                                                            </div>
+                                                          )
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  {send.serverResponse && (
+                                                    <div>
+                                                      <span className="text-white/30">
+                                                        Răspuns:{" "}
+                                                      </span>
+                                                      <span className="font-mono text-[9px]">
+                                                        {send.serverResponse}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </details>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setViewingNoticeId(noticeId);
+                                              }}
+                                              className="rounded px-2 py-1 text-[10px] text-blue-300 hover:bg-blue-500/10"
+                                              title="Vizualizează"
+                                            >
+                                              Vizualizează
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setViewingNoticeId(noticeId);
+                                                setTimeout(
+                                                  () =>
+                                                    printRef.current?.triggerPrint(),
+                                                  100
+                                                );
+                                              }}
+                                              className="rounded px-2 py-1 text-[10px] text-green-300 hover:bg-green-500/10"
+                                              title="Print"
+                                            >
+                                              Print
+                                            </button>
+                                          </div>
+                                        </div>
                                       </div>
                                     )
                                   )}
                                 </div>
-                              </div>
+                              </details>
                             )}
 
                           {viewingNoticeId === noticeId && (
@@ -590,6 +806,7 @@ export default function ManageContractScans({
                                   meta: meta,
                                   userEmail: notice.userEmail || undefined,
                                   contractName: contractName,
+                                  sendHistory: (notice as any).sendHistory,
                                 }}
                               />
                             </div>
@@ -1196,6 +1413,17 @@ export default function ManageContractScans({
                           >
                             {s.url}
                           </div>
+                          {s.fileSize !== null && s.fileSize !== undefined && (
+                            <div className="text-[10px] text-white/40 mt-0.5">
+                              {s.fileSize < 1024
+                                ? `${s.fileSize} B`
+                                : s.fileSize < 1024 * 1024
+                                ? `${(s.fileSize / 1024).toFixed(1)} KB`
+                                : `${(s.fileSize / (1024 * 1024)).toFixed(
+                                    2
+                                  )} MB`}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button

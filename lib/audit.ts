@@ -36,7 +36,28 @@ export async function listLogsByUser(userEmail: string, limit = 100) {
     .toArray();
 }
 
-export type IndexingNotice = AuditLog & { _id?: ObjectId; id?: string };
+export type IndexingNotice = AuditLog & { 
+  _id?: ObjectId; 
+  id?: string;
+  sendHistory?: Array<{
+    sentAt: string;
+    to: string;
+    subject?: string;
+    validFrom?: string;
+    newRentEUR?: number;
+    deltaPercent?: number;
+    messageId?: string;
+    serverResponse?: string;
+    accepted?: string[];
+    rejected?: string[];
+    smtpServer?: string;
+    smtpPort?: number;
+    smtpSecure?: boolean;
+    smtpUser?: string;
+    validationResults?: any[];
+    preValidationFailures?: string[];
+  }>;
+};
 
 export async function fetchIndexingNoticeById(id: string): Promise<IndexingNotice | null> {
   if (!process.env.MONGODB_URI) return null;
@@ -77,7 +98,29 @@ export async function updateIndexingNoticeMeta(id: string, patch: Record<string,
   await db.collection<IndexingNotice>("audit_logs").updateOne({ _id }, { $set: { meta: nextMeta } });
 }
 
-export async function addIndexingNoticeSendHistory(id: string, to: string) {
+export async function addIndexingNoticeSendHistory(
+  id: string, 
+  to: string, 
+  details?: { 
+    subject?: string; 
+    validFrom?: string; 
+    newRentEUR?: number; 
+    deltaPercent?: number;
+    deliveryInfo?: {
+      messageId?: string;
+      response?: string;
+      accepted?: string[];
+      rejected?: string[];
+      smtpServer?: string;
+      smtpPort?: number;
+      smtpSecure?: boolean;
+      smtpUser?: string;
+      sentAt?: string;
+      validationResults?: any[];
+      preValidationFailures?: string[];
+    };
+  }
+) {
   if (!process.env.MONGODB_URI) return;
   const db = await getDb();
   let _id: ObjectId;
@@ -86,10 +129,29 @@ export async function addIndexingNoticeSendHistory(id: string, to: string) {
   } catch {
     return;
   }
-  const sentAt = new Date().toISOString();
+  const sentAt = details?.deliveryInfo?.sentAt || new Date().toISOString();
+  const historyEntry = {
+    sentAt,
+    to,
+    subject: details?.subject,
+    validFrom: details?.validFrom,
+    newRentEUR: details?.newRentEUR,
+    deltaPercent: details?.deltaPercent,
+    // Server delivery information
+    messageId: details?.deliveryInfo?.messageId,
+    serverResponse: details?.deliveryInfo?.response,
+    accepted: details?.deliveryInfo?.accepted,
+    rejected: details?.deliveryInfo?.rejected,
+    smtpServer: details?.deliveryInfo?.smtpServer,
+    smtpPort: details?.deliveryInfo?.smtpPort,
+    smtpSecure: details?.deliveryInfo?.smtpSecure,
+    smtpUser: details?.deliveryInfo?.smtpUser,
+    validationResults: details?.deliveryInfo?.validationResults,
+    preValidationFailures: details?.deliveryInfo?.preValidationFailures,
+  };
   await db.collection<IndexingNotice>("audit_logs").updateOne(
     { _id },
-    { $push: { sendHistory: { sentAt, to } } as any }
+    { $push: { sendHistory: historyEntry } as any }
   );
 }
 

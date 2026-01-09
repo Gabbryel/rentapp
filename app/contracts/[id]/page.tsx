@@ -33,7 +33,7 @@ import {
 import { sendMail } from "@/lib/email";
 import { generateIndexingNoticePdf } from "@/lib/indexing-notice-pdf";
 import { getAdminEmails } from "@/lib/admin-helpers";
-import { saveBufferAsUpload } from "@/lib/storage";
+import { saveBufferAsUpload, getFileSizeByUrl } from "@/lib/storage";
 import { upsertIndexing } from "@/lib/indexing";
 
 import {
@@ -419,7 +419,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
     "_"
   )}_${validFrom}.pdf`;
 
-  await sendMail({
+  const deliveryInfo = await sendMail({
     to,
     subject,
     text: textLines.join("\n"),
@@ -437,6 +437,8 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   const isFirstSend =
     !Array.isArray((notice as any).sendHistory) ||
     (notice as any).sendHistory.length === 0;
+
+  let savedPdfUrl: string | undefined;
   if (isFirstSend) {
     const savedPdf = await saveBufferAsUpload(
       noticePdfBuffer,
@@ -444,31 +446,66 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
       "application/pdf",
       { contractId }
     );
-
-    // Add PDF to contract scans
-    const existingScans = Array.isArray((contract as any).scans)
-      ? ([...(contract as any).scans] as { url: string; title?: string }[])
-      : [];
-    existingScans.push({
-      url: savedPdf.url,
-      title: `Notificare indexare - ${validFrom}`,
-    });
-
-    await upsertContract({
-      ...(contract as any),
-      scans: existingScans,
-      scanUrl: existingScans[0]?.url,
-    } as any);
+    savedPdfUrl = savedPdf.url;
   }
 
   const existingIndexingDates = Array.isArray((contract as any).indexingDates)
     ? ((contract as any).indexingDates as any[]) ?? []
     : [];
 
+  // Preserve the current rent amount BEFORE the new indexing
+  // This ensures we maintain a complete history of all rent changes
+  const currentRentEUR = currentRentAmount(contract);
+  const previousIndexingEntry = existingIndexingDates
+    .filter((row: any) => row.done && typeof row.newRentAmount === "number")
+    .sort((a: any, b: any) => {
+      const dateA = a.actualDate || a.forecastDate;
+      const dateB = b.actualDate || b.forecastDate;
+      return String(dateB).localeCompare(String(dateA));
+    })[0];
+
+  // If we have a current rent but no previous indexing records it,
+  // add an entry for the previous rent at the contract start date
+  const hasEntryBeforeThisIndexing = existingIndexingDates.some((row: any) => {
+    const entryDate = row.actualDate || row.forecastDate;
+    return (
+      entryDate &&
+      entryDate < validFrom &&
+      row.done &&
+      typeof row.newRentAmount === "number"
+    );
+  });
+
+  let nextIndexingDates = [...existingIndexingDates];
+
+  if (
+    !hasEntryBeforeThisIndexing &&
+    typeof currentRentEUR === "number" &&
+    currentRentEUR > 0 &&
+    currentRentEUR !== newRentEUR
+  ) {
+    // Add entry for the current/previous rent amount (before this indexing)
+    // Use the previous indexing date if available, otherwise use contract start date
+    const previousDate =
+      previousIndexingEntry?.actualDate ||
+      previousIndexingEntry?.forecastDate ||
+      (contract as any).startDate;
+
+    nextIndexingDates.push({
+      forecastDate: previousDate,
+      actualDate: previousDate,
+      document: previousIndexingEntry
+        ? "Indexare anterioară"
+        : "Chirie inițială",
+      newRentAmount: currentRentEUR,
+      done: true,
+    });
+  }
+
   let appliedIndexing: { kind: "update" | "insert"; before?: any } | null =
     null;
   let updatedAny = false;
-  const nextIndexingDates = existingIndexingDates.map((row: any) => {
+  nextIndexingDates = nextIndexingDates.map((row: any) => {
     const forecast = String(row?.forecastDate || "").slice(0, 10);
     const actual = String(row?.actualDate || "").slice(0, 10);
     if (forecast === validFrom || actual === validFrom) {
@@ -525,10 +562,25 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
     done: false,
   });
 
-  // Update contract with indexing dates (scans already updated if first send)
+  // Add PDF to contract scans if this is the first send
+  const existingScans = Array.isArray((contract as any).scans)
+    ? ([...(contract as any).scans] as { url: string; title?: string }[])
+    : [];
+
+  if (savedPdfUrl) {
+    existingScans.push({
+      url: savedPdfUrl,
+      title: `Notificare indexare - ${validFrom}`,
+    });
+  }
+
+  // Update contract with both indexing dates and scans (if PDF was added)
   await upsertContract({
     ...(contract as any),
     indexingDates: finalIndexingDates,
+    ...(savedPdfUrl
+      ? { scans: existingScans, scanUrl: existingScans[0]?.url }
+      : {}),
   } as any);
   await updateIndexingNoticeMeta(noticeId, {
     newRentEUR,
@@ -548,7 +600,13 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   });
 
   // Track send history
-  await addIndexingNoticeSendHistory(noticeId, to);
+  await addIndexingNoticeSendHistory(noticeId, to, {
+    subject,
+    validFrom,
+    newRentEUR,
+    deltaPercent,
+    deliveryInfo,
+  });
 
   await logAction({
     action: "indexing.notice.email",
@@ -558,6 +616,209 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   });
 
   publishToast("Email trimis către partener.", "success");
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function applyIndexingNoticeAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  const validFromRaw = String(formData.get("validFrom") || "").trim();
+
+  if (!contractId || !noticeId) return;
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) return;
+
+  const notice = await fetchIndexingNoticeById(noticeId);
+  if (
+    !notice ||
+    notice.action !== "indexing.notice.issue" ||
+    notice.targetType !== "contract" ||
+    notice.targetId !== contractId
+  ) {
+    publishToast("Notificarea de indexare nu a fost găsită.", "error");
+    return;
+  }
+
+  const meta = (notice as any).meta || {};
+  const fromMonth = String(meta.fromMonth || meta.from || "?");
+  const toMonth = String(meta.toMonth || meta.to || "?");
+  const deltaPercent =
+    typeof meta.deltaPercent === "number" ? meta.deltaPercent : undefined;
+  const deltaAmountEUR =
+    typeof meta.deltaAmountEUR === "number" ? meta.deltaAmountEUR : undefined;
+  const rentEUR = typeof meta.rentEUR === "number" ? meta.rentEUR : undefined;
+  const storedNewRentEUR =
+    typeof meta.newRentEUR === "number" ? meta.newRentEUR : undefined;
+  const storedValidFrom =
+    typeof meta.validFrom === "string" ? String(meta.validFrom) : "";
+
+  const validFrom = (() => {
+    const raw = (validFromRaw || storedValidFrom || "").trim();
+    if (!raw) return "";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const newRentEUR = (() => {
+    if (typeof storedNewRentEUR === "number") return storedNewRentEUR;
+    if (typeof rentEUR !== "number") return undefined;
+    if (typeof deltaAmountEUR === "number")
+      return Math.ceil(rentEUR + deltaAmountEUR);
+    if (typeof deltaPercent === "number")
+      return Math.ceil(rentEUR * (1 + deltaPercent / 100));
+    return undefined;
+  })();
+
+  if (!validFrom) {
+    publishToast("Data de început a noii chirii este invalidă.", "error");
+    return;
+  }
+  if (
+    typeof newRentEUR !== "number" ||
+    !Number.isFinite(newRentEUR) ||
+    newRentEUR <= 0
+  ) {
+    publishToast("Nu pot calcula chiria nouă (date lipsă).", "error");
+    return;
+  }
+
+  const existingIndexingDates = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as any[]) ?? []
+    : [];
+
+  // Preserve the current rent amount BEFORE the new indexing
+  const currentRentEUR = currentRentAmount(contract);
+  const previousIndexingEntry = existingIndexingDates
+    .filter((row: any) => row.done && typeof row.newRentAmount === "number")
+    .sort((a: any, b: any) => {
+      const dateA = a.actualDate || a.forecastDate;
+      const dateB = b.actualDate || b.forecastDate;
+      return String(dateB).localeCompare(String(dateA));
+    })[0];
+
+  const hasEntryBeforeThisIndexing = existingIndexingDates.some((row: any) => {
+    const entryDate = row.actualDate || row.forecastDate;
+    return (
+      entryDate &&
+      entryDate < validFrom &&
+      row.done &&
+      typeof row.newRentAmount === "number"
+    );
+  });
+
+  let nextIndexingDates = [...existingIndexingDates];
+
+  if (
+    !hasEntryBeforeThisIndexing &&
+    typeof currentRentEUR === "number" &&
+    currentRentEUR > 0 &&
+    currentRentEUR !== newRentEUR
+  ) {
+    const previousDate =
+      previousIndexingEntry?.actualDate ||
+      previousIndexingEntry?.forecastDate ||
+      (contract as any).startDate;
+
+    nextIndexingDates.push({
+      forecastDate: previousDate,
+      actualDate: previousDate,
+      document: previousIndexingEntry
+        ? "Indexare anterioară"
+        : "Chirie inițială",
+      newRentAmount: currentRentEUR,
+      done: true,
+    });
+  }
+
+  let appliedIndexing: { kind: "update" | "insert"; before?: any } | null =
+    null;
+  let updatedAny = false;
+  nextIndexingDates = nextIndexingDates.map((row: any) => {
+    const forecast = String(row?.forecastDate || "").slice(0, 10);
+    const actual = String(row?.actualDate || "").slice(0, 10);
+    if (forecast === validFrom || actual === validFrom) {
+      updatedAny = true;
+      if (!appliedIndexing) {
+        appliedIndexing = {
+          kind: "update",
+          before: {
+            forecastDate: row?.forecastDate,
+            actualDate: row?.actualDate,
+            document: row?.document,
+            newRentAmount: row?.newRentAmount,
+            done: row?.done,
+            appliedByNoticeId: row?.appliedByNoticeId,
+          },
+        };
+      }
+      return {
+        ...row,
+        forecastDate: forecast || validFrom,
+        actualDate: validFrom,
+        document: row?.document || "Indexare (manual)",
+        newRentAmount: newRentEUR,
+        done: true,
+        appliedByNoticeId: noticeId,
+      };
+    }
+    return row;
+  });
+
+  if (!updatedAny) {
+    appliedIndexing = { kind: "insert" };
+    nextIndexingDates.push({
+      forecastDate: validFrom,
+      actualDate: validFrom,
+      document: "Indexare (manual)",
+      newRentAmount: newRentEUR,
+      done: true,
+      appliedByNoticeId: noticeId,
+    });
+  }
+
+  const nextYear = new Date(validFrom + "T00:00:00Z");
+  nextYear.setUTCFullYear(nextYear.getUTCFullYear() + 1);
+  const nextForecastDate = nextYear.toISOString().slice(0, 10);
+
+  const finalIndexingDates = nextIndexingDates.filter((row: any) => row.done);
+  finalIndexingDates.push({
+    forecastDate: nextForecastDate,
+    done: false,
+  });
+
+  await upsertContract({
+    ...(contract as any),
+    indexingDates: finalIndexingDates,
+  } as any);
+
+  await updateIndexingNoticeMeta(noticeId, {
+    newRentEUR,
+    validFrom,
+    appliedIndexing,
+    appliedManually: true,
+  });
+
+  await upsertIndexing({
+    id: `${contractId}:${validFrom}`,
+    contractId,
+    indexDate: validFrom,
+    actualIndexingDate: validFrom,
+    startDate: validFrom,
+    amount: newRentEUR,
+    document: `Indexare (manual) - ${fromMonth} → ${toMonth}`,
+  });
+
+  await logAction({
+    action: "indexing.notice.apply",
+    targetType: "contract",
+    targetId: contractId,
+    meta: { noticeId, validFrom, newRentEUR },
+  });
+
+  publishToast("Indexarea a fost aplicată cu succes.", "success");
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -653,7 +914,7 @@ async function sendIndexingNoticeToAdminsAction(formData: FormData) {
     "_"
   )}_${validFrom || "draft"}.pdf`;
 
-  await sendMail({
+  const deliveryInfo = await sendMail({
     to: adminEmails,
     subject,
     text: textLines.join("\n"),
@@ -675,7 +936,13 @@ async function sendIndexingNoticeToAdminsAction(formData: FormData) {
 
   // Track send history for each admin
   for (const adminEmail of adminEmails) {
-    await addIndexingNoticeSendHistory(noticeId, adminEmail);
+    await addIndexingNoticeSendHistory(noticeId, adminEmail, {
+      subject,
+      validFrom,
+      newRentEUR,
+      deltaPercent,
+      deliveryInfo,
+    });
   }
 
   publishToast(
@@ -1586,6 +1853,17 @@ export default async function ContractPage({
     inflation && typeof currentRentValue === "number"
       ? currentRentValue * (inflation.percent / 100)
       : null;
+
+  // Fetch file sizes for all scans
+  const scansRaw =
+    (contract as { scans?: { url: string; title?: string }[] }).scans ||
+    (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : []);
+  const scansWithSizes = await Promise.all(
+    scansRaw.map(async (scan) => {
+      const fileSize = await getFileSizeByUrl(scan.url);
+      return { ...scan, fileSize };
+    })
+  );
 
   const latestWrittenContract = (() => {
     const enriched = writtenContracts.map((doc) => {
@@ -2667,11 +2945,7 @@ export default async function ContractPage({
         <div id="contract-right" className="lg:col-span-2">
           <ManageContractScans
             id={contract.id}
-            scans={
-              (contract as { scans?: { url: string; title?: string }[] })
-                .scans ||
-              (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : [])
-            }
+            scans={scansWithSizes}
             mongoConfigured={Boolean(process.env.MONGODB_URI)}
             rentType={contract.rentType}
             irregularInvoices={(contract as any).irregularInvoices || []}
@@ -2724,6 +2998,7 @@ export default async function ContractPage({
             deleteIndexingNoticeAction={deleteIndexingNoticeAction}
             sendIndexingNoticeEmailAction={sendIndexingNoticeEmailAction}
             sendIndexingNoticeToAdminsAction={sendIndexingNoticeToAdminsAction}
+            applyIndexingNoticeAction={applyIndexingNoticeAction}
             updateNextIndexingDateAction={updateNextIndexingDateAction}
             saveEditedNotificationAction={saveEditedNotificationAction}
             nextIndexingDate={nextIndexingDate}
@@ -3478,6 +3753,58 @@ export default async function ContractPage({
                                     (contract as any).name || contract.id,
                                 }}
                               />
+                              {!meta.appliedManually && (
+                                <form action={applyIndexingNoticeAction}>
+                                  <input
+                                    type="hidden"
+                                    name="noticeId"
+                                    value={
+                                      notice.id ?? String((notice as any)._id)
+                                    }
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="contractId"
+                                    value={contract.id}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="validFrom"
+                                    value={
+                                      validFrom ||
+                                      (notice.at
+                                        ? new Date(notice.at)
+                                            .toISOString()
+                                            .slice(0, 10)
+                                        : "")
+                                    }
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="rounded-md bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30"
+                                    title="Validează și aplică indexarea fără a trimite email"
+                                  >
+                                    Validează
+                                  </button>
+                                </form>
+                              )}
+                              {meta.appliedManually && (
+                                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-600">
+                                  <svg
+                                    className="h-3 w-3"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <path d="M9 12l2 2 4-4" />
+                                    <circle cx="12" cy="12" r="9" />
+                                  </svg>
+                                  Aplicat
+                                </span>
+                              )}
                               <form
                                 action={deleteIndexingNoticeAction}
                                 className="mt-0"
