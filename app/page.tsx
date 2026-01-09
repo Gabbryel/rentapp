@@ -1073,7 +1073,7 @@ export default async function HomePage({
                     );
 
                     const liBase =
-                      "group rounded-lg border transition-colors shadow-sm p-4";
+                      "group rounded-lg border transition-colors shadow-sm p-4 text-white text-[110%] [&_*]:!text-white [&_*]:![font-size:inherit]";
                     const liClass = already
                       ? `${liBase} border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20`
                       : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;

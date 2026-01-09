@@ -858,8 +858,7 @@ export async function upsertContract(contract: ContractType) {
       // no-op
     }
     // rent history removed
-  // Recompute indexingDates if schedule fields present and preserve provided metadata (actualDate/newRentAmount/done)
-  const baseComputed = computeFutureIndexingDates(contract as any);
+  // Keep provided indexingDates as-is (schedule-based generation removed)
   const provided = Array.isArray((contract as any).indexingDates)
     ? ((contract as any).indexingDates as {
         forecastDate: string;
@@ -869,30 +868,13 @@ export async function upsertContract(contract: ContractType) {
         done?: boolean;
       }[])
     : [];
-  const providedMap = new Map(
-    provided.map((p) => [p.forecastDate, p] as const)
-  );
-  const merged = baseComputed.map((e) => {
-    const hit = providedMap.get(e.forecastDate);
-    return {
-      forecastDate: e.forecastDate,
-      actualDate: hit?.actualDate,
-      document: hit?.document,
-      newRentAmount: hit?.newRentAmount,
-      done: Boolean(hit?.done),
-    };
-  });
-  for (const p of provided) {
-    if (!baseComputed.some((e) => e.forecastDate === p.forecastDate)) {
-      merged.push({
-        forecastDate: p.forecastDate,
-        actualDate: p.actualDate,
-        document: p.document,
-        newRentAmount: p.newRentAmount,
-        done: Boolean(p.done),
-      });
-    }
-  }
+  const merged = provided.map((p) => ({
+    forecastDate: p.forecastDate,
+    actualDate: p.actualDate,
+    document: p.document,
+    newRentAmount: p.newRentAmount,
+    done: Boolean(p.done),
+  }));
   merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
   // If any indexingDates have an actualDate <= today with a numeric newRentAmount,
   // force the contract's current EUR rent to the latest such amount.

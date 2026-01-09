@@ -26,13 +26,19 @@ export default function SearchContracts({
   // Debounced push to URL
   useEffect(() => {
     const t = setTimeout(() => {
-      const params = new URLSearchParams(Array.from(searchParams.entries()));
+      const params = new URLSearchParams();
+      // Rebuild with only non-empty params
+      searchParams.forEach((val, key) => {
+        if (val) params.set(key, val);
+      });
       if (value) params.set("q", value);
       else params.delete("q");
-      router.replace(`${pathname}?${params.toString()}`);
+      const queryString = params.toString();
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname);
     }, 250);
     return () => clearTimeout(t);
-  }, [value, pathname, router, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, pathname, router]);
 
   const onClear = () => setValue("");
 

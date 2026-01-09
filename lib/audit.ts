@@ -77,6 +77,22 @@ export async function updateIndexingNoticeMeta(id: string, patch: Record<string,
   await db.collection<IndexingNotice>("audit_logs").updateOne({ _id }, { $set: { meta: nextMeta } });
 }
 
+export async function addIndexingNoticeSendHistory(id: string, to: string) {
+  if (!process.env.MONGODB_URI) return;
+  const db = await getDb();
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return;
+  }
+  const sentAt = new Date().toISOString();
+  await db.collection<IndexingNotice>("audit_logs").updateOne(
+    { _id },
+    { $push: { sendHistory: { sentAt, to } } as any }
+  );
+}
+
 export async function deleteIndexingNotice(id: string) {
   if (!process.env.MONGODB_URI) return;
   const db = await getDb();

@@ -19,53 +19,143 @@ function escapeHtml(input: unknown) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
 function fmtDate(dateIso?: string) {
   if (!dateIso) return "";
-  const d = new Date(dateIso);
+  const d = new Date(`${dateIso.slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${day}.${m}.${y}`;
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yy = String(d.getUTCFullYear());
+  return `${dd}.${mm}.${yy}`;
 }
 
-export default function IndexingNoticePrint({
-  notice,
-}: {
-  notice: IndexingNoticePrintable;
-}) {
+export default React.forwardRef<
+  { triggerPrint: () => void },
+  { notice: IndexingNoticePrintable }
+>(function IndexingNoticePrint({ notice }, ref) {
   const buildHtml = React.useCallback(() => {
-    const meta = notice.meta || {};
-    const fromMonth = (meta.fromMonth as string) || (meta.from as string) || "";
-    const toMonth = (meta.toMonth as string) || (meta.to as string) || "";
+    const meta = (notice?.meta ?? {}) as Record<string, unknown>;
+
+    const fromMonth = String(meta.fromMonth || meta.from || "?");
+    const toMonth = String(meta.toMonth || meta.to || "?");
     const deltaPercent =
       typeof meta.deltaPercent === "number" ? meta.deltaPercent : undefined;
-    const deltaAmountEUR =
-      typeof meta.deltaAmountEUR === "number" ? meta.deltaAmountEUR : undefined;
     const rentEUR = typeof meta.rentEUR === "number" ? meta.rentEUR : undefined;
-    const note = typeof meta.note === "string" ? meta.note : "";
-    const validFrom = typeof meta.validFrom === "string" ? meta.validFrom : "";
-    const newRentEUR =
+    const metaValidFrom =
+      typeof meta.validFrom === "string" ? String(meta.validFrom) : "";
+
+    const contractNumber =
+      (typeof meta.contractNumber === "string" && meta.contractNumber.trim()) ||
+      "{contract number}";
+    const contractSignedAtIso =
+      typeof meta.contractSignedAt === "string"
+        ? String(meta.contractSignedAt).slice(0, 10)
+        : "";
+    const contractSignedAtText = contractSignedAtIso
+      ? fmtDate(contractSignedAtIso)
+      : "{contract begining date}";
+
+    const issuedAtIso =
+      typeof notice?.at === "string" ? notice.at.slice(0, 10) : "";
+
+    const effectiveValidFromIso = (() => {
+      const v = metaValidFrom ? metaValidFrom.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(issuedAtIso)) return "";
+      const d = new Date(`${issuedAtIso}T00:00:00Z`);
+      if (Number.isNaN(d.getTime())) return "";
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))
+        .toISOString()
+        .slice(0, 10);
+    })();
+
+    const partnerName =
+      (typeof meta.partnerName === "string" && meta.partnerName.trim()) ||
+      "{partner}";
+    const partnerAddress =
+      (typeof meta.partnerAddress === "string" && meta.partnerAddress.trim()) ||
+      "{partner address}";
+    const partnerCui =
+      (typeof meta.partnerCui === "string" && meta.partnerCui.trim()) ||
+      "{partner CUI}";
+    const ownerName =
+      (typeof meta.ownerName === "string" && meta.ownerName.trim()) ||
+      "{owner}";
+    const representative =
+      (typeof meta.partnerRepresentative === "string" &&
+        meta.partnerRepresentative.trim()) ||
+      "{representative}";
+
+    const assetAddress =
+      (typeof meta.assetAddress === "string" && meta.assetAddress.trim()) ||
+      "[adresa imobilului]";
+
+    const note = typeof meta.note === "string" ? meta.note.trim() : "";
+
+    const indexedRentEUR =
       typeof meta.newRentEUR === "number"
-        ? meta.newRentEUR
-        : typeof rentEUR === "number" && typeof deltaAmountEUR === "number"
-        ? rentEUR + deltaAmountEUR
+        ? Math.ceil(meta.newRentEUR as number)
         : typeof rentEUR === "number" && typeof deltaPercent === "number"
-        ? rentEUR * (1 + deltaPercent / 100)
+        ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
         : undefined;
-    const src = meta.source as string | undefined;
 
-    const title = "Notificare indexare";
-    const issued = fmtDate(notice.at) || "—";
-    const contractName = notice.contractName ? String(notice.contractName) : "";
-    const issuedBy = notice.userEmail ? String(notice.userEmail) : "";
+    const validFromText = effectiveValidFromIso
+      ? fmtDate(effectiveValidFromIso)
+      : "[data de aplicare]";
 
-    const increaseText =
-      deltaPercent !== undefined ? `+${deltaPercent.toFixed(2)}%` : "n/a";
-    const amountText =
-      deltaAmountEUR !== undefined ? `${deltaAmountEUR.toFixed(2)} EUR` : "—";
-    const rentText = rentEUR !== undefined ? `${rentEUR.toFixed(2)} EUR` : "—";
+    const nextMonthText = (() => {
+      if (!effectiveValidFromIso) return "{next month}";
+      const d = new Date(`${effectiveValidFromIso}T00:00:00Z`);
+      if (Number.isNaN(d.getTime())) return "{next month}";
+      try {
+        return new Intl.DateTimeFormat("ro-RO", {
+          month: "long",
+          year: "numeric",
+        }).format(d);
+      } catch {
+        return "{next month}";
+      }
+    })();
+
+    const letterText =
+      typeof meta.editedContent === "string" && meta.editedContent.trim()
+        ? meta.editedContent.trim()
+        : `Către: ${partnerName}
+Adresa: ${partnerAddress}
+CNP/CUI: ${partnerCui}
+
+De la: ${ownerName}
+
+
+Subiect: Indexarea chiriei în funcție de rata inflației în euro aferentă ultimului an calendaristic
+
+Stimate/Stimată ${representative},
+
+Subscrisa ${ownerName}, prin prezenta, vă aducem la cunoștință faptul că, în conformitate cu prevederile art. 5.1. din Contractul de închiriere nr. ${contractNumber} din data de ${contractSignedAtText} (în continuare „Contractul”), chiria stabilită pentru imobilul situat în ${assetAddress} urmează să fie indexată cu rata inflației în euro aferentă ultimului an calendaristic, potrivit mecanismului de ajustare convenit de părți.
+
+În consecință, începând cu data de ${validFromText}, chiria lunară se va ajusta după cum urmează:
+    •   Chirie actuală: ${
+      typeof rentEUR === "number" ? rentEUR.toFixed(2) : "{current rent amount}"
+    } EUR/lună
+    •   Rata inflației (EUR) pentru ultimul an calendaristic: ${
+      typeof deltaPercent === "number"
+        ? deltaPercent.toFixed(2)
+        : "{inflation rate}"
+    }%${note ? ` (${note})` : ""}
+    •   Chirie indexată: ${
+      typeof indexedRentEUR === "number"
+        ? indexedRentEUR
+        : "{rent amount indexed}"
+    } EUR/lună + T.V.A. aplicabil + procent corecție curs B.N.R.
+
+Plata chiriei indexate se va efectua în aceleași condiții, termene și în același cont prevăzute în Contract, în lipsa unei notificări contrare scrise din partea noastră.
+
+Prezenta notificare este transmisă cu respectarea dispozițiilor Contractului privind comunicările între părți și produce efecte de la data indicată mai sus.
+
+Cu stimă,
+${ownerName}`;
+
+    const title = `Notificare indexare – ${notice.contractName || ""}`.trim();
 
     return `<!DOCTYPE html>
 <html>
@@ -74,145 +164,25 @@ export default function IndexingNoticePrint({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
     <style>
-      :root {
-        --ink: #111827;
-        --muted: #6b7280;
-        --line: #e5e7eb;
-        --panel: #f9fafb;
-      }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; }
       body {
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-          Arial, sans-serif;
-        color: var(--ink);
+        font-family: Arial, sans-serif;
+        color: #111827;
         background: #ffffff;
         padding: 28px;
       }
       .wrap { max-width: 820px; margin: 0 auto; }
-      .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-      .title { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
-      .subtitle { margin: 6px 0 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-      .badge {
-        display: inline-block;
-        border: 1px solid var(--line);
-        background: var(--panel);
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        color: var(--muted);
-        white-space: nowrap;
-      }
-      .card { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-      .card-hd { padding: 14px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-      .kv { width: 100%; border-collapse: collapse; }
-      .kv td { padding: 10px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      .kv tr:last-child td { border-bottom: 0; }
-      .k { width: 200px; color: var(--muted); font-size: 12px; }
-      .v { font-size: 13px; }
-      .strong { font-weight: 700; }
-      .callout {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        margin-top: 14px;
-        padding: 12px 14px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #ffffff;
-      }
-      .callout .big { font-size: 18px; font-weight: 800; }
-      .callout .small { color: var(--muted); font-size: 12px; }
-      .note { margin-top: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; font-size: 13px; }
-      .foot { margin-top: 14px; color: var(--muted); font-size: 12px; }
+      .doc { white-space: pre-wrap; font-size: 14px; line-height: 1.55; }
+      .meta { margin-top: 14px; font-size: 12px; color: #6b7280; }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <div class="header">
-        <div>
-          <h1 class="title">${escapeHtml(title)}</h1>
-          <p class="subtitle">Conform contractului, chiria va fi indexată cu procentul inflației din zona euro aplicabil perioadei de referință.</p>
-        </div>
-        <div class="badge">Emis: <span class="strong">${escapeHtml(
-          issued
-        )}</span></div>
-      </div>
-
-      <div class="card">
-        <div class="card-hd">
-          <div style="font-size: 12px; color: var(--muted);">Detalii notificare</div>
-        </div>
-        <table class="kv">
-          <tr>
-            <td class="k">Contract</td>
-            <td class="v">${escapeHtml(contractName || "—")}</td>
-              <tr>
-                <td class="k">Chirie după indexare${
-                  validFrom
-                    ? " (începând cu " +
-                      escapeHtml(String(validFrom).slice(0, 10)) +
-                      ")"
-                    : ""
-                }</td>
-                <td class="v">$${
-                  newRentEUR !== undefined
-                    ? newRentEUR.toFixed(2) + " EUR"
-                    : "—"
-                }</td>
-              </tr>
-          </tr>
-          <tr>
-            <td class="k">Perioadă</td>
-            <td class="v"><span class="strong">${escapeHtml(
-              fromMonth || "?"
-            )}</span> → <span class="strong">${escapeHtml(
-      toMonth || "?"
-    )}</span>${
-      src ? ` <span style="color:var(--muted)">(${escapeHtml(src)})</span>` : ""
-    }</td>
-          </tr>
-          <tr>
-            <td class="k">Chirie la emitere</td>
-            <td class="v">${escapeHtml(rentText)}</td>
-          </tr>
-                <tr>
-                  <td class="k">Chirie după indexare</td>
-                  <td class="v">${
-                    newRentEUR !== undefined
-                      ? newRentEUR.toFixed(2) + " EUR"
-                      : "—"
-                  }</td>
-                </tr>
-                <tr>
-                  <td class="k">Valabil de la</td>
-                  <td class="v">${
-                    validFrom ? escapeHtml(String(validFrom).slice(0, 10)) : "—"
-                  }</td>
-                </tr>
-        </table>
-      </div>
-
-      <div class="callout">
-        <div>
-          <div class="big">${escapeHtml(increaseText)}</div>
-          <div class="small">Procent indexare</div>
-        </div>
-        <div style="height: 32px; width: 1px; background: var(--line);"></div>
-        <div>
-          <div class="big">${escapeHtml(amountText)}</div>
-          <div class="small">Creștere în EUR</div>
-        </div>
-      </div>
-
-      ${
-        note
-          ? `<div class="note"><span class="strong">Notă:</span> ${escapeHtml(
-              note
-            )}</div>`
-          : ""
-      }
-      ${notice.id ? `<div class="foot">ID: ${escapeHtml(notice.id)}</div>` : ""}
+      <div class="doc">${escapeHtml(letterText)}</div>
+      <div class="meta">Perioadă: ${escapeHtml(fromMonth)} → ${escapeHtml(
+      toMonth
+    )}</div>
     </div>
   </body>
 </html>`;
@@ -239,6 +209,14 @@ export default function IndexingNoticePrint({
     w.focus();
   }, [buildHtml]);
 
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      triggerPrint: onPrint,
+    }),
+    [onPrint]
+  );
+
   return (
     <div className="flex items-center gap-2">
       <button
@@ -257,4 +235,4 @@ export default function IndexingNoticePrint({
       </button>
     </div>
   );
-}
+});

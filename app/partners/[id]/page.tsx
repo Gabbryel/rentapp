@@ -4,8 +4,6 @@ import { notFound } from "next/navigation";
 import { fetchPartnerById } from "@/lib/partners";
 import { listPartnerDocs } from "@/lib/partner-docs";
 import DocsList from "@/app/components/docs-list";
-import ContractScans from "@/app/components/contract-scans";
-import AssetScans from "@/app/components/asset-scans";
 import { getAssetById } from "@/lib/assets";
 import { fetchContracts } from "@/lib/contracts";
 import CardsGrid from "@/app/components/ui/cards-grid";
@@ -140,10 +138,11 @@ export default async function PartnerPage({
     (acc, c) => {
       let yearlyEur = 0;
       if (c.rentType === "yearly") {
-        yearlyEur = (((c as any).irregularInvoices ?? (c as any).yearlyInvoices ?? []) as any[]).reduce(
-          (s, r) => s + (r.amountEUR || 0),
-          0
-        );
+        yearlyEur = (
+          ((c as any).irregularInvoices ??
+            (c as any).yearlyInvoices ??
+            []) as any[]
+        ).reduce((s, r) => s + (r.amountEUR || 0), 0);
       } else {
         const amt = currentRentAmount(c as any);
         yearlyEur = typeof amt === "number" ? amt * 12 : 0;
@@ -412,7 +411,6 @@ export default async function PartnerPage({
                             </svg>
                           </Link>
                         </div>
-                        <ContractScans scans={scans} contractName={c.name} />
                       </div>
                     ))}
                   </div>
@@ -430,7 +428,6 @@ export default async function PartnerPage({
                         className="rounded-md bg-foreground/5 p-3"
                       >
                         <div className="font-medium mb-2">{a.name}</div>
-                        <AssetScans scans={scans} assetName={a.name} />
                       </div>
                     ))}
                   </div>

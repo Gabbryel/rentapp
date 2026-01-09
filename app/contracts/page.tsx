@@ -1,4 +1,8 @@
-import { effectiveEndDate, fetchContracts, currentRentAmount } from "@/lib/contracts";
+import {
+  effectiveEndDate,
+  fetchContracts,
+  currentRentAmount,
+} from "@/lib/contracts";
 import type { Contract } from "@/lib/schemas/contract";
 import { unstable_noStore as noStore } from "next/cache";
 import SearchContracts from "@/app/components/search-contracts";
@@ -185,7 +189,10 @@ export default async function ContractsPage({
       {(() => {
         const eur =
           c.rentType === "yearly"
-            ? (((c as any).irregularInvoices ?? []) as any[]).reduce((s, r) => s + (r.amountEUR || 0), 0)
+            ? (((c as any).irregularInvoices ?? []) as any[]).reduce(
+                (s, r) => s + (r.amountEUR || 0),
+                0
+              )
             : currentRentAmount(c);
         if (typeof eur !== "number") return null;
         const eurLabel =
@@ -344,7 +351,8 @@ export default async function ContractsPage({
             </div>
           </div>
         ) : null}
-        {c.rentType === "yearly" && (((c as any).irregularInvoices?.length) ?? 0) > 0 ? (
+        {c.rentType === "yearly" &&
+        ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
           <div
             id={`contract-card-${c.id}-yearly-invoices`}
             className="rounded-md bg-foreground/5 p-2"
@@ -355,7 +363,13 @@ export default async function ContractsPage({
                 id={`contract-card-${c.id}-yearly-invoices-list`}
                 className="space-y-0.5"
               >
-                {((((c as any).irregularInvoices) || []) as { month: number; day: number; amountEUR: number }[]).map((r, i) => (
+                {(
+                  ((c as any).irregularInvoices || []) as {
+                    month: number;
+                    day: number;
+                    amountEUR: number;
+                  }[]
+                ).map((r, i) => (
                   <li id={`contract-card-${c.id}-yearly-invoice-${i}`} key={i}>
                     {`${String(r.day).padStart(2, "0")}/${String(
                       r.month
@@ -371,7 +385,8 @@ export default async function ContractsPage({
             </dd>
           </div>
         ) : null}
-        {typeof currentRentAmount(c) === "number" || typeof c.exchangeRateRON === "number" ? (
+        {typeof currentRentAmount(c) === "number" ||
+        typeof c.exchangeRateRON === "number" ? (
           <div
             id={`contract-card-${c.id}-finance-compact`}
             className="rounded-md bg-foreground/5 p-2"
@@ -428,6 +443,32 @@ export default async function ContractsPage({
       const bd = new Date(effectiveEndDate(b)).getTime();
       return ad - bd;
     });
+  } else if (sort === "indexing") {
+    // Order by proximity to next indexing date
+    const todayISO = now.toISOString().slice(0, 10);
+    contracts.sort((a, b) => {
+      const getNextIndexingDate = (c: Contract) => {
+        const dates = ((c as any).indexingDates || []) as Array<{
+          forecastDate: string;
+          done?: boolean;
+        }>;
+        const nextDate = dates
+          .filter((d) => !d.done && d.forecastDate >= todayISO)
+          .map((d) => d.forecastDate)
+          .sort()[0];
+        return nextDate ? new Date(nextDate).getTime() : Infinity;
+      };
+
+      const aNext = getNextIndexingDate(a);
+      const bNext = getNextIndexingDate(b);
+
+      // Contracts with no future indexing go to the end
+      if (aNext === Infinity && bNext === Infinity) return 0;
+      if (aNext === Infinity) return 1;
+      if (bNext === Infinity) return -1;
+
+      return aNext - bNext;
+    });
   } else {
     // Default: order by effective end date (indexing removed)
     contracts.sort((a, b) => {
@@ -442,6 +483,16 @@ export default async function ContractsPage({
 
   const active = contracts.filter((c) => new Date(effectiveEndDate(c)) >= now);
   const expired = contracts.filter((c) => new Date(effectiveEndDate(c)) < now);
+
+  // Helper to build clean URLs without empty parameters
+  const buildUrl = (sortParam: string) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (sortParam !== "idx") params.set("sort", sortParam);
+    if (partnerId) params.set("partner", partnerId);
+    const queryString = params.toString();
+    return queryString ? `/contracts?${queryString}` : "/contracts";
+  };
 
   return (
     <main
@@ -475,13 +526,9 @@ export default async function ContractsPage({
             >
               <span>Ordonează:</span>
               <Link
-                href={`/contracts?${new URLSearchParams({
-                  q,
-                  sort: "idx",
-                  partner: partnerId,
-                }).toString()}`}
+                href={buildUrl("idx")}
                 className={`rounded-md border px-2 py-1 font-medium hover:bg-foreground/5 ${
-                  sort !== "exp"
+                  sort !== "exp" && sort !== "indexing"
                     ? "border-foreground/30"
                     : "border-foreground/15 text-foreground/60"
                 }`}
@@ -490,11 +537,7 @@ export default async function ContractsPage({
                 implicit
               </Link>
               <Link
-                href={`/contracts?${new URLSearchParams({
-                  q,
-                  sort: "exp",
-                  partner: partnerId,
-                }).toString()}`}
+                href={buildUrl("exp")}
                 className={`rounded-md border px-2 py-1 font-medium hover:bg-foreground/5 ${
                   sort === "exp"
                     ? "border-foreground/30"
@@ -503,6 +546,17 @@ export default async function ContractsPage({
                 id="contracts-toolbar-sort-expire"
               >
                 după expirare
+              </Link>
+              <Link
+                href={buildUrl("indexing")}
+                className={`rounded-md border px-2 py-1 font-medium hover:bg-foreground/5 ${
+                  sort === "indexing"
+                    ? "border-foreground/30"
+                    : "border-foreground/15 text-foreground/60"
+                }`}
+                id="contracts-toolbar-sort-indexing"
+              >
+                după indexare
               </Link>
             </div>
           </div>

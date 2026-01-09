@@ -5,6 +5,7 @@ import AssetScans from "@/app/components/asset-scans";
 import DeleteAssetClient from "./delete/DeleteAssetClient";
 import { fetchContractsByAssetId } from "@/lib/contracts";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
+import { editAssetScanAction, deleteAssetScanAction } from "./actions";
 
 export default async function AssetDetailPage({
   params,
@@ -45,7 +46,9 @@ export default async function AssetDetailPage({
             <div className="text-sm text-foreground/60">Proprietar</div>
             <div className="mt-1">
               <Link
-                href={`/owners/${encodeURIComponent(asset.ownerId || asset.owner)}`}
+                href={`/owners/${encodeURIComponent(
+                  asset.ownerId || asset.owner
+                )}`}
                 className="hover:underline"
               >
                 {asset.owner}
@@ -72,13 +75,14 @@ export default async function AssetDetailPage({
                   className="text-sm text-foreground/80 hover:underline"
                 >
                   <span className="font-medium">{contract.name}</span>
-                  <span className="ml-2 text-foreground/60">{contract.partner ?? ""}</span>
+                  <span className="ml-2 text-foreground/60">
+                    {contract.partner ?? ""}
+                  </span>
                 </Link>
               ))}
             </div>
           </div>
         )}
-        <AssetScans scans={asset.scans ?? []} assetName={asset.name} />
       </div>
     </main>
   );

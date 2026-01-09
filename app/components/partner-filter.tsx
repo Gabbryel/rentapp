@@ -40,10 +40,15 @@ export default function PartnerFilter() {
   }, []);
 
   const onChange = (id: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    const params = new URLSearchParams();
+    // Rebuild with only non-empty params
+    searchParams.forEach((val, key) => {
+      if (val) params.set(key, val);
+    });
     if (id) params.set("partner", id);
     else params.delete("partner");
-    router.replace(`${pathname}?${params.toString()}`);
+    const queryString = params.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname);
   };
 
   const opts = useMemo(() => partners, [partners]);

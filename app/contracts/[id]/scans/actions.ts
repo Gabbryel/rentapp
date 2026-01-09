@@ -6,6 +6,9 @@ import {
   fetchContractById,
   upsertContract,
 } from "@/lib/contracts";
+import { fetchPartnerById } from "@/lib/partners";
+import { fetchOwnerById } from "@/lib/owners";
+import { getAssetById } from "@/lib/assets";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
@@ -55,9 +58,9 @@ export async function addScanAction(_: ScanActionState, formData: FormData): Pro
       if (!okType) {
         return { ok: false, message: "Fișierul trebuie să fie PDF sau imagine (png/jpg/jpeg/gif/webp/svg)" };
       }
-      const maxSize = 2 * 1024 * 1024;
+      const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize)
-        return { ok: false, message: "Fișierul este prea mare (max 2MB)" };
+        return { ok: false, message: "Fișierul este prea mare (max 5MB)" };
       const orig = file.name || "scan";
       const base = orig.replace(/\.[^.]+$/, "");
       const res = await saveScanFile(file, `${id}-${base}`, { contractId: id });
@@ -99,7 +102,17 @@ export async function issueIndexingNoticeAction(
   formData: FormData
 ): Promise<IndexingNoticeState> {
   const contractId = String(formData.get("contractId") || "");
+  const contractNumberRaw = String(formData.get("contractNumber") || "").trim();
+  const contractSignedAtRaw = String(
+    formData.get("contractSignedAt") || ""
+  ).trim();
+  const noteRaw = String(formData.get("note") || "").trim();
   if (!contractId) return { ok: false, message: "ID contract lipsă" };
+  if (!contractNumberRaw) return { ok: false, message: "Număr contract lipsă" };
+  const contractSignedAtIso = contractSignedAtRaw.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(contractSignedAtIso)) {
+    return { ok: false, message: "Data semnării contractului este invalidă" };
+  }
   const contract = await fetchContractById(contractId);
   if (!contract) return { ok: false, message: "Contract inexistent" };
 
@@ -129,11 +142,73 @@ export async function issueIndexingNoticeAction(
   const deltaPercent = inflation.percent;
   const deltaAmount = (rent * deltaPercent) / 100;
 
+  const now = new Date();
+  const validFrom = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const contractNumber = contractNumberRaw;
+  const contractSignedAt = contractSignedAtIso;
+
+  // Optional enrichment for notice template rendering
+  let partnerAddress: string | undefined;
+  let partnerCui: string | undefined;
+  let partnerRepresentative: string | undefined;
+  try {
+    if (contract.partnerId) {
+      const partner = await fetchPartnerById(String(contract.partnerId));
+      if (partner) {
+        partnerAddress = partner.headquarters;
+        partnerCui = partner.vatNumber;
+        const reps = Array.isArray(partner.representatives)
+          ? partner.representatives
+          : [];
+        const primary = reps.find((r) => r?.primary && r?.fullname);
+        const first = reps.find((r) => r?.fullname);
+        partnerRepresentative =
+          String(primary?.fullname || first?.fullname || "").trim() || undefined;
+      }
+    }
+  } catch {}
+
+  let ownerName: string | undefined;
+  try {
+    if ((contract as any).ownerId) {
+      const owner = await fetchOwnerById(String((contract as any).ownerId));
+      ownerName = owner?.name;
+    }
+  } catch {}
+  if (!ownerName) {
+    ownerName = typeof (contract as any).owner === "string" ? (contract as any).owner : undefined;
+  }
+
+  let assetAddress: string | undefined;
+  try {
+    if ((contract as any).assetId) {
+      const asset = await getAssetById(String((contract as any).assetId));
+      assetAddress = asset?.address;
+    }
+  } catch {}
+
   await logAction({
     action: "indexing.notice.issue",
     targetType: "contract",
     targetId: contractId,
     meta: {
+      ...(contractNumber ? { contractNumber } : {}),
+      ...(contractSignedAt ? { contractSignedAt } : {}),
+      ...(noteRaw ? { note: noteRaw } : {}),
+      validFrom,
+      partnerName: (contract as any).partner,
+      partnerId: (contract as any).partnerId,
+      partnerAddress,
+      partnerCui,
+      partnerRepresentative,
+      ownerName,
+      ownerId: (contract as any).ownerId,
+      assetAddress,
       rentEUR: rent,
       deltaPercent,
       deltaAmountEUR: deltaAmount,
@@ -149,7 +224,7 @@ export async function issueIndexingNoticeAction(
   };
 }
 
-export async function updateScanTitleAction(_: ScanActionState, formData: FormData): Promise<ScanActionState> {
+export async function updateScanTitleAction(_prevState: ScanActionState, formData: FormData): Promise<ScanActionState> {
   const id = String(formData.get("id") || "").trim();
   const index = Number(String(formData.get("index") || ""));
   const titleRaw = String(formData.get("scanTitle") || "");
@@ -183,7 +258,7 @@ export async function updateScanTitleAction(_: ScanActionState, formData: FormDa
   }
 }
 
-export async function deleteScanAction(_: ScanActionState, formData: FormData): Promise<ScanActionState> {
+export async function deleteScanAction(_prevState: ScanActionState, formData: FormData): Promise<ScanActionState> {
   const id = String(formData.get("id") || "").trim();
   const index = Number(String(formData.get("index") || ""));
   if (!id) return { ok: false, message: "ID contract lipsă" };

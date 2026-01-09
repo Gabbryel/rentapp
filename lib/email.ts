@@ -1,6 +1,18 @@
 import nodemailer from "nodemailer";
 
-export type Mail = { to: string | string[]; subject: string; text?: string; html?: string };
+export type MailAttachment = {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+};
+
+export type Mail = {
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+  attachments?: MailAttachment[];
+};
 
 function getTransport() {
   let { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env as Record<string, string | undefined>;
@@ -22,12 +34,12 @@ function getTransport() {
   });
 }
 
-export async function sendMail({ to, subject, text, html }: Mail) {
+export async function sendMail({ to, subject, text, html, attachments }: Mail) {
   const from = process.env.SMTP_FROM || "no-reply@example.com";
   const transport = getTransport();
   if (!transport) {
-    console.log("[dev-mail]", { from, to, subject, text, html });
+    console.log("[dev-mail]", { from, to, subject, text, html, attachments: attachments?.map(a => a.filename) });
     return { accepted: Array.isArray(to) ? to : [to], rejected: [] };
   }
-  return transport.sendMail({ from, to, subject, text, html });
+  return transport.sendMail({ from, to, subject, text, html, attachments });
 }

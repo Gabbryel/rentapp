@@ -1,9 +1,11 @@
+"use server";
 import * as React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
+import { updateScanTitleAction, deleteScanAction } from "./scans/actions";
 import InvoiceViewer from "@/app/components/invoice-viewer";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import ActionButton from "@/app/components/action-button";
@@ -25,9 +27,14 @@ import {
   fetchIndexingNoticeById,
   listIndexingNotices,
   updateIndexingNoticeMeta,
+  addIndexingNoticeSendHistory,
   deleteIndexingNotice,
 } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
+import { generateIndexingNoticePdf } from "@/lib/indexing-notice-pdf";
+import { getAdminEmails } from "@/lib/admin-helpers";
+import { saveBufferAsUpload } from "@/lib/storage";
+import { upsertIndexing } from "@/lib/indexing";
 
 import {
   listInvoicesForContract,
@@ -164,6 +171,20 @@ async function saveIndexing(formData: FormData) {
   }
 
   await upsertContract({ ...(existing as any), indexingDates: next } as any);
+
+  // Save indexing record to database if done
+  if (done && actualDate && typeof newRentAmount === "number") {
+    await upsertIndexing({
+      id: `${contractId}:${actualDate}`,
+      contractId,
+      indexDate: forecastDate,
+      actualIndexingDate: actualDate,
+      startDate: actualDate,
+      amount: newRentAmount,
+      document: document || "Indexare",
+    });
+  }
+
   revalidatePath(`/contracts/${contractId}`);
 }
 
@@ -221,9 +242,10 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   const newRentEUR = (() => {
     if (typeof storedNewRentEUR === "number") return storedNewRentEUR;
     if (typeof rentEUR !== "number") return undefined;
-    if (typeof deltaAmountEUR === "number") return rentEUR + deltaAmountEUR;
+    if (typeof deltaAmountEUR === "number")
+      return Math.ceil(rentEUR + deltaAmountEUR);
     if (typeof deltaPercent === "number")
-      return rentEUR * (1 + deltaPercent / 100);
+      return Math.ceil(rentEUR * (1 + deltaPercent / 100));
     return undefined;
   })();
 
@@ -332,7 +354,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
                       validFrom
                     )})</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;"><strong>${escapeHtml(
-                      newRentEUR.toFixed(2)
+                      Math.ceil(newRentEUR)
                     )} EUR</strong></td>
                   </tr>
                 </table>
@@ -375,14 +397,69 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
     `Chirie la emitere: ${rentEUR !== undefined ? rentEUR.toFixed(2) : "—"} EUR`
   );
   textLines.push(
-    `Chirie după indexare (începând cu ${validFrom}): ${newRentEUR.toFixed(
-      2
+    `Chirie după indexare (începând cu ${validFrom}): ${Math.ceil(
+      newRentEUR
     )} EUR`
   );
   textLines.push("");
   textLines.push(`Cu stimă, ${ownerName || "Echipa"}`);
 
-  await sendMail({ to, subject, text: textLines.join("\n"), html });
+  // Generate PDF attachment for the indexing notice
+  const noticePdfBuffer = await generateIndexingNoticePdf({
+    id: noticeId,
+    at: notice.at ? String(notice.at) : undefined,
+    meta: meta,
+    userEmail:
+      typeof notice.userEmail === "string" ? notice.userEmail : undefined,
+    contractName: contractName,
+  });
+
+  const attachmentFilename = `Notificare_indexare_${contractName.replace(
+    /[^a-zA-Z0-9]/g,
+    "_"
+  )}_${validFrom}.pdf`;
+
+  await sendMail({
+    to,
+    subject,
+    text: textLines.join("\n"),
+    html,
+    attachments: [
+      {
+        filename: attachmentFilename,
+        content: Buffer.from(noticePdfBuffer),
+        contentType: "application/pdf",
+      },
+    ],
+  });
+
+  // Save PDF as a scan/upload only on first send
+  const isFirstSend =
+    !Array.isArray((notice as any).sendHistory) ||
+    (notice as any).sendHistory.length === 0;
+  if (isFirstSend) {
+    const savedPdf = await saveBufferAsUpload(
+      noticePdfBuffer,
+      attachmentFilename,
+      "application/pdf",
+      { contractId }
+    );
+
+    // Add PDF to contract scans
+    const existingScans = Array.isArray((contract as any).scans)
+      ? ([...(contract as any).scans] as { url: string; title?: string }[])
+      : [];
+    existingScans.push({
+      url: savedPdf.url,
+      title: `Notificare indexare - ${validFrom}`,
+    });
+
+    await upsertContract({
+      ...(contract as any),
+      scans: existingScans,
+      scanUrl: existingScans[0]?.url,
+    } as any);
+  }
 
   const existingIndexingDates = Array.isArray((contract as any).indexingDates)
     ? ((contract as any).indexingDates as any[]) ?? []
@@ -434,15 +511,44 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
     });
   }
 
+  // Remove all future (non-done) indexing entries and add new one at +1 year from actualDate
+  const nextYear = new Date(validFrom + "T00:00:00Z");
+  nextYear.setUTCFullYear(nextYear.getUTCFullYear() + 1);
+  const nextForecastDate = nextYear.toISOString().slice(0, 10);
+
+  // Keep only done entries, remove all future forecasts
+  const finalIndexingDates = nextIndexingDates.filter((row: any) => row.done);
+
+  // Add the new +1 year entry
+  finalIndexingDates.push({
+    forecastDate: nextForecastDate,
+    done: false,
+  });
+
+  // Update contract with indexing dates (scans already updated if first send)
   await upsertContract({
     ...(contract as any),
-    indexingDates: nextIndexingDates,
+    indexingDates: finalIndexingDates,
   } as any);
   await updateIndexingNoticeMeta(noticeId, {
     newRentEUR,
     validFrom,
     appliedIndexing,
   });
+
+  // Save indexing record to database
+  await upsertIndexing({
+    id: `${contractId}:${validFrom}`,
+    contractId,
+    indexDate: validFrom,
+    actualIndexingDate: validFrom,
+    startDate: validFrom,
+    amount: newRentEUR,
+    document: `Indexare (email) - ${fromMonth} → ${toMonth}`,
+  });
+
+  // Track send history
+  await addIndexingNoticeSendHistory(noticeId, to);
 
   await logAction({
     action: "indexing.notice.email",
@@ -453,6 +559,228 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
 
   publishToast("Email trimis către partener.", "success");
   revalidatePath(`/contracts/${contractId}`);
+}
+
+async function sendIndexingNoticeToAdminsAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  const subjectRaw = String(formData.get("subject") || "").trim();
+  const messageRaw = String(formData.get("message") || "").trim();
+
+  if (!contractId || !noticeId) return;
+
+  const adminEmails = await getAdminEmails();
+  if (adminEmails.length === 0) {
+    publishToast("Nu există administratori configurați.", "error");
+    return;
+  }
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) return;
+
+  const notice = await fetchIndexingNoticeById(noticeId);
+  if (
+    !notice ||
+    notice.action !== "indexing.notice.issue" ||
+    notice.targetType !== "contract" ||
+    notice.targetId !== contractId
+  ) {
+    publishToast("Notificarea de indexare nu a fost găsită.", "error");
+    return;
+  }
+
+  const meta = (notice as any).meta || {};
+  const fromMonth = String(meta.fromMonth || meta.from || "?");
+  const toMonth = String(meta.toMonth || meta.to || "?");
+  const deltaPercent =
+    typeof meta.deltaPercent === "number" ? meta.deltaPercent : undefined;
+  const rentEUR = typeof meta.rentEUR === "number" ? meta.rentEUR : undefined;
+  const newRentEUR =
+    typeof meta.newRentEUR === "number" ? meta.newRentEUR : undefined;
+  const validFrom =
+    typeof meta.validFrom === "string" ? String(meta.validFrom) : "";
+  const note = typeof meta.note === "string" ? String(meta.note) : "";
+
+  const contractName = String((contract as any).name || contract.id).trim();
+  const ownerName = String((contract as any).owner || "").trim();
+  const partnerName = String((contract as any).partner || "").trim();
+
+  const subject = subjectRaw || `[Admin] Notificare indexare – ${contractName}`;
+
+  const introMessage =
+    messageRaw ||
+    `Notificare de indexare pentru contract ${contractName}.\n\nDetalii mai jos:`;
+
+  const textLines: string[] = [];
+  textLines.push(introMessage);
+  textLines.push("");
+  textLines.push(`Contract: ${contractName}`);
+  textLines.push(`Proprietar: ${ownerName}`);
+  textLines.push(`Partener: ${partnerName}`);
+  textLines.push("");
+  textLines.push(`Perioadă inflație: ${fromMonth} → ${toMonth}`);
+  if (typeof deltaPercent === "number") {
+    textLines.push(`Procent indexare: +${deltaPercent.toFixed(2)}%`);
+  }
+  if (typeof rentEUR === "number") {
+    textLines.push(`Chirie curentă: ${rentEUR.toFixed(2)} EUR`);
+  }
+  if (typeof newRentEUR === "number") {
+    textLines.push(`Chirie după indexare: ${Math.ceil(newRentEUR)} EUR`);
+  }
+  if (validFrom) {
+    textLines.push(`Valabil de la: ${validFrom}`);
+  }
+  if (note) {
+    textLines.push(`Notițe: ${note}`);
+  }
+  textLines.push("");
+  textLines.push("Vezi PDF-ul atașat pentru detalii complete.");
+
+  // Generate PDF attachment for the indexing notice
+  const noticePdfBuffer = await generateIndexingNoticePdf({
+    id: noticeId,
+    at: notice.at ? String(notice.at) : undefined,
+    meta: meta,
+    userEmail:
+      typeof notice.userEmail === "string" ? notice.userEmail : undefined,
+    contractName: contractName,
+  });
+
+  const attachmentFilename = `Notificare_indexare_${contractName.replace(
+    /[^a-zA-Z0-9]/g,
+    "_"
+  )}_${validFrom || "draft"}.pdf`;
+
+  await sendMail({
+    to: adminEmails,
+    subject,
+    text: textLines.join("\n"),
+    attachments: [
+      {
+        filename: attachmentFilename,
+        content: Buffer.from(noticePdfBuffer),
+        contentType: "application/pdf",
+      },
+    ],
+  });
+
+  await logAction({
+    action: "indexing.notice.email.admin",
+    targetType: "contract",
+    targetId: contractId,
+    meta: { noticeId, to: adminEmails, subject },
+  });
+
+  // Track send history for each admin
+  for (const adminEmail of adminEmails) {
+    await addIndexingNoticeSendHistory(noticeId, adminEmail);
+  }
+
+  publishToast(
+    `Email trimis către ${adminEmails.length} administrator(i).`,
+    "success"
+  );
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function updateNextIndexingDateAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const newDateRaw = String(formData.get("nextIndexingDate") || "").trim();
+
+  if (!contractId) {
+    publishToast("Contract ID lipsă.", "error");
+    return;
+  }
+
+  if (!newDateRaw) {
+    publishToast("Data următoarei indexări este obligatorie.", "error");
+    return;
+  }
+
+  const newDate = new Date(newDateRaw);
+  if (Number.isNaN(newDate.getTime())) {
+    publishToast("Data invalidă.", "error");
+    return;
+  }
+  const nextIndexingDate = newDate.toISOString().slice(0, 10);
+
+  const contract = await fetchContractById(contractId);
+  if (!contract) {
+    publishToast("Contractul nu a fost găsit.", "error");
+    return;
+  }
+
+  const existingIndexingDates = Array.isArray((contract as any).indexingDates)
+    ? ((contract as any).indexingDates as any[])
+    : [];
+
+  // Find the next future, non-done indexing date and update it
+  const todayISO = new Date().toISOString().slice(0, 10);
+  let foundAndUpdated = false;
+  const updatedIndexingDates = existingIndexingDates.map((row: any) => {
+    if (!foundAndUpdated && !row.done && row.forecastDate >= todayISO) {
+      foundAndUpdated = true;
+      return { ...row, forecastDate: nextIndexingDate };
+    }
+    return row;
+  });
+
+  // If no future date was found, add a new one
+  if (!foundAndUpdated) {
+    updatedIndexingDates.push({
+      forecastDate: nextIndexingDate,
+      done: false,
+    });
+  }
+
+  await upsertContract({
+    ...(contract as any),
+    indexingDates: updatedIndexingDates,
+  } as any);
+
+  await logAction({
+    action: "contract.indexing.date.update",
+    targetType: "contract",
+    targetId: contractId,
+    meta: { nextIndexingDate },
+  });
+
+  publishToast("Data următoarei indexări a fost actualizată.", "success");
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function saveEditedNotificationAction(formData: FormData) {
+  "use server";
+  const noticeId = String(formData.get("noticeId") || "").trim();
+  const editedContent = String(formData.get("editedContent") || "").trim();
+
+  if (!noticeId) {
+    publishToast("ID notificare lipsă.", "error");
+    return;
+  }
+
+  if (!editedContent) {
+    publishToast("Conținutul nu poate fi gol.", "error");
+    return;
+  }
+
+  try {
+    const notice = await fetchIndexingNoticeById(noticeId);
+    if (!notice || notice.targetType !== "contract") {
+      publishToast("Notificarea nu a fost găsită.", "error");
+      return;
+    }
+
+    await updateIndexingNoticeMeta(noticeId, { editedContent });
+    publishToast("Notificarea a fost salvată.", "success");
+    revalidatePath(`/contracts/${notice.targetId}`);
+  } catch (err) {
+    console.error("Error saving edited notification:", err);
+    publishToast("Eroare la salvare.", "error");
+  }
 }
 
 async function issueIndexingNoticeAction(formData: FormData) {
@@ -710,22 +1038,44 @@ async function updateIndexingNoticeAction(formData: FormData) {
   const prevMeta = (notice as any).meta || {};
   const rentEUR =
     typeof prevMeta.rentEUR === "number" ? prevMeta.rentEUR : undefined;
-  const newRentEUR = (() => {
-    if (typeof prevMeta.newRentEUR === "number") return prevMeta.newRentEUR;
-    if (typeof rentEUR !== "number") return undefined;
-    if (typeof deltaAmountEUR === "number") return rentEUR + deltaAmountEUR;
-    if (typeof deltaPercent === "number")
-      return rentEUR * (1 + deltaPercent / 100);
-    return undefined;
-  })();
+
+  // Recalculate deltaAmountEUR and newRentEUR based on the updated values
+  let calculatedDeltaAmountEUR = deltaAmountEUR;
+  let calculatedNewRentEUR: number | undefined;
+
+  if (typeof rentEUR === "number") {
+    // If deltaPercent was provided, recalculate deltaAmountEUR from it
+    if (typeof deltaPercent === "number") {
+      calculatedDeltaAmountEUR = rentEUR * (deltaPercent / 100);
+      calculatedNewRentEUR = rentEUR * (1 + deltaPercent / 100);
+    }
+    // If only deltaAmountEUR was provided (no deltaPercent), use it directly
+    else if (typeof deltaAmountEUR === "number") {
+      calculatedDeltaAmountEUR = deltaAmountEUR;
+      calculatedNewRentEUR = rentEUR + deltaAmountEUR;
+    }
+    // If neither was provided, keep existing values
+    else {
+      calculatedDeltaAmountEUR =
+        typeof prevMeta.deltaAmountEUR === "number"
+          ? prevMeta.deltaAmountEUR
+          : undefined;
+      calculatedNewRentEUR =
+        typeof prevMeta.newRentEUR === "number"
+          ? prevMeta.newRentEUR
+          : undefined;
+    }
+  }
 
   await updateIndexingNoticeMeta(noticeId, {
     fromMonth: fromMonth || undefined,
     toMonth: toMonth || undefined,
     deltaPercent,
-    deltaAmountEUR,
+    deltaAmountEUR: calculatedDeltaAmountEUR,
     note: note || undefined,
-    ...(typeof newRentEUR === "number" ? { newRentEUR } : {}),
+    ...(typeof calculatedNewRentEUR === "number"
+      ? { newRentEUR: calculatedNewRentEUR }
+      : {}),
   });
 
   publishToast("Notificarea a fost actualizată.", "success");
@@ -1214,7 +1564,9 @@ export default async function ContractPage({
     partner?.representatives?.find((r) => r?.email)?.email ||
     "";
   const invoices = await listInvoicesForContract(contract.id);
-  const indexingNotices = await listIndexingNotices(contract.id);
+  const rawIndexingNotices = await listIndexingNotices(contract.id);
+  // Serialize to remove MongoDB ObjectIds from being passed to client components
+  const indexingNotices = JSON.parse(JSON.stringify(rawIndexingNotices));
   const writtenContracts = await listWrittenContractsByContractId(contract.id);
   const currentRentValue = currentRentAmount(contract);
   const twelveMonthsAgo = (() => {
@@ -2313,14 +2665,6 @@ export default async function ContractPage({
         </div>
 
         <div id="contract-right" className="lg:col-span-2">
-          <ContractScans
-            scans={
-              (contract as { scans?: { url: string; title?: string }[] })
-                .scans ||
-              (contract.scanUrl ? [{ url: String(contract.scanUrl) }] : [])
-            }
-            contractName={contract.name}
-          />
           <ManageContractScans
             id={contract.id}
             scans={
@@ -2336,6 +2680,32 @@ export default async function ContractPage({
                 ? (contract as any).tvaPercent
                 : null
             }
+            correctionPercent={
+              typeof (contract as any).correctionPercent === "number"
+                ? (contract as any).correctionPercent
+                : null
+            }
+            deposits={deposits as any}
+            contractExtensions={
+              Array.isArray((contract as any).contractExtensions)
+                ? ((contract as any).contractExtensions as any[])
+                : []
+            }
+            contractSignedAt={
+              normalizeIsoDate((contract as any).signedAt) ||
+              normalizeIsoDate(latestWrittenContract?.documentDate) ||
+              normalizeIsoDate(latestWrittenContract?.contractSignedAt) ||
+              ""
+            }
+            contractEnd={normalizeIsoDate(contractEnd) || ""}
+            defaultIndexingContractNumber={String(
+              latestWrittenContract?.documentNumber || ""
+            ).trim()}
+            defaultIndexingContractSignedAt={
+              normalizeIsoDate(latestWrittenContract?.documentDate) ||
+              normalizeIsoDate(latestWrittenContract?.contractSignedAt) ||
+              ""
+            }
             indexingInflation={
               inflation
                 ? {
@@ -2349,6 +2719,16 @@ export default async function ContractPage({
             currentRent={
               typeof currentRentValue === "number" ? currentRentValue : null
             }
+            indexingNotices={indexingNotices as any}
+            updateIndexingNoticeAction={updateIndexingNoticeAction}
+            deleteIndexingNoticeAction={deleteIndexingNoticeAction}
+            sendIndexingNoticeEmailAction={sendIndexingNoticeEmailAction}
+            sendIndexingNoticeToAdminsAction={sendIndexingNoticeToAdminsAction}
+            updateNextIndexingDateAction={updateNextIndexingDateAction}
+            saveEditedNotificationAction={saveEditedNotificationAction}
+            nextIndexingDate={nextIndexingDate}
+            partnerEmail={partnerEmail}
+            contractName={(contract as any).name || contract.id}
             wrapChildrenInCard={false}
           >
             {/* Gestionează contract (mutat în manage-contract-section) */}
@@ -3067,7 +3447,7 @@ export default async function ContractPage({
                                           String(validFrom).slice(0, 10)
                                         )})`
                                       : ""}
-                                    : {newRentEUR.toFixed(2)} EUR
+                                    : {Math.ceil(newRentEUR)} EUR
                                   </span>
                                 ) : null}
                                 {validFrom ? (
