@@ -12,7 +12,7 @@ function sanitize(s: string) {
 export async function saveScanFile(
   file: File,
   baseName: string,
-  opts?: { contractId?: string; partnerId?: string }
+  opts?: { contractId?: string; partnerId?: string; assetId?: string }
 ): Promise<{ url: string; storage: "gridfs" | "local"; id?: string }> {
   const original = file.name || "scan";
   const base = sanitize(baseName || original.replace(/\.[^.]+$/, "")) || "scan";
@@ -27,7 +27,7 @@ export async function saveScanFile(
     const readable = Readable.from(buffer);
     const uploadStream = bucket.openUploadStream(filename, {
       contentType: file.type || inferMime(ext) || "application/octet-stream",
-      metadata: { originalName: original, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null },
+      metadata: { originalName: original, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null, assetId: opts?.assetId ?? null },
     });
     await new Promise<void>((resolve, reject) => {
       readable.pipe(uploadStream).on("finish", () => resolve()).on("error", reject);
@@ -61,7 +61,7 @@ export async function saveBufferAsUpload(
   data: Uint8Array,
   filename: string,
   contentType: string,
-  opts?: { contractId?: string; partnerId?: string }
+  opts?: { contractId?: string; partnerId?: string; assetId?: string }
 ): Promise<{ url: string; storage: "gridfs" | "local"; id?: string }> {
   const base = sanitize(filename.replace(/\.[^.]+$/, "")) || "file";
   const ext = (filename.split(".").pop() || "dat").toLowerCase();
@@ -75,7 +75,7 @@ export async function saveBufferAsUpload(
       const readable = Readable.from(dataBuffer);
       const uploadStream = bucket.openUploadStream(finalName, {
         contentType: mimeType,
-        metadata: { originalName: filename, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null },
+        metadata: { originalName: filename, contractId: opts?.contractId ?? null, partnerId: opts?.partnerId ?? null, assetId: opts?.assetId ?? null },
       });
       await new Promise<void>((resolve, reject) => {
         readable.pipe(uploadStream).on("finish", () => resolve()).on("error", reject);

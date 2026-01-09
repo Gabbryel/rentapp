@@ -74,9 +74,9 @@ export async function addAssetScanAction(
     }
 
     const scans = Array.isArray((prev as any).scans)
-      ? ([...(prev as any).scans] as { url: string; title?: string }[])
+      ? ([...(prev as any).scans] as { url: string; title: string | undefined }[])
       : [];
-    scans.push({ url: url!, title });
+    scans.push({ url: url!, title: title ?? undefined });
 
     const next = { ...prev, scans };
     await upsertAsset(next);
@@ -130,13 +130,13 @@ export async function editAssetScanAction(
     if (!prev) return { ok: false, message: "Asset inexistent" };
 
     const scans = Array.isArray((prev as any).scans)
-      ? ([...(prev as any).scans] as { url: string; title?: string }[])
+      ? ([...(prev as any).scans] as { url: string; title: string | undefined }[])
       : [];
     if (index >= scans.length)
       return { ok: false, message: "Index în afara limitelor" };
 
     const before = scans[index]?.title;
-    scans[index] = { ...scans[index], title };
+    scans[index] = { ...scans[index], title: title ?? undefined };
 
     const next = { ...prev, scans };
     await upsertAsset(next);
@@ -184,7 +184,7 @@ export async function deleteAssetScanAction(
     if (!prev) return { ok: false, message: "Asset inexistent" };
 
     const scans = Array.isArray((prev as any).scans)
-      ? ([...(prev as any).scans] as { url: string; title?: string }[])
+      ? ([...(prev as any).scans] as { url: string; title: string | undefined }[])
       : [];
     if (index >= scans.length)
       return { ok: false, message: "Index în afara limitelor" };
