@@ -912,7 +912,7 @@ export default function ManageContractScans({
                                 <input
                                   name="deltaPercent"
                                   type="number"
-                                  step="0.01"
+                                  step="any"
                                   placeholder="%"
                                   defaultValue={deltaPercent ?? ""}
                                   className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1 text-xs"
