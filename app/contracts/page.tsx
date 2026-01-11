@@ -7,22 +7,39 @@ import type { Contract } from "@/lib/schemas/contract";
 import { unstable_noStore as noStore } from "next/cache";
 import SearchContracts from "@/app/components/search-contracts";
 import PartnerFilter from "@/app/components/partner-filter";
+import { fetchOwners } from "@/lib/owners";
+import OwnerFilter from "@/app/components/owner-filter";
+import { listIndexingNotices } from "@/lib/audit";
+import type { IndexingNotice } from "@/lib/audit";
 import Link from "next/link";
 
 export default async function ContractsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; sort?: string; partner?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; partner?: string; ownerId?: string }>;
 }) {
   noStore();
   const params = (await searchParams) ?? {};
-  const { q = "", sort = "idx", partner: partnerId = "" } = params;
+  const { q = "", sort = "idx", partner: partnerId = "", ownerId = "" } = params;
+  
+  // Fetch owners and determine selected owner
+  const owners = await fetchOwners();
+  const selectedOwnerId = ownerId || owners[0]?.id || "";
+  const selectedOwner = owners.find((o) => o.id === selectedOwnerId) ?? owners[0];
+  
   const all = await fetchContracts();
+
+  // Filter by owner first
+  const byOwner = all.filter((c: any) => {
+    const okById = c.ownerId && String(c.ownerId) === selectedOwnerId;
+    const okByName = String(c.owner || "") === selectedOwner?.name;
+    return okById || okByName;
+  });
 
   // Filter by query: name, partner, asset
   const query = String(q).toLowerCase();
   const byQuery = query
-    ? all.filter((c) => {
+    ? byOwner.filter((c) => {
         const name = (c.name || "").toLowerCase();
         const legacyPartner = (c.partner || "").toLowerCase();
         const partnersArr = ((c as any).partners || []) as Array<{
@@ -39,7 +56,7 @@ export default async function ContractsPage({
           asset.includes(query)
         );
       })
-    : all;
+    : byOwner;
   // Filter by partner selection: match by partnerId or within partners[]; fallback to legacy name match if no ids
   const contracts = partnerId
     ? byQuery.filter((c) => {
@@ -66,6 +83,25 @@ export default async function ContractsPage({
     now.getMonth(),
     now.getDate()
   );
+
+  // Fetch indexing notices for all contracts
+  const noticesMap = new Map<string, IndexingNotice | null>();
+  if (process.env.MONGODB_URI) {
+    await Promise.all(
+      contracts.map(async (c) => {
+        const notices = await listIndexingNotices(c.id);
+        if (notices.length > 0) {
+          // Get the most recent notice
+          const latestNotice = notices.sort((a, b) =>
+            String(b.at || "").localeCompare(String(a.at || ""))
+          )[0];
+          noticesMap.set(c.id, latestNotice);
+        } else {
+          noticesMap.set(c.id, null);
+        }
+      })
+    );
+  }
 
   const fmt = (d: string | Date) => {
     const dt = typeof d === "string" ? new Date(d) : d;
@@ -96,341 +132,294 @@ export default async function ContractsPage({
   // Removed manual bulk exchange rate update; contracts now rely on exchange_rates persisted values.
 
   // Keep the exact same card UI as on the home page
-  const renderCard = (c: Contract) => (
-    <article
-      key={c.id}
-      id={`contract-card-${c.id}`}
-      className="rounded-xl border border-foreground/15 p-4 sm:p-5 hover:border-foreground/30 transition-colors text-base bg-background/60 shadow-sm space-y-3 sm:space-y-4 overflow-hidden"
-    >
-      <div className="flex items-start justify-between gap-3 sm:gap-4">
-        <h2
-          id={`contract-card-${c.id}-title`}
-          className="text-base font-semibold truncate tracking-tight flex-1 min-w-0"
-          title={c.name}
-        >
-          <Link href={`/contracts/${c.id}`} className="hover:underline">
-            {c.name}
-          </Link>
-        </h2>
-        <div
-          className="flex items-center gap-2 flex-wrap justify-end shrink-0"
-          id={`contract-card-${c.id}-status`}
-        >
-          {(c as any).invoiceMonthMode === "next" &&
-          c.rentType === "monthly" ? (
-            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-blue-500/20 text-blue-600 dark:text-blue-400">
-              În avans
-            </span>
-          ) : null}
-          {new Date(effectiveEndDate(c)) < now ? (
-            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-red-500/20 text-red-600 dark:text-red-400">
-              Expirat
-            </span>
-          ) : (
-            <span className="shrink-0 text-[10px] sm:text-xs uppercase tracking-wide rounded-full px-2 py-1 ring-1 ring-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              Activ
-            </span>
-          )}
-        </div>
-      </div>
-      <p
-        id={`contract-card-${c.id}-partner`}
-        className="text-base text-foreground/80 truncate break-words leading-tight"
-        title={c.partner}
+  const renderCard = (c: Contract) => {
+    const isExpired = new Date(effectiveEndDate(c)) < now;
+    const isAdvance = (c as any).invoiceMonthMode === "next" && c.rentType === "monthly";
+    
+    return (
+      <article
+        key={c.id}
+        id={`contract-card-${c.id}`}
+        className="rounded-2xl border border-foreground/10 bg-gradient-to-br from-background via-background to-foreground/5 p-6 shadow-lg backdrop-blur hover:shadow-xl transition-all duration-200"
       >
-        Partener: {c.partner}
-      </p>
-      <p
-        id={`contract-card-${c.id}-owner`}
-        className="text-base text-foreground/70 truncate break-words leading-tight"
-        title={c.owner}
-      >
-        Proprietar: {c.owner ?? "Markov Services s.r.l."}
-      </p>
-
-      {(() => {
-        if (c.rentType === "yearly") {
-          const total = (((c as any).irregularInvoices ?? []) as any[]).reduce(
-            (s, r) => s + (r.amountEUR || 0),
-            0
-          );
-          const count = (((c as any).irregularInvoices ?? []) as any[]).length;
-          if (count === 0) return null;
-          return (
-            <p
-              id={`contract-card-${c.id}-yearly`}
-              className="text-sm text-foreground/70 leading-tight"
-            >
-              Chirie anuală · {count} factur{count === 1 ? "ă" : "i"} · total{" "}
-              {fmtEUR(total)}
-            </p>
-          );
-        }
-        if (typeof c.monthlyInvoiceDay === "number") {
-          return (
-            <p
-              id={`contract-card-${c.id}-monthly`}
-              className="text-sm text-foreground/70 leading-tight"
-            >
-              Chirie lunară · facturare ziua {c.monthlyInvoiceDay}
-            </p>
-          );
-        }
-        return (
-          <p
-            id={`contract-card-${c.id}-monthly-generic`}
-            className="text-sm text-foreground/60"
+        {/* Header with title and status badges */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <h2
+            id={`contract-card-${c.id}-title`}
+            className="text-xl font-bold tracking-tight flex-1 min-w-0"
           >
-            Chirie lunară
-          </p>
-        );
-      })()}
-
-      {(() => {
-        const eur =
-          c.rentType === "yearly"
-            ? (((c as any).irregularInvoices ?? []) as any[]).reduce(
-                (s, r) => s + (r.amountEUR || 0),
-                0
-              )
-            : currentRentAmount(c);
-        if (typeof eur !== "number") return null;
-        const eurLabel =
-          c.rentType === "yearly" ? "EUR (anual)" : "EUR (lunar)";
-        const hasRate = typeof c.exchangeRateRON === "number";
-        const corrPct =
-          typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
-        const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
-        const baseRon = hasRate
-          ? eur * (c.exchangeRateRON as number)
-          : undefined;
-        const ronAfterCorrection =
-          typeof baseRon === "number"
-            ? baseRon * (1 + corrPct / 100)
-            : undefined;
-        const ronAfterCorrectionTva =
-          typeof ronAfterCorrection === "number"
-            ? ronAfterCorrection * (1 + tvaPct / 100)
-            : undefined;
-        return (
-          <>
-            <div
-              id={`contract-card-${c.id}-finance`}
-              className="rounded-md bg-foreground/5 p-2 space-y-0.5"
-            >
-              <div
-                id={`contract-card-${c.id}-finance-eur`}
-                className="font-semibold text-base leading-tight text-indigo-700 dark:text-indigo-400"
-              >
-                {eurLabel}: {fmtEUR(eur)}
-              </div>
-              {hasRate ? (
-                <div
-                  id={`contract-card-${c.id}-finance-rate`}
-                  className="font-semibold text-base leading-tight text-cyan-700 dark:text-cyan-400"
-                >
-                  Curs: {(c.exchangeRateRON as number).toFixed(4)} RON/EUR
-                </div>
-              ) : null}
-              {typeof baseRon === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-ron`}
-                  className="font-semibold text-base leading-tight"
-                >
-                  RON: {fmtRON(baseRon)}
-                </div>
-              ) : null}
-              {typeof ronAfterCorrection === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-ron-corr`}
-                  className="font-semibold text-base leading-tight text-sky-700 dark:text-sky-400"
-                >
-                  RON după corecție{corrPct ? ` (${corrPct}%)` : ""}:{" "}
-                  {fmtRON(ronAfterCorrection)}
-                </div>
-              ) : null}
-              {typeof ronAfterCorrectionTva === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-ron-corr-tva`}
-                  className="font-semibold text-base leading-tight text-emerald-700 dark:text-emerald-400"
-                >
-                  RON după corecție + TVA{tvaPct ? ` (${tvaPct}%)` : ""}:{" "}
-                  {fmtRON(ronAfterCorrectionTva)}
-                </div>
-              ) : null}
-            </div>
-            {(() => {
-              return null; // indexing removed
-            })()}
-          </>
-        );
-      })()}
-
-      {/* Inflation section removed */}
-
-      <dl id={`contract-card-${c.id}-dates`} className="grid grid-cols-1 gap-2">
-        <div
-          id={`contract-card-${c.id}-date-signed`}
-          className="rounded-md bg-foreground/5 p-2"
-        >
-          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-            <dt className="text-xs text-foreground/60 shrink-0">Semnat</dt>
-            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-              {fmt(c.signedAt)}
-            </dd>
+            <Link href={`/contracts/${c.id}`} className="hover:underline break-words">
+              {c.name}
+            </Link>
+          </h2>
+          <div className="flex flex-col gap-2 items-end shrink-0">
+            {isAdvance && (
+              <span className="inline-flex items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20">
+                În avans
+              </span>
+            )}
+            {isExpired ? (
+              <span className="inline-flex items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400 ring-1 ring-red-500/20">
+                Expirat
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20">
+                Activ
+              </span>
+            )}
           </div>
         </div>
-        <div
-          id={`contract-card-${c.id}-date-start`}
-          className="rounded-md bg-foreground/5 p-2"
-        >
-          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-            <dt className="text-xs text-foreground/60 shrink-0">Început</dt>
-            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-              {fmt(c.startDate)}
-            </dd>
+
+        {/* Partner and Owner */}
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center gap-2 text-foreground/80">
+            <svg className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium truncate" title={c.partner}>
+              {c.partner}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-foreground/70">
+            <svg className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-sm truncate" title={c.owner}>
+              {c.owner ?? "Markov Services s.r.l."}
+            </span>
           </div>
         </div>
-        <div
-          id={`contract-card-${c.id}-date-expire`}
-          className="rounded-md bg-foreground/5 p-2"
-        >
-          <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-            <dt className="text-xs text-foreground/60 shrink-0">Expiră</dt>
-            <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-              {fmt(effectiveEndDate(c))}
-            </dd>
-          </div>
-        </div>
+
+        {/* Financial Info - Prominent */}
         {(() => {
-          const arr = Array.isArray((c as any).contractExtensions)
-            ? (
-                (c as any).contractExtensions as Array<{
-                  extendedUntil?: string;
-                }>
-              )
-                .map((r) => String(r.extendedUntil || ""))
-                .filter(Boolean)
-                .sort()
-            : [];
-          const latest = arr.length > 0 ? arr[arr.length - 1] : undefined;
-          return latest ? (
-            <div
-              id={`contract-card-${c.id}-date-extension`}
-              className="rounded-md bg-foreground/5 p-2"
-            >
-              <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-                <dt className="text-xs text-foreground/60 shrink-0">
-                  Prelungire până la
-                </dt>
-                <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-                  {fmt(latest)}
-                </dd>
+          const eur =
+            c.rentType === "yearly"
+              ? (((c as any).irregularInvoices ?? []) as any[]).reduce(
+                  (s, r) => s + (r.amountEUR || 0),
+                  0
+                )
+              : currentRentAmount(c);
+          if (typeof eur !== "number") return null;
+          
+          const hasRate = typeof c.exchangeRateRON === "number";
+          const corrPct = typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+          const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
+          const baseRon = hasRate ? eur * (c.exchangeRateRON as number) : undefined;
+          const ronAfterCorrection = typeof baseRon === "number" ? baseRon * (1 + corrPct / 100) : undefined;
+          const ronAfterCorrectionTva = typeof ronAfterCorrection === "number" ? ronAfterCorrection * (1 + tvaPct / 100) : undefined;
+          
+          return (
+            <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-4 mb-4 border border-indigo-500/20">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
+                    {c.rentType === "yearly" ? "Chirie anuală" : "Chirie lunară"}
+                  </span>
+                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {fmtEUR(eur)}
+                  </span>
+                </div>
+                {hasRate && (
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground/60">Curs RON/EUR</span>
+                    <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                      {(c.exchangeRateRON as number).toFixed(4)}
+                    </span>
+                  </div>
+                )}
+                {typeof baseRon === "number" && (
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground/60">RON</span>
+                    <span className="font-semibold">{fmtRON(baseRon)}</span>
+                  </div>
+                )}
+                {corrPct !== 0 && typeof ronAfterCorrection === "number" && (
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground/60">După corecție ({corrPct}%)</span>
+                    <span className="font-semibold text-sky-600 dark:text-sky-400">{fmtRON(ronAfterCorrection)}</span>
+                  </div>
+                )}
+                {tvaPct !== 0 && typeof ronAfterCorrectionTva === "number" && (
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground/60">Cu TVA ({tvaPct}%)</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{fmtRON(ronAfterCorrectionTva)}</span>
+                  </div>
+                )}
               </div>
             </div>
-          ) : null;
+          );
         })()}
-        {/* Termen plată moved into the Facturare block below */}
-        {c.rentType === "monthly" && typeof c.monthlyInvoiceDay === "number" ? (
-          <div
-            id={`contract-card-${c.id}-billing`}
-            className="rounded-md bg-foreground/5 p-2"
-          >
-            <div className="flex items-baseline justify-between gap-3 min-w-0 w-full">
-              <dt className="text-xs text-foreground/60 shrink-0">Facturare</dt>
-              <dd className="font-medium text-base leading-tight truncate flex-1 text-right">
-                <div className="leading-tight">
-                  Lunar, ziua {c.monthlyInvoiceDay}
-                </div>
-                {typeof c.paymentDueDays === "number" ? (
-                  <div className="text-sm text-foreground/70 mt-0.5">
-                    Termen plată: {c.paymentDueDays} zile
+
+        {/* Indexing Info - Next indexing date and future rent */}
+        {(() => {
+          const indexingDates = ((c as any).indexingDates || []) as Array<{
+            forecastDate: string;
+            newRentAmount?: number;
+            done?: boolean;
+          }>;
+          const todayISO = now.toISOString().slice(0, 10);
+          const nextIndexing = indexingDates
+            .filter((d) => !d.done && d.forecastDate >= todayISO)
+            .sort((a, b) => a.forecastDate.localeCompare(b.forecastDate))[0];
+          
+          // Get the most recent indexing notice for this contract
+          const latestNotice = noticesMap.get(c.id);
+          const newRentEUR = latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]?.newRentEUR;
+          const validFrom = latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]?.validFrom;
+          
+          if (!nextIndexing && !newRentEUR) return null;
+          
+          const daysUntil = nextIndexing ? (() => {
+            try {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const target = new Date(nextIndexing.forecastDate);
+              target.setHours(0, 0, 0, 0);
+              const diffMs = target.getTime() - today.getTime();
+              return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            } catch {
+              return null;
+            }
+          })() : null;
+          
+          return (
+            <div className="rounded-xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 p-4 mb-4 border border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
+                  Indexare Programată
+                </span>
+              </div>
+              <div className="space-y-2">
+                {nextIndexing && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-foreground/70">Data indexării</span>
+                    <span className="text-sm font-semibold">
+                      {fmt(nextIndexing.forecastDate)}
+                      {daysUntil !== null && (
+                        <span className={`ml-2 text-xs ${
+                          daysUntil < 0 ? 'text-red-600 dark:text-red-400' :
+                          daysUntil === 0 ? 'text-orange-600 dark:text-orange-400' :
+                          daysUntil < 20 ? 'text-orange-600 dark:text-orange-400' :
+                          'text-foreground/60'
+                        }`}>
+                          ({daysUntil < 0 ? `depășită cu ${Math.abs(daysUntil)} zile` :
+                            daysUntil === 0 ? 'astăzi' :
+                            `în ${daysUntil} zile`})
+                        </span>
+                      )}
+                    </span>
                   </div>
-                ) : null}
-              </dd>
+                )}
+                {typeof newRentEUR === "number" && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-foreground/70">
+                      {validFrom ? `Chirie din ${fmt(validFrom)}` : "Chirie viitoare"}
+                    </span>
+                    <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                      {fmtEUR(newRentEUR)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Billing Info */}
+        {c.rentType === "monthly" && typeof c.monthlyInvoiceDay === "number" ? (
+          <div className="rounded-xl bg-foreground/5 p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">Facturare</span>
+              <span className="text-sm font-medium">Ziua {c.monthlyInvoiceDay}</span>
+            </div>
+            {typeof c.paymentDueDays === "number" && (
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-foreground/50">Termen plată</span>
+                <span className="text-sm text-foreground/70">{c.paymentDueDays} zile</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {c.rentType === "yearly" && ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
+          <div className="rounded-xl bg-foreground/5 p-3 mb-4">
+            <div className="text-xs uppercase tracking-wide text-foreground/60 font-semibold mb-2">
+              Facturi anuale
+            </div>
+            <div className="space-y-1">
+              {(((c as any).irregularInvoices || []) as { month: number; day: number; amountEUR: number }[])
+                .map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground/70">
+                      {`${String(r.day).padStart(2, "0")}/${String(r.month).padStart(2, "0")}`}
+                    </span>
+                    <span className="font-medium">{fmtEUR(r.amountEUR)}</span>
+                  </div>
+                ))}
+            </div>
+            {typeof c.paymentDueDays === "number" && (
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-foreground/10">
+                <span className="text-xs text-foreground/50">Termen plată</span>
+                <span className="text-sm text-foreground/70">{c.paymentDueDays} zile</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* Dates Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="rounded-lg bg-foreground/5 p-3">
+            <div className="text-xs text-foreground/60 mb-1">Semnat</div>
+            <div className="text-sm font-semibold">{fmt(c.signedAt)}</div>
+          </div>
+          <div className="rounded-lg bg-foreground/5 p-3">
+            <div className="text-xs text-foreground/60 mb-1">Început</div>
+            <div className="text-sm font-semibold">{fmt(c.startDate)}</div>
+          </div>
+          <div className={`rounded-lg p-3 ${isExpired ? 'bg-red-500/10 ring-1 ring-red-500/20' : 'bg-foreground/5'}`}>
+            <div className="text-xs text-foreground/60 mb-1">Expiră</div>
+            <div className={`text-sm font-semibold ${isExpired ? 'text-red-600 dark:text-red-400' : ''}`}>
+              {fmt(effectiveEndDate(c))}
             </div>
           </div>
-        ) : null}
-        {c.rentType === "yearly" &&
-        ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
-          <div
-            id={`contract-card-${c.id}-yearly-invoices`}
-            className="rounded-md bg-foreground/5 p-2"
-          >
-            <dt className="text-xs text-foreground/60">Facturi anuale</dt>
-            <dd className="font-medium text-sm mt-0.5">
-              <ul
-                id={`contract-card-${c.id}-yearly-invoices-list`}
-                className="space-y-0.5"
-              >
-                {(
-                  ((c as any).irregularInvoices || []) as {
-                    month: number;
-                    day: number;
-                    amountEUR: number;
-                  }[]
-                ).map((r, i) => (
-                  <li id={`contract-card-${c.id}-yearly-invoice-${i}`} key={i}>
-                    {`${String(r.day).padStart(2, "0")}/${String(
-                      r.month
-                    ).padStart(2, "0")} – ${fmtEUR(r.amountEUR)}`}
-                  </li>
-                ))}
-              </ul>
-              {typeof c.paymentDueDays === "number" ? (
-                <div className="text-sm text-foreground/70 mt-2">
-                  Termen plată: {c.paymentDueDays} zile
-                </div>
-              ) : null}
-            </dd>
+          {(() => {
+            const arr = Array.isArray((c as any).contractExtensions)
+              ? ((c as any).contractExtensions as Array<{ extendedUntil?: string }>)
+                  .map((r) => String(r.extendedUntil || ""))
+                  .filter(Boolean)
+                  .sort()
+              : [];
+            const latest = arr.length > 0 ? arr[arr.length - 1] : undefined;
+            return latest ? (
+              <div className="rounded-lg bg-orange-500/10 p-3 ring-1 ring-orange-500/20">
+                <div className="text-xs text-foreground/60 mb-1">Prelungit până</div>
+                <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">{fmt(latest)}</div>
+              </div>
+            ) : null;
+          })()}
+        </div>
+
+        {/* Additional financial details as tags */}
+        {(typeof c.correctionPercent === "number" || typeof c.tvaPercent === "number") && (
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-foreground/10">
+            {typeof c.correctionPercent === "number" && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                Corecție {c.correctionPercent}%
+              </span>
+            )}
+            {typeof c.tvaPercent === "number" && (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                TVA {c.tvaPercent}%
+              </span>
+            )}
           </div>
-        ) : null}
-        {typeof currentRentAmount(c) === "number" ||
-        typeof c.exchangeRateRON === "number" ? (
-          <div
-            id={`contract-card-${c.id}-finance-compact`}
-            className="rounded-md bg-foreground/5 p-2"
-          >
-            <dt className="text-xs text-foreground/60">Financiar</dt>
-            <dd className="font-medium text-sm mt-0.5 space-y-0.5">
-              {typeof currentRentAmount(c) === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-compact-eur`}
-                  className="text-indigo-700 dark:text-indigo-400 leading-tight"
-                >
-                  EUR: {fmtEUR(currentRentAmount(c) as number)}
-                </div>
-              ) : null}
-              {typeof c.exchangeRateRON === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-compact-rate`}
-                  className="text-cyan-700 dark:text-cyan-400 leading-tight"
-                >
-                  Curs: {c.exchangeRateRON.toFixed(4)} RON/EUR
-                </div>
-              ) : null}
-              {typeof c.correctionPercent === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-compact-corr`}
-                  className="text-amber-700 dark:text-amber-400 leading-tight"
-                >
-                  Corecție: {c.correctionPercent}%
-                </div>
-              ) : null}
-              {typeof c.tvaPercent === "number" ? (
-                <div
-                  id={`contract-card-${c.id}-finance-compact-tva`}
-                  className="text-emerald-700 dark:text-emerald-400 leading-tight"
-                >
-                  TVA: {c.tvaPercent}%
-                </div>
-              ) : null}
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-    </article>
-  );
+        )}
+      </article>
+    );
+  };
 
   // Sorting
   if (sort === "exp") {
@@ -490,6 +479,7 @@ export default async function ContractsPage({
     if (q) params.set("q", q);
     if (sortParam !== "idx") params.set("sort", sortParam);
     if (partnerId) params.set("partner", partnerId);
+    if (ownerId) params.set("ownerId", ownerId);
     const queryString = params.toString();
     return queryString ? `/contracts?${queryString}` : "/contracts";
   };
@@ -506,6 +496,15 @@ export default async function ContractsPage({
         >
           Contracte
         </h1>
+
+        {/* Owner Filter */}
+        <OwnerFilter
+          owners={owners}
+          selectedOwnerId={selectedOwnerId}
+          contractCount={contracts.length}
+          basePath="/contracts"
+        />
+
         {/* Toolbar: search + partner + sort */}
         <div
           id="contracts-toolbar"
@@ -563,7 +562,7 @@ export default async function ContractsPage({
           {(q || sort !== "idx" || partnerId) && (
             <Link
               id="contracts-toolbar-reset"
-              href="/contracts"
+              href={ownerId ? `/contracts?ownerId=${ownerId}` : "/contracts"}
               className="inline-flex items-center justify-center rounded-md border border-foreground/20 px-3 py-1.5 text-sm font-medium hover:bg-foreground/5"
             >
               Reset filtre

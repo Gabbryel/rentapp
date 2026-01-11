@@ -7,7 +7,8 @@ import { fetchMeCached } from "@/lib/client-cache";
 
 const links = [
   { href: "/contracts", label: "Contracte" },
-  { href: "/messages", label: "Mesaje" },
+  { href: "/invoices/monthly", label: "Facturi lunare" },
+  { href: "/indexing-schedule", label: "Grafic indexări" },
 ];
 
 export default function Navbar() {

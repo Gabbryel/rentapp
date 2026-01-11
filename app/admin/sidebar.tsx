@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { href: "/admin/users", label: "Utilizatori" },
   { href: "/admin/invites", label: "Invitații" },
   { href: "/admin/notifications", label: "Notificări" },
+  { href: "/admin/messages", label: "Mesaje" },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
