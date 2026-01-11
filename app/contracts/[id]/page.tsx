@@ -342,7 +342,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
                       validFrom
                     )})</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;"><strong>${escapeHtml(
-                      Math.ceil(newRentEUR)
+                      newRentEUR
                     )} EUR</strong></td>
                   </tr>
                 </table>
@@ -385,9 +385,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
     `Chirie la emitere: ${rentEUR !== undefined ? rentEUR.toFixed(2) : "—"} EUR`
   );
   textLines.push(
-    `Chirie după indexare (începând cu ${validFrom}): ${Math.ceil(
-      newRentEUR
-    )} EUR`
+    `Chirie după indexare (începând cu ${validFrom}): ${newRentEUR} EUR`
   );
   textLines.push("");
   textLines.push(`Cu stimă, ${ownerName || "Echipa"}`);
@@ -876,7 +874,7 @@ async function sendIndexingNoticeToAdminsAction(formData: FormData) {
     textLines.push(`Chirie curentă: ${rentEUR.toFixed(2)} EUR`);
   }
   if (typeof newRentEUR === "number") {
-    textLines.push(`Chirie după indexare: ${Math.ceil(newRentEUR)} EUR`);
+    textLines.push(`Chirie după indexare: ${newRentEUR} EUR`);
   }
   if (validFrom) {
     textLines.push(`Valabil de la: ${validFrom}`);
@@ -1076,7 +1074,7 @@ async function issueIndexingNoticeAction(formData: FormData) {
 
   const deltaPercent = inflation.percent;
   const deltaAmountEUR = (rent * deltaPercent) / 100;
-  const newRentEUR = rent + deltaAmountEUR;
+  const newRentEUR = Math.ceil(rent + deltaAmountEUR);
 
   await logAction({
     action: "indexing.notice.issue",
@@ -1302,12 +1300,12 @@ async function updateIndexingNoticeAction(formData: FormData) {
     // If deltaPercent was provided, recalculate deltaAmountEUR from it
     if (typeof deltaPercent === "number") {
       calculatedDeltaAmountEUR = rentEUR * (deltaPercent / 100);
-      calculatedNewRentEUR = rentEUR * (1 + deltaPercent / 100);
+      calculatedNewRentEUR = Math.ceil(rentEUR * (1 + deltaPercent / 100));
     }
     // If only deltaAmountEUR was provided (no deltaPercent), use it directly
     else if (typeof deltaAmountEUR === "number") {
       calculatedDeltaAmountEUR = deltaAmountEUR;
-      calculatedNewRentEUR = rentEUR + deltaAmountEUR;
+      calculatedNewRentEUR = Math.ceil(rentEUR + deltaAmountEUR);
     }
     // If neither was provided, keep existing values
     else {
@@ -2092,7 +2090,10 @@ export default async function ContractPage({
   })();
 
   return (
-    <main id="contract-page" className="min-h-screen px-4 sm:px-6 py-10">
+    <main
+      id="contract-page"
+      className="min-h-screen bg-background px-4 sm:px-6 py-10"
+    >
       <div className="mb-6">
         <Link href="/" className="text-sm text-foreground/70 hover:underline">
           ← Înapoi la listă
@@ -2163,7 +2164,7 @@ export default async function ContractPage({
         <div id="contract-left" className="space-y-3 lg:col-span-1">
           <div
             id="contract-details"
-            className="rounded-lg border border-foreground/15 p-4 bg-[#334443]"
+            className="rounded-lg border border-foreground/15 p-4 bg-surface-1"
           >
             <h2 className="text-base font-semibold">Detalii</h2>
             <div className="mt-4 space-y-6 text-sm">
@@ -3196,8 +3197,8 @@ export default async function ContractPage({
                 </div>
               );
             })()}
-            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 mt-4">
-              <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
+            <div className="rounded-xl border border-foreground/12 bg-foreground/[0.04] p-4 mt-4">
+              <div className="text-[11px] uppercase tracking-wide text-foreground/60 mb-2">
                 Adaugă prelungire
               </div>
               <form
@@ -3206,7 +3207,7 @@ export default async function ContractPage({
               >
                 <input type="hidden" name="contractId" value={contract.id} />
                 <div>
-                  <label className="block text-white/60 mb-1">
+                  <label className="block text-foreground/60 mb-1">
                     Data document
                   </label>
                   <input
@@ -3214,34 +3215,36 @@ export default async function ContractPage({
                     type="date"
                     min={String(contract.signedAt)}
                     max={String(contractEnd)}
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-white/60 mb-1">Document</label>
+                  <label className="block text-foreground/60 mb-1">
+                    Document
+                  </label>
                   <input
                     name="document"
                     type="text"
                     placeholder="Act adițional"
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                   />
                 </div>
                 <div>
-                  <label className="block text-white/60 mb-1">
+                  <label className="block text-foreground/60 mb-1">
                     Prelungire până la
                   </label>
                   <input
                     name="extendedUntil"
                     type="date"
                     min={String(contractEnd)}
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                     required
                   />
                 </div>
                 <button
                   type="submit"
-                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+                  className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/10"
                 >
                   Adaugă prelungire
                 </button>
@@ -3249,9 +3252,9 @@ export default async function ContractPage({
             </div>
             <div
               id="contract-indexari-programate"
-              className="rounded-xl border border-white/12 bg-white/[0.04] p-4 text-sm mt-4"
+              className="rounded-xl border border-foreground/12 bg-foreground/[0.04] p-4 text-sm mt-4"
             >
-              <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
+              <div className="text-[11px] uppercase tracking-wide text-foreground/60 mb-2">
                 Indexări programate
               </div>
               <form
@@ -3260,35 +3263,39 @@ export default async function ContractPage({
               >
                 <input type="hidden" name="contractId" value={contract.id} />
                 <div className="space-y-1">
-                  <label className="block text-white/60">Dată programată</label>
+                  <label className="block text-foreground/60">
+                    Dată programată
+                  </label>
                   <input
                     required
                     name="forecastDate"
                     type="date"
                     min={String(contract.signedAt)}
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-white/60">Dată efectivă</label>
+                  <label className="block text-foreground/60">
+                    Dată efectivă
+                  </label>
                   <input
                     name="actualDate"
                     type="date"
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-white/60">Document</label>
+                  <label className="block text-foreground/60">Document</label>
                   <input
                     name="document"
                     type="text"
                     maxLength={200}
                     placeholder="ex: Decizie indexare"
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-white/60">
+                  <label className="block text-foreground/60">
                     Chirie nouă (EUR)
                   </label>
                   <input
@@ -3296,22 +3303,22 @@ export default async function ContractPage({
                     type="number"
                     step="0.01"
                     min={0}
-                    className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="inline-flex items-center gap-1 text-white/60">
+                  <label className="inline-flex items-center gap-1 text-foreground/60">
                     <input
                       type="checkbox"
                       name="done"
                       value="1"
-                      className="rounded border-white/30"
+                      className="rounded border-foreground/30"
                     />
                     <span>Marchează ca aplicată</span>
                   </label>
                   <button
                     type="submit"
-                    className="ml-auto rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+                    className="ml-auto rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-semibold hover:bg-foreground/10"
                     title="Adaugă indexare"
                   >
                     Adaugă indexare
@@ -3638,10 +3645,10 @@ export default async function ContractPage({
                           ? meta.newRentEUR
                           : typeof rentEUR === "number" &&
                             typeof deltaAmountEUR === "number"
-                          ? rentEUR + deltaAmountEUR
+                          ? Math.ceil(rentEUR + deltaAmountEUR)
                           : typeof rentEUR === "number" &&
                             typeof deltaPercent === "number"
-                          ? rentEUR * (1 + deltaPercent / 100)
+                          ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
                           : undefined;
                       const source = meta.source as string | undefined;
                       const note =
@@ -3710,7 +3717,7 @@ export default async function ContractPage({
                                           String(validFrom).slice(0, 10)
                                         )})`
                                       : ""}
-                                    : {Math.ceil(newRentEUR)} EUR
+                                    : {newRentEUR} EUR
                                   </span>
                                 ) : null}
                                 {validFrom ? (

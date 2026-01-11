@@ -107,7 +107,7 @@ export default async function IndexingSchedulePage() {
     });
 
   return (
-    <main className="min-h-screen px-4 sm:px-6 py-10">
+    <main className="min-h-screen bg-background px-4 sm:px-6 py-10">
       <div className="mb-6">
         <Link href="/" className="text-sm text-foreground/70 hover:underline">
           ← Înapoi la listă
@@ -115,7 +115,7 @@ export default async function IndexingSchedulePage() {
       </div>
 
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-2">
           Grafic indexări
         </h1>
         <p className="text-sm text-foreground/70">

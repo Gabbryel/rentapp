@@ -82,24 +82,27 @@ export default function Navbar() {
       localStorage.setItem("rentapp:theme", theme);
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
-        meta.setAttribute("content", theme === "light" ? "#f5f7fb" : "#051932");
+        meta.setAttribute("content", theme === "light" ? "#ffffff" : "#0a1628");
       }
     } catch {
       // ignore
     }
   }, [theme]);
 
-  // Keep in sync with system preference if user hasn't explicitly chosen
+  // Keep in sync with system preference ONLY if user hasn't explicitly chosen
   useEffect(() => {
     const storageKey = "rentapp:theme";
     const mql =
       window.matchMedia && window.matchMedia("(prefers-color-scheme: light)");
     if (!mql) return;
+
     const onChange = () => {
       const saved = localStorage.getItem(storageKey);
-      if (saved === "light" || saved === "dark") return; // user preference wins
+      // Only follow system if no explicit preference is saved
+      if (saved === "light" || saved === "dark") return;
       setTheme(mql.matches ? "light" : "dark");
     };
+
     mql.addEventListener?.("change", onChange);
     return () => mql.removeEventListener?.("change", onChange);
   }, []);

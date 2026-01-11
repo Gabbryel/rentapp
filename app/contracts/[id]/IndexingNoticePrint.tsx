@@ -102,7 +102,7 @@ export default React.forwardRef<
 
     const indexedRentEUR =
       typeof meta.newRentEUR === "number"
-        ? Math.ceil(meta.newRentEUR as number)
+        ? (meta.newRentEUR as number)
         : typeof rentEUR === "number" && typeof deltaPercent === "number"
         ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
         : undefined;

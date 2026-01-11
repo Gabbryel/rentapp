@@ -134,8 +134,14 @@ export default async function HomePage({
       (sum, inv) => sum + (inv.correctedAmountEUR || inv.amountEUR || 0),
       0
     );
-    const revRONwithoutVAT = invs.reduce((sum, inv) => sum + (inv.netRON || 0), 0);
-    const revRONwithVAT = invs.reduce((sum, inv) => sum + (inv.totalRON || 0), 0);
+    const revRONwithoutVAT = invs.reduce(
+      (sum, inv) => sum + (inv.netRON || 0),
+      0
+    );
+    const revRONwithVAT = invs.reduce(
+      (sum, inv) => sum + (inv.totalRON || 0),
+      0
+    );
     monthlyData.push({
       month: m,
       year: y,
@@ -159,11 +165,11 @@ export default async function HomePage({
       const amount = rentAmountAtDate(c, today);
       return sum + (typeof amount === "number" ? amount : 0);
     }, 0);
-  
+
   // Calculate expected amounts in RON based on actual contract VAT settings
   let expectedMonthlyRON = 0;
   let expectedMonthlyRONwithVAT = 0;
-  
+
   for (const c of activeContracts.filter((c) => c.rentType === "monthly")) {
     const amountEUR = rentAmountAtDate(c, today);
     if (typeof amountEUR === "number") {
@@ -171,7 +177,7 @@ export default async function HomePage({
       const tvaPercent = (c as any).tvaPercent || 0;
       const vatRON = netRON * (tvaPercent / 100);
       const totalRON = netRON + vatRON;
-      
+
       expectedMonthlyRON += netRON;
       expectedMonthlyRONwithVAT += totalRON;
     }
@@ -356,13 +362,13 @@ export default async function HomePage({
   }));
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 py-8">
+    <main className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-[1600px]">
         {/* Hero Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-5xl font-bold tracking-tight text-foreground mb-2">
                 Dashboard Executiv
               </h1>
               <p className="text-foreground/60 text-lg">
@@ -641,7 +647,8 @@ export default async function HomePage({
               </div>
             </div>
             <div className="mt-2 text-xs text-foreground/50">
-              RON: {formatCurrency(monthlyRevenueRON, "RON")} (fără TVA) • {formatCurrency(monthlyRevenueRONwithVAT, "RON")} (cu TVA)
+              RON: {formatCurrency(monthlyRevenueRON, "RON")} (fără TVA) •{" "}
+              {formatCurrency(monthlyRevenueRONwithVAT, "RON")} (cu TVA)
             </div>
           </div>
 
@@ -679,7 +686,8 @@ export default async function HomePage({
               </div>
             </div>
             <div className="mt-2 text-xs text-foreground/50">
-              RON: {formatCurrency(ytdRevenueRON, "RON")} (fără TVA) • {formatCurrency(ytdRevenueRONwithVAT, "RON")} (cu TVA)
+              RON: {formatCurrency(ytdRevenueRON, "RON")} (fără TVA) •{" "}
+              {formatCurrency(ytdRevenueRONwithVAT, "RON")} (cu TVA)
             </div>
           </div>
         </div>
@@ -730,6 +738,15 @@ export default async function HomePage({
                     key={idx}
                     className="flex-1 flex flex-col items-center justify-end gap-2"
                   >
+                    {/* Amount label above bar */}
+                    {item.value > 0 && (
+                      <div className="text-[10px] font-semibold text-foreground/70 whitespace-nowrap">
+                        {formatCurrency(Math.round(item.value), "EUR").replace(
+                          /\s/g,
+                          ""
+                        )}
+                      </div>
+                    )}
                     <div
                       className={`w-full rounded-t-lg transition-all hover:opacity-90 hover:scale-105 cursor-pointer ${
                         idx === chartData.length - 1
@@ -953,13 +970,17 @@ export default async function HomePage({
             <div className="space-y-5">
               <div>
                 <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-sm text-foreground/60">Realizat (EUR)</span>
+                  <span className="text-sm text-foreground/60">
+                    Realizat (EUR)
+                  </span>
                   <span className="text-xl font-bold">
                     {formatCurrency(monthlyRevenueEUR, "EUR")}
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">RON fără TVA</span>
+                  <span className="text-xs text-foreground/50">
+                    RON fără TVA
+                  </span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(monthlyRevenueRON, "RON")}
                   </span>
@@ -979,7 +1000,9 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">RON fără TVA</span>
+                  <span className="text-xs text-foreground/50">
+                    RON fără TVA
+                  </span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(expectedMonthlyRON, "RON")}
                   </span>
@@ -1039,7 +1062,9 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">RON fără TVA</span>
+                  <span className="text-xs text-foreground/50">
+                    RON fără TVA
+                  </span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(ytdRevenueRON, "RON")}
                   </span>
@@ -1091,7 +1116,9 @@ export default async function HomePage({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm text-foreground/60">RON</span>
-                      <span className="text-xs text-foreground/40">fără TVA</span>
+                      <span className="text-xs text-foreground/40">
+                        fără TVA
+                      </span>
                     </div>
                   </div>
                   <span className="text-2xl font-bold">
@@ -1149,7 +1176,8 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="text-xs text-foreground/50 mt-1">
-                  * Totalurile RON includ facturile EUR convertite la cursul de la data emiterii
+                  * Totalurile RON includ facturile EUR convertite la cursul de
+                  la data emiterii
                 </div>
               </div>
             </div>

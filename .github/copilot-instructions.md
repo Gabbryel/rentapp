@@ -60,4 +60,8 @@ Questions or gaps (e.g., invoice numbering nuances, new API routes, or edge-case
 
 ## Copilot instructions for this repo
 
-Ask yourself if you understand the task! If not, ask for clarification.
+- Ask yourself if you understand the task! If not, ask for clarification.
+- Be consistent with the existing code style and patterns.
+- When adding new features, ensure they integrate well with existing functionality.
+- Write clear, maintainable code with appropriate comments and documentation.
+- To calculate and recalculate amounts once they're calculated.

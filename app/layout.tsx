@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#051932",
+  themeColor: "#0a1628",
   width: "device-width",
   initialScale: 1,
 };
@@ -82,9 +82,12 @@ export default async function RootLayout({
   try {
     const storageKey = 'rentapp:theme';
     const saved = localStorage.getItem(storageKey);
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-    const theme = saved === 'light' || saved === 'dark' ? saved : (prefersLight ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', theme);
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    } else {
+      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      document.documentElement.setAttribute('data-theme', prefersLight ? 'light' : 'dark');
+    }
   } catch {}
           `.trim(),
           }}

@@ -466,9 +466,9 @@ export default async function MonthlyInvoicesPage({
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-8">
+    <main className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-7xl">
-        <h1 className="text-fluid-4xl font-semibold tracking-tight mb-8">
+        <h1 className="text-fluid-4xl font-semibold tracking-tight text-foreground mb-8">
           Facturi de emis luna aceasta
         </h1>
         <section className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5">
@@ -716,7 +716,7 @@ export default async function MonthlyInvoicesPage({
                     );
 
                     const liBase =
-                      "group rounded-lg border transition-colors shadow-sm p-4 text-white text-[110%] [&_*]:!text-white [&_*]:![font-size:inherit]";
+                      "group rounded-lg border transition-colors shadow-sm p-4 text-foreground text-[110%]";
                     const liClass = already
                       ? `${liBase} border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20`
                       : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;
@@ -730,14 +730,14 @@ export default async function MonthlyInvoicesPage({
                                   href={`/partners/${
                                     partnerHrefId ?? partnerSlug
                                   }`}
-                                  className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
+                                  className="hover:underline decoration-amber decoration-dotted underline-offset-4"
                                 >
                                   {d.partnerName ?? d.contract.partner}
                                 </Link>
                               </span>
                               <Link
                                 href={`/contracts/${d.contract.id}`}
-                                className="hover:underline decoration-amber-200 decoration-dotted underline-offset-4"
+                                className="hover:underline decoration-amber decoration-dotted underline-offset-4"
                               >
                                 <h3 className="text-sm font-semibold tracking-tight leading-tight">
                                   {d.contract.name}
@@ -746,7 +746,7 @@ export default async function MonthlyInvoicesPage({
 
                               {d.contract.invoiceMonthMode === "next" &&
                               d.contract.rentType === "monthly" ? (
-                                <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                <span className="inline-flex items-center rounded-md bg-blue/10 px-2 py-0.5 text-[11px] font-medium text-blue border border-blue/20">
                                   În avans
                                 </span>
                               ) : null}
@@ -1096,7 +1096,7 @@ export default async function MonthlyInvoicesPage({
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
                               {already ? "Curs la emitere" : "Curs RON/EUR"}
                             </div>
-                            <div className="font-medium text-slate-700 dark:text-slate-300">
+                            <div className="font-medium text-foreground">
                               {typeof rate === "number" ? rate.toFixed(4) : "–"}
                             </div>
                           </div>

@@ -1,29 +1,172 @@
 @import "tailwindcss";
 
-/* Default theme (dark) */
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Expose CSS variables as Tailwind utilities */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+}
+
+/* ============================================
+   COMPREHENSIVE THEME SYSTEM
+   Dark and Light modes with proper contrast
+   ============================================ */
+
+/* Dark Theme (Default) */
 :root,
 [data-theme="dark"] {
-  --background: #051932; /* deep navy */
-  --foreground: #e6edf3; /* soft off-white */
-
-  /* Tailwind v4 variable colors: bg-background, text-foreground, etc. */
+  /* Base colors */
+  --background: #0a1628;
+  --foreground: #f0f4f8;
+  
+  /* Surface layers */
+  --surface-1: #111d31;
+  --surface-2: #1a2940;
+  --surface-3: #243750;
+  
+  /* Border colors */
+  --border-subtle: rgba(240, 244, 248, 0.08);
+  --border-default: rgba(240, 244, 248, 0.15);
+  --border-strong: rgba(240, 244, 248, 0.25);
+  
+  /* Text hierarchy */
+  --text-primary: #f0f4f8;
+  --text-secondary: rgba(240, 244, 248, 0.8);
+  --text-tertiary: rgba(240, 244, 248, 0.6);
+  --text-quaternary: rgba(240, 244, 248, 0.4);
+  
+  /* Brand colors - Blues */
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-300: #93c5fd;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a8a;
+  
+  /* Accent colors */
+  --cyan-400: #22d3ee;
+  --cyan-500: #06b6d4;
+  --cyan-600: #0891b2;
+  
+  --purple-400: #c084fc;
+  --purple-500: #a855f7;
+  --purple-600: #9333ea;
+  
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  
+  /* Status colors */
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  
+  --amber-400: #fbbf24;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  
+  --orange-400: #fb923c;
+  --orange-500: #f97316;
+  --orange-600: #ea580c;
+  
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  
+  --sky-400: #38bdf8;
+  --sky-500: #0ea5e9;
+  --sky-600: #0284c7;
+  
+  /* Tailwind compatibility */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 }
 
-/* Light theme palette */
+/* Light Theme */
 [data-theme="light"] {
-  --background: #f5f7fb; /* subtle blue-tinted light background */
-  --foreground: #0f172a; /* slate-900 */
-
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  
+  /* Surface layers */
+  --surface-1: #f8fafc;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  
+  /* Border colors */
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-default: rgba(15, 23, 42, 0.15);
+  --border-strong: rgba(15, 23, 42, 0.25);
+  
+  /* Text hierarchy */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --text-quaternary: #94a3b8;
+  
+  /* Brand colors - Blues (adjusted for light mode) */
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-300: #93c5fd;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a8a;
+  
+  /* Accent colors (darker in light mode) */
+  --cyan-400: #0891b2;
+  --cyan-500: #0e7490;
+  --cyan-600: #155e75;
+  
+  --purple-400: #9333ea;
+  --purple-500: #7e22ce;
+  --purple-600: #6b21a8;
+  
+  --indigo-400: #4f46e5;
+  --indigo-500: #4338ca;
+  --indigo-600: #3730a3;
+  
+  /* Status colors (adjusted) */
+  --emerald-400: #059669;
+  --emerald-500: #047857;
+  --emerald-600: #065f46;
+  
+  --amber-400: #d97706;
+  --amber-500: #b45309;
+  --amber-600: #92400e;
+  
+  --orange-400: #ea580c;
+  --orange-500: #c2410c;
+  --orange-600: #9a3412;
+  
+  --red-400: #dc2626;
+  --red-500: #b91c1c;
+  --red-600: #991b1b;
+  
+  --sky-400: #0284c7;
+  --sky-500: #0369a1;
+  --sky-600: #075985;
+  
+  /* Tailwind compatibility */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 }
 
-/* Fallback to system preference if no explicit data-theme is set */
+/* System preference fallback */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --background: #f5f7fb;
+    --background: #ffffff;
     --foreground: #0f172a;
     --color-background: var(--background);
     --color-foreground: var(--foreground);

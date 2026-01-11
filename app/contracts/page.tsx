@@ -16,17 +16,28 @@ import Link from "next/link";
 export default async function ContractsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; sort?: string; partner?: string; ownerId?: string }>;
+  searchParams?: Promise<{
+    q?: string;
+    sort?: string;
+    partner?: string;
+    ownerId?: string;
+  }>;
 }) {
   noStore();
   const params = (await searchParams) ?? {};
-  const { q = "", sort = "idx", partner: partnerId = "", ownerId = "" } = params;
-  
+  const {
+    q = "",
+    sort = "idx",
+    partner: partnerId = "",
+    ownerId = "",
+  } = params;
+
   // Fetch owners and determine selected owner
   const owners = await fetchOwners();
   const selectedOwnerId = ownerId || owners[0]?.id || "";
-  const selectedOwner = owners.find((o) => o.id === selectedOwnerId) ?? owners[0];
-  
+  const selectedOwner =
+    owners.find((o) => o.id === selectedOwnerId) ?? owners[0];
+
   const all = await fetchContracts();
 
   // Filter by owner first
@@ -134,8 +145,9 @@ export default async function ContractsPage({
   // Keep the exact same card UI as on the home page
   const renderCard = (c: Contract) => {
     const isExpired = new Date(effectiveEndDate(c)) < now;
-    const isAdvance = (c as any).invoiceMonthMode === "next" && c.rentType === "monthly";
-    
+    const isAdvance =
+      (c as any).invoiceMonthMode === "next" && c.rentType === "monthly";
+
     return (
       <article
         key={c.id}
@@ -148,7 +160,10 @@ export default async function ContractsPage({
             id={`contract-card-${c.id}-title`}
             className="text-xl font-bold tracking-tight flex-1 min-w-0"
           >
-            <Link href={`/contracts/${c.id}`} className="hover:underline break-words">
+            <Link
+              href={`/contracts/${c.id}`}
+              className="hover:underline break-words"
+            >
               {c.name}
             </Link>
           </h2>
@@ -173,16 +188,36 @@ export default async function ContractsPage({
         {/* Partner and Owner */}
         <div className="mb-4 space-y-2">
           <div className="flex items-center gap-2 text-foreground/80">
-            <svg className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <svg
+              className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
             </svg>
             <span className="text-sm font-medium truncate" title={c.partner}>
               {c.partner}
             </span>
           </div>
           <div className="flex items-center gap-2 text-foreground/70">
-            <svg className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <svg
+              className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
             </svg>
             <span className="text-sm truncate" title={c.owner}>
               {c.owner ?? "Markov Services s.r.l."}
@@ -200,20 +235,31 @@ export default async function ContractsPage({
                 )
               : currentRentAmount(c);
           if (typeof eur !== "number") return null;
-          
+
           const hasRate = typeof c.exchangeRateRON === "number";
-          const corrPct = typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
+          const corrPct =
+            typeof c.correctionPercent === "number" ? c.correctionPercent : 0;
           const tvaPct = typeof c.tvaPercent === "number" ? c.tvaPercent : 0;
-          const baseRon = hasRate ? eur * (c.exchangeRateRON as number) : undefined;
-          const ronAfterCorrection = typeof baseRon === "number" ? baseRon * (1 + corrPct / 100) : undefined;
-          const ronAfterCorrectionTva = typeof ronAfterCorrection === "number" ? ronAfterCorrection * (1 + tvaPct / 100) : undefined;
-          
+          const baseRon = hasRate
+            ? eur * (c.exchangeRateRON as number)
+            : undefined;
+          const ronAfterCorrection =
+            typeof baseRon === "number"
+              ? baseRon * (1 + corrPct / 100)
+              : undefined;
+          const ronAfterCorrectionTva =
+            typeof ronAfterCorrection === "number"
+              ? ronAfterCorrection * (1 + tvaPct / 100)
+              : undefined;
+
           return (
             <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-4 mb-4 border border-indigo-500/20">
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
-                    {c.rentType === "yearly" ? "Chirie anuală" : "Chirie lunară"}
+                    {c.rentType === "yearly"
+                      ? "Chirie anuală"
+                      : "Chirie lunară"}
                   </span>
                   <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                     {fmtEUR(eur)}
@@ -235,14 +281,22 @@ export default async function ContractsPage({
                 )}
                 {corrPct !== 0 && typeof ronAfterCorrection === "number" && (
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="text-foreground/60">După corecție ({corrPct}%)</span>
-                    <span className="font-semibold text-sky-600 dark:text-sky-400">{fmtRON(ronAfterCorrection)}</span>
+                    <span className="text-foreground/60">
+                      După corecție ({corrPct}%)
+                    </span>
+                    <span className="font-semibold text-sky-600 dark:text-sky-400">
+                      {fmtRON(ronAfterCorrection)}
+                    </span>
                   </div>
                 )}
                 {tvaPct !== 0 && typeof ronAfterCorrectionTva === "number" && (
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="text-foreground/60">Cu TVA ({tvaPct}%)</span>
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{fmtRON(ronAfterCorrectionTva)}</span>
+                    <span className="text-foreground/60">
+                      Cu TVA ({tvaPct}%)
+                    </span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {fmtRON(ronAfterCorrectionTva)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -261,32 +315,54 @@ export default async function ContractsPage({
           const nextIndexing = indexingDates
             .filter((d) => !d.done && d.forecastDate >= todayISO)
             .sort((a, b) => a.forecastDate.localeCompare(b.forecastDate))[0];
-          
+
           // Get the most recent indexing notice for this contract
           const latestNotice = noticesMap.get(c.id);
-          const newRentEUR = latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]?.newRentEUR;
-          const validFrom = latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]?.validFrom;
-          
+          const rawNewRentEUR =
+            (latestNotice?.meta as any)?.newRentEUR ??
+            latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]
+              ?.newRentEUR;
+          const newRentEUR =
+            typeof rawNewRentEUR === "number"
+              ? Math.ceil(rawNewRentEUR)
+              : undefined;
+          const validFrom =
+            (latestNotice?.meta as any)?.validFrom ??
+            latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]
+              ?.validFrom;
+
           if (!nextIndexing && !newRentEUR) return null;
-          
-          const daysUntil = nextIndexing ? (() => {
-            try {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const target = new Date(nextIndexing.forecastDate);
-              target.setHours(0, 0, 0, 0);
-              const diffMs = target.getTime() - today.getTime();
-              return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            } catch {
-              return null;
-            }
-          })() : null;
-          
+
+          const daysUntil = nextIndexing
+            ? (() => {
+                try {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const target = new Date(nextIndexing.forecastDate);
+                  target.setHours(0, 0, 0, 0);
+                  const diffMs = target.getTime() - today.getTime();
+                  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                } catch {
+                  return null;
+                }
+              })()
+            : null;
+
           return (
             <div className="rounded-xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 p-4 mb-4 border border-orange-500/20">
               <div className="flex items-center gap-2 mb-2">
-                <svg className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                <svg
+                  className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                  />
                 </svg>
                 <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
                   Indexare Programată
@@ -295,19 +371,30 @@ export default async function ContractsPage({
               <div className="space-y-2">
                 {nextIndexing && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-foreground/70">Data indexării</span>
+                    <span className="text-sm text-foreground/70">
+                      Data indexării
+                    </span>
                     <span className="text-sm font-semibold">
                       {fmt(nextIndexing.forecastDate)}
                       {daysUntil !== null && (
-                        <span className={`ml-2 text-xs ${
-                          daysUntil < 0 ? 'text-red-600 dark:text-red-400' :
-                          daysUntil === 0 ? 'text-orange-600 dark:text-orange-400' :
-                          daysUntil < 20 ? 'text-orange-600 dark:text-orange-400' :
-                          'text-foreground/60'
-                        }`}>
-                          ({daysUntil < 0 ? `depășită cu ${Math.abs(daysUntil)} zile` :
-                            daysUntil === 0 ? 'astăzi' :
-                            `în ${daysUntil} zile`})
+                        <span
+                          className={`ml-2 text-xs ${
+                            daysUntil < 0
+                              ? "text-red-600 dark:text-red-400"
+                              : daysUntil === 0
+                              ? "text-orange-600 dark:text-orange-400"
+                              : daysUntil < 20
+                              ? "text-orange-600 dark:text-orange-400"
+                              : "text-foreground/60"
+                          }`}
+                        >
+                          (
+                          {daysUntil < 0
+                            ? `depășită cu ${Math.abs(daysUntil)} zile`
+                            : daysUntil === 0
+                            ? "astăzi"
+                            : `în ${daysUntil} zile`}
+                          )
                         </span>
                       )}
                     </span>
@@ -316,7 +403,9 @@ export default async function ContractsPage({
                 {typeof newRentEUR === "number" && (
                   <div className="flex items-baseline justify-between">
                     <span className="text-sm text-foreground/70">
-                      {validFrom ? `Chirie din ${fmt(validFrom)}` : "Chirie viitoare"}
+                      {validFrom
+                        ? `Chirie din ${fmt(validFrom)}`
+                        : "Chirie viitoare"}
                     </span>
                     <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
                       {fmtEUR(newRentEUR)}
@@ -332,38 +421,57 @@ export default async function ContractsPage({
         {c.rentType === "monthly" && typeof c.monthlyInvoiceDay === "number" ? (
           <div className="rounded-xl bg-foreground/5 p-3 mb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">Facturare</span>
-              <span className="text-sm font-medium">Ziua {c.monthlyInvoiceDay}</span>
+              <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
+                Facturare
+              </span>
+              <span className="text-sm font-medium">
+                Ziua {c.monthlyInvoiceDay}
+              </span>
             </div>
             {typeof c.paymentDueDays === "number" && (
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-foreground/50">Termen plată</span>
-                <span className="text-sm text-foreground/70">{c.paymentDueDays} zile</span>
+                <span className="text-sm text-foreground/70">
+                  {c.paymentDueDays} zile
+                </span>
               </div>
             )}
           </div>
         ) : null}
 
-        {c.rentType === "yearly" && ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
+        {c.rentType === "yearly" &&
+        ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
           <div className="rounded-xl bg-foreground/5 p-3 mb-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60 font-semibold mb-2">
               Facturi anuale
             </div>
             <div className="space-y-1">
-              {(((c as any).irregularInvoices || []) as { month: number; day: number; amountEUR: number }[])
-                .map((r, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground/70">
-                      {`${String(r.day).padStart(2, "0")}/${String(r.month).padStart(2, "0")}`}
-                    </span>
-                    <span className="font-medium">{fmtEUR(r.amountEUR)}</span>
-                  </div>
-                ))}
+              {(
+                ((c as any).irregularInvoices || []) as {
+                  month: number;
+                  day: number;
+                  amountEUR: number;
+                }[]
+              ).map((r, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-foreground/70">
+                    {`${String(r.day).padStart(2, "0")}/${String(
+                      r.month
+                    ).padStart(2, "0")}`}
+                  </span>
+                  <span className="font-medium">{fmtEUR(r.amountEUR)}</span>
+                </div>
+              ))}
             </div>
             {typeof c.paymentDueDays === "number" && (
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-foreground/10">
                 <span className="text-xs text-foreground/50">Termen plată</span>
-                <span className="text-sm text-foreground/70">{c.paymentDueDays} zile</span>
+                <span className="text-sm text-foreground/70">
+                  {c.paymentDueDays} zile
+                </span>
               </div>
             )}
           </div>
@@ -379,15 +487,29 @@ export default async function ContractsPage({
             <div className="text-xs text-foreground/60 mb-1">Început</div>
             <div className="text-sm font-semibold">{fmt(c.startDate)}</div>
           </div>
-          <div className={`rounded-lg p-3 ${isExpired ? 'bg-red-500/10 ring-1 ring-red-500/20' : 'bg-foreground/5'}`}>
+          <div
+            className={`rounded-lg p-3 ${
+              isExpired
+                ? "bg-red-500/10 ring-1 ring-red-500/20"
+                : "bg-foreground/5"
+            }`}
+          >
             <div className="text-xs text-foreground/60 mb-1">Expiră</div>
-            <div className={`text-sm font-semibold ${isExpired ? 'text-red-600 dark:text-red-400' : ''}`}>
+            <div
+              className={`text-sm font-semibold ${
+                isExpired ? "text-red-600 dark:text-red-400" : ""
+              }`}
+            >
               {fmt(effectiveEndDate(c))}
             </div>
           </div>
           {(() => {
             const arr = Array.isArray((c as any).contractExtensions)
-              ? ((c as any).contractExtensions as Array<{ extendedUntil?: string }>)
+              ? (
+                  (c as any).contractExtensions as Array<{
+                    extendedUntil?: string;
+                  }>
+                )
                   .map((r) => String(r.extendedUntil || ""))
                   .filter(Boolean)
                   .sort()
@@ -395,15 +517,20 @@ export default async function ContractsPage({
             const latest = arr.length > 0 ? arr[arr.length - 1] : undefined;
             return latest ? (
               <div className="rounded-lg bg-orange-500/10 p-3 ring-1 ring-orange-500/20">
-                <div className="text-xs text-foreground/60 mb-1">Prelungit până</div>
-                <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">{fmt(latest)}</div>
+                <div className="text-xs text-foreground/60 mb-1">
+                  Prelungit până
+                </div>
+                <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                  {fmt(latest)}
+                </div>
               </div>
             ) : null;
           })()}
         </div>
 
         {/* Additional financial details as tags */}
-        {(typeof c.correctionPercent === "number" || typeof c.tvaPercent === "number") && (
+        {(typeof c.correctionPercent === "number" ||
+          typeof c.tvaPercent === "number") && (
           <div className="flex flex-wrap gap-2 pt-3 border-t border-foreground/10">
             {typeof c.correctionPercent === "number" && (
               <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
@@ -487,12 +614,12 @@ export default async function ContractsPage({
   return (
     <main
       id="contracts-page"
-      className="min-h-screen px-4 sm:px-6 lg:px-8 py-12"
+      className="min-h-screen bg-background px-4 sm:px-6 lg:px-8 py-12"
     >
       <div className="mx-auto max-w-screen-2xl">
         <h1
           id="contracts-title"
-          className="text-fluid-4xl font-semibold tracking-tight mb-8"
+          className="text-fluid-4xl font-semibold tracking-tight text-foreground mb-8"
         >
           Contracte
         </h1>
