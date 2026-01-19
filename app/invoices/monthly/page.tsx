@@ -716,7 +716,7 @@ export default async function MonthlyInvoicesPage({
                     );
 
                     const liBase =
-                      "group rounded-lg border transition-colors shadow-sm p-4 text-foreground text-[110%]";
+                      "group rounded-lg border transition-colors shadow-sm p-4 text-black dark:text-white text-[110%]";
                     const liClass = already
                       ? `${liBase} border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20`
                       : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;
@@ -1005,7 +1005,7 @@ export default async function MonthlyInvoicesPage({
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
                               EUR {already ? "emis" : "inițial"}
                             </div>
-                            <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                            <div className="font-medium text-black dark:text-white">
                               {already
                                 ? typeof inv?.amountEUR === "number"
                                   ? fmtEUR(inv.amountEUR)
@@ -1086,7 +1086,7 @@ export default async function MonthlyInvoicesPage({
                               {already ? "emis (după corecție)" : "corectat"}
                               {corrPct ? ` (+${corrPct}%)` : ""}
                             </div>
-                            <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                            <div className="font-medium text-black dark:text-white">
                               {typeof correctedEUR === "number"
                                 ? fmtEUR(correctedEUR)
                                 : "–"}
@@ -1104,7 +1104,7 @@ export default async function MonthlyInvoicesPage({
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
                               Net RON
                             </div>
-                            <div className="font-medium text-sky-700 dark:text-sky-400">
+                            <div className="font-medium text-black dark:text-white">
                               {typeof netRON === "number"
                                 ? fmtRON(netRON)
                                 : "–"}
@@ -1114,7 +1114,7 @@ export default async function MonthlyInvoicesPage({
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
                               TVA {tvaPct ? `(${tvaPct}%)` : ""}
                             </div>
-                            <div className="font-medium text-rose-700 dark:text-rose-400">
+                            <div className="font-medium text-black dark:text-white">
                               {typeof vatRON === "number"
                                 ? fmtRON(vatRON)
                                 : "–"}
@@ -1124,7 +1124,7 @@ export default async function MonthlyInvoicesPage({
                             <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
                               Total RON
                             </div>
-                            <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            <div className="font-semibold text-black dark:text-white">
                               {typeof totalRON === "number"
                                 ? fmtRON(totalRON)
                                 : "–"}

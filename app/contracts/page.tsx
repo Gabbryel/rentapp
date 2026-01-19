@@ -318,14 +318,10 @@ export default async function ContractsPage({
 
           // Get the most recent indexing notice for this contract
           const latestNotice = noticesMap.get(c.id);
-          const rawNewRentEUR =
+          const newRentEUR =
             (latestNotice?.meta as any)?.newRentEUR ??
             latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]
               ?.newRentEUR;
-          const newRentEUR =
-            typeof rawNewRentEUR === "number"
-              ? Math.ceil(rawNewRentEUR)
-              : undefined;
           const validFrom =
             (latestNotice?.meta as any)?.validFrom ??
             latestNotice?.sendHistory?.[latestNotice.sendHistory.length - 1]
