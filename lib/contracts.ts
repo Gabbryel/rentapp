@@ -4,14 +4,24 @@
 import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
 import { getDb } from "@/lib/mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
-// Invoices: moved under contract model
+// Invoices: using new modular system
 import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
 import type { Deposit } from "@/lib/schemas/deposit";
 import { saveBufferAsUpload } from "@/lib/storage";
 import { PDFDocument, rgb } from "pdf-lib";
-import { createMessage } from "@/lib/messages";
-import { allocateInvoiceNumberForOwner } from "@/lib/invoice-settings";
 import { loadPdfFonts } from "@/lib/pdf-fonts";
+// Import from new invoice modules
+import {
+  issueInvoice,
+  deleteInvoice as deleteInvoiceNew,
+  findInvoiceById,
+  findInvoiceByContractAndDate,
+  findInvoiceByContractPartnerAndDate,
+  listInvoicesForContract,
+  listInvoicesForMonth,
+  fetchInvoicesForYear,
+  invalidateYearInvoicesCache,
+} from "@/lib/invoices";
 
 const RAW_MOCK_CONTRACTS = [
   {
@@ -1101,23 +1111,11 @@ export async function fetchInvoicesByPartner(partnerId: string): Promise<Invoice
   return docs.map((d) => InvoiceSchema.parse(d));
 }
 
+// Delegate to new invoice system
 export async function fetchInvoiceById(id: string): Promise<Invoice | null> {
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find((x) => x.id === id);
-    return found ? InvoiceSchema.parse(found) : null;
-  }
-  try {
-    const db = await getDb();
-    const doc = await db.collection<Invoice>("invoices").findOne({ id }, { projection: { _id: 0 } });
-    return doc ? InvoiceSchema.parse(doc) : null;
-  } catch (error) {
-    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find((x) => x.id === id);
-    return found ? InvoiceSchema.parse(found) : null;
-  }
+  return findInvoiceById(id);
 }
+
 
 export async function updateInvoiceNumber(id: string, number: string): Promise<boolean> {
   if (!process.env.MONGODB_URI) {
@@ -1143,18 +1141,11 @@ export async function updateInvoiceNumber(id: string, number: string): Promise<b
   return Boolean(res.acknowledged);
 }
 
+// Delegate to new invoice system
 export async function deleteInvoiceById(id: string): Promise<boolean> {
-  if (!process.env.MONGODB_URI) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const next = all.filter((x) => x.id !== id);
-    const changed = next.length !== all.length;
-    if (changed) await writeJson("invoices.json", next);
-    return changed;
-  }
-  const db = await getDb();
-  const res = await db.collection<Invoice>("invoices").deleteOne({ id });
-  return Boolean(res.acknowledged && res.deletedCount === 1);
+  return deleteInvoiceNew(id);
 }
+
 
 export function computeInvoiceFromContract(opts: {
   contract: ContractType;
@@ -1291,38 +1282,8 @@ export function currentRentAmount(c: ContractType): number | undefined {
   return rentAmountAtDate(c, `${y}-${m}-${d}`);
 }
 
-export async function renderInvoicePdf(inv: Invoice): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 portrait in points
-  const { font, fontBold } = await loadPdfFonts(pdfDoc);
-  const margin = 40;
-  let y = 800;
-
-  const text = (s: string, opts?: { size?: number; bold?: boolean; color?: { r: number; g: number; b: number } }) => {
-    const size = opts?.size ?? 12;
-    const f = opts?.bold ? fontBold : font;
-    const color = opts?.color ? rgb(opts.color.r, opts.color.g, opts.color.b) : rgb(0, 0, 0);
-    page.drawText(s, { x: margin, y, size, font: f, color });
-    y -= size + 6;
-  };
-
-  text("Factura", { size: 20, bold: true });
-  text(`Număr: ${inv.number || inv.id}`);
-  text(`Data emiterii: ${inv.issuedAt}`);
-  text("");
-  text(`Contract: ${inv.contractName} (ID ${inv.contractId})`, { bold: true });
-  text(`Vânzător: ${inv.owner}`);
-  text(`Cumpărător: ${inv.partner}`);
-  text("");
-  text(`Suma (EUR): ${inv.amountEUR.toFixed(2)}`);
-  text(`Corecție: ${inv.correctionPercent}% → EUR după corecție: ${inv.correctedAmountEUR.toFixed(2)}`);
-  text(`Curs RON/EUR: ${inv.exchangeRateRON.toFixed(4)}`);
-  text(`Bază RON: ${inv.netRON.toFixed(2)}`);
-  text(`TVA (${inv.tvaPercent}%): ${inv.vatRON.toFixed(2)} RON`);
-  text(`Total de plată: ${inv.totalRON.toFixed(2)} RON`, { bold: true });
-
-  return await pdfDoc.save();
-}
+// Delegate to new invoice PDF rendering
+export { renderInvoicePdf } from "@/lib/invoices";
 
 export async function renderContractPdf(
   contract: ContractType,
@@ -1741,232 +1702,16 @@ export async function renderContractPdf(
   return await pdfDoc.save();
 }
 
+/**
+ * Issue invoice and generate PDF - delegates to new invoice system
+ * @deprecated Use issueInvoice from @/lib/invoices directly
+ */
 export async function issueInvoiceAndGeneratePdf(inv: Invoice): Promise<Invoice> {
-  // Global guard: only one invoice per contract per issued date
-  try {
-    const dupe = await findInvoiceByContractPartnerAndDate(inv.contractId, inv.partnerId || inv.partner, inv.issuedAt);
-    if (dupe) return dupe;
-  } catch {}
-  // Persist invoice, generate PDF, save PDF, update invoice with url
-  let useMongo = INVOICE_MONGO_CONFIGURED;
-  let db: Awaited<ReturnType<typeof getDb>> | null = null;
-  if (useMongo) {
-    try {
-      db = await getDb();
-    } catch (error) {
-      // In production, never silently fall back to local store when Mongo is configured.
-      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-      // Dev-only fallback to local store when DB is not reachable
-      useMongo = false;
-      db = null;
-    }
-  }
-  // Upsert by id to avoid duplicates
-  let toSave: Invoice = inv;
-  if (!toSave.number) {
-    try {
-      const num = await allocateInvoiceNumberForOwner((toSave as any).ownerId ?? null, toSave.owner ?? null);
-      // id must be the invoice number
-      toSave = { ...toSave, number: num, id: num };
-    } catch {}
-  }
-  // If number exists but id doesn't match, align them
-  if (toSave.number && toSave.id !== toSave.number) {
-    toSave = { ...toSave, id: toSave.number };
-  }
-  if (useMongo) {
-    await db!.collection<Invoice>("invoices").updateOne({ id: toSave.id }, { $set: toSave }, { upsert: true });
-  } else {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const idx = all.findIndex((x) => x.id === toSave.id);
-    if (idx >= 0) all[idx] = toSave; else all.push(toSave);
-    await writeJson("invoices.json", all);
-  }
-
-  // Generate a simple PDF receipt/invoice
-  const pdfBytes = await renderInvoicePdf(toSave);
-  const saved = await saveBufferAsUpload(new Uint8Array(pdfBytes), `${inv.id}.pdf`, "application/pdf", {
-    contractId: inv.contractId,
-    partnerId: inv.partnerId,
-  });
-
-  const updated: Invoice = { ...toSave, pdfUrl: saved.url };
-  if (useMongo) {
-    await db!.collection<Invoice>("invoices").updateOne(
-      { id: toSave.id },
-      { $set: { pdfUrl: saved.url, updatedAt: new Date().toISOString() } }
-    );
-  } else {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const idx = all.findIndex((x) => x.id === updated.id);
-    if (idx >= 0) all[idx] = updated; else all.push(updated);
-    await writeJson("invoices.json", all);
-  }
-
-  await createMessage({
-    text: `Factură emisă pentru contractul ${inv.contractName}: ${inv.totalRON.toFixed(2)} RON (TVA ${inv.tvaPercent}%).`,
-  });
-
-  // Invalidate cached yearly invoices so realized income is fresh
-  try { invalidateYearInvoicesCache(); } catch {}
-
-  return updated;
+  return issueInvoice(inv);
 }
 
-export async function listInvoicesForContract(contractId: string): Promise<Invoice[]> {
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
-  }
-  try {
-    const db = await getDb();
-    const docs = await db
-      .collection<Invoice>("invoices")
-      .find({ contractId }, { projection: { _id: 0 } })
-      .sort({ issuedAt: -1 })
-      .toArray();
-    return docs.map((d) => InvoiceSchema.parse(d));
-  } catch (error) {
-    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    return all.filter((x) => x.contractId === contractId).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
-  }
-}
-
-/** Find an invoice by contract and exact issued date (YYYY-MM-DD) */
-export async function findInvoiceByContractAndDate(
-  contractId: string,
-  issuedAt: string
-): Promise<Invoice | null> {
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
-    return found ? InvoiceSchema.parse(found) : null;
-  }
-  try {
-    const db = await getDb();
-    const doc = await db
-      .collection<Invoice>("invoices")
-      .findOne({ contractId, issuedAt }, { projection: { _id: 0 } });
-    return doc ? InvoiceSchema.parse(doc) : null;
-  } catch (error) {
-    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
-    return found ? InvoiceSchema.parse(found) : null;
-  }
-}
-
-/** Find an invoice by contract, partner and exact issued date (YYYY-MM-DD) */
-export async function findInvoiceByContractPartnerAndDate(
-  contractId: string,
-  partnerIdOrName: string,
-  issuedAt: string
-): Promise<Invoice | null> {
-  const partnerKey = String(partnerIdOrName || "");
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find(
-      (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
-    );
-    return found ? InvoiceSchema.parse(found) : null;
-  }
-  try {
-    const db = await getDb();
-    const doc = await db
-      .collection<Invoice>("invoices")
-      .findOne(
-        { contractId, issuedAt, $or: [{ partnerId: partnerKey }, { partner: partnerKey }] },
-        { projection: { _id: 0 } }
-      );
-    return doc ? InvoiceSchema.parse(doc) : null;
-    } catch (error) {
-      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    const found = all.find(
-      (x) => x.contractId === contractId && x.issuedAt === issuedAt && (x.partnerId === partnerKey || x.partner === partnerKey)
-    );
-    return found ? InvoiceSchema.parse(found) : null;
-  }
-}
-
-/** List all invoices for a specific month (1-12). Sorted ascending by date. */
-export async function listInvoicesForMonth(year: number, month: number): Promise<Invoice[]> {
-  const y = String(year).padStart(4, "0");
-  const m = String(month).padStart(2, "0");
-  const start = `${y}-${m}-01`;
-  // endExclusive = first day of next month
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
-  const endExclusive = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
-
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    return all
-      .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
-      .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
-  }
-  try {
-    const db = await getDb();
-    const docs = await db
-      .collection<Invoice>("invoices")
-      .find({ issuedAt: { $gte: start, $lt: endExclusive } }, { projection: { _id: 0 } })
-      .sort({ issuedAt: 1 })
-      .toArray();
-    return docs.map((d) => InvoiceSchema.parse(d));
-  } catch (error) {
-    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    return all
-      .filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive)
-      .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt));
-  }
-}
-
-// In-memory cache for yearly invoice aggregation (simple TTL approach)
-let __yearInvoicesCache: { year: number; at: number; invoices: Invoice[] } | null = null;
-const YEAR_CACHE_TTL_MS = 60_000; // 60s TTL
-
-/** Fetch all invoices for a given calendar year with light in-memory caching. */
-export async function fetchInvoicesForYear(year: number): Promise<Invoice[]> {
-  const now = Date.now();
-  if (
-    __yearInvoicesCache &&
-    __yearInvoicesCache.year === year &&
-    now - __yearInvoicesCache.at < YEAR_CACHE_TTL_MS
-  ) {
-    return __yearInvoicesCache.invoices;
-  }
-  const start = `${String(year).padStart(4, "0")}-01-01`;
-  const endExclusive = `${String(year + 1).padStart(4, "0")}-01-01`;
-  let data: Invoice[] = [];
-  if (!INVOICE_MONGO_CONFIGURED) {
-    const all = await readJson<Invoice[]>("invoices.json", []);
-    data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
-  } else {
-    try {
-      const db = await getDb();
-      const docs = await db
-        .collection<Invoice>("invoices")
-        .find(
-          { issuedAt: { $gte: start, $lt: endExclusive } },
-          { projection: { _id: 0 } }
-        )
-        .toArray();
-      data = docs.map((d) => InvoiceSchema.parse(d));
-    } catch (error) {
-      if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
-      const all = await readJson<Invoice[]>("invoices.json", []);
-      data = all.filter((x) => x.issuedAt >= start && x.issuedAt < endExclusive);
-    }
-  }
-  __yearInvoicesCache = { year, invoices: data, at: now };
-  return data;
-}
-
-export function invalidateYearInvoicesCache() {
-  __yearInvoicesCache = null;
-}
+// Re-export from new invoice system for backward compatibility
+export { listInvoicesForContract, findInvoiceByContractAndDate, findInvoiceByContractPartnerAndDate, listInvoicesForMonth, fetchInvoicesForYear, invalidateYearInvoicesCache, findInvoiceById } from "@/lib/invoices";
 
 /** Always fetch invoices for a year ignoring the in-memory cache (fresh read). */
 export async function fetchInvoicesForYearFresh(year: number): Promise<Invoice[]> {
