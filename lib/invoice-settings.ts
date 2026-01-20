@@ -79,18 +79,22 @@ export async function allocateInvoiceNumberForOwner(ownerId?: string | null, own
   }
   try {
     const db = await getDb();
-    await db.collection<InvoiceSettings>("invoice_settings").updateOne(
+    // Use findOneAndUpdate to atomically get the value BEFORE incrementing
+    const result = await db.collection<InvoiceSettings>("invoice_settings").findOneAndUpdate(
       { id },
       {
-        $setOnInsert: { id, series: "MS", padWidth: 5, includeYear: true, updatedAt: nowIso, nextNumber: 1 },
+        $setOnInsert: { id, series: "MS", padWidth: 5, includeYear: true, updatedAt: nowIso },
         $inc: { nextNumber: 1 },
         $set: { updatedAt: nowIso },
       },
-      { upsert: true }
+      { upsert: true, returnDocument: 'before', projection: { _id: 0 } }
     );
-    const doc = await db.collection<InvoiceSettings>("invoice_settings").findOne({ id }, { projection: { _id: 0 } });
-    const s = InvoiceSettingsSchema.parse({ ...(doc as object), updatedAt: nowIso });
-    const seq = String(s.nextNumber).padStart(s.padWidth, "0");
+    // If document didn't exist (first insert), nextNumber will be undefined, so default to 1
+    const currentNumber = result?.nextNumber ?? 1;
+    const s = result ? InvoiceSettingsSchema.parse({ ...result, updatedAt: nowIso }) : { 
+      id, series: "MS", padWidth: 5, includeYear: true, updatedAt: nowIso, nextNumber: currentNumber 
+    };
+    const seq = String(currentNumber).padStart(s.padWidth, "0");
     return s.includeYear ? `${s.series}-${year}-${seq}` : `${s.series}-${seq}`;
   } catch {
     const map = await readSettingsMap();
