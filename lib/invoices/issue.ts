@@ -31,7 +31,7 @@ const ALLOW_INVOICE_LOCAL_FALLBACK = process.env.NODE_ENV === "development";
  * Process:
  * 1. Check for existing invoice (idempotency)
  * 2. Allocate invoice number if needed
- * 3. Persist invoice to database
+ * 3. Persist invoice to database (with duplicate prevention)
  * 4. Generate PDF
  * 5. Upload PDF and update invoice with URL
  * 6. Create notification message
@@ -40,15 +40,16 @@ const ALLOW_INVOICE_LOCAL_FALLBACK = process.env.NODE_ENV === "development";
  * @throws Error if invoice data is invalid or persistence fails
  */
 export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
-  // Step 1: Check for duplicate (idempotency guard)
+  // Step 1: Robust duplicate check using contract+partner+date compound key
   try {
+    const partnerKey = invoice.partnerId || invoice.partner;
     const existing = await findInvoiceByContractPartnerAndDate(
       invoice.contractId,
-      invoice.partnerId || invoice.partner,
+      partnerKey,
       invoice.issuedAt
     );
     if (existing) {
-      console.log(`Invoice already exists: ${existing.id}, returning existing invoice`);
+      console.log(`Invoice already exists for ${invoice.contractId}/${partnerKey}/${invoice.issuedAt}: ${existing.id}`);
       return existing;
     }
   } catch (error) {
@@ -74,6 +75,14 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
   if (preparedInvoice.number && preparedInvoice.id !== preparedInvoice.number) {
     preparedInvoice = { ...preparedInvoice, id: preparedInvoice.number };
   }
+  
+  // Ensure timestamps are current
+  const now = new Date().toISOString();
+  preparedInvoice = { 
+    ...preparedInvoice, 
+    updatedAt: now,
+    createdAt: preparedInvoice.createdAt || now
+  };
 
   // Validate the prepared invoice
   try {
@@ -83,7 +92,7 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
     throw new Error("Datele facturii sunt invalide");
   }
 
-  // Step 3: Persist invoice
+  // Step 3: Persist invoice with duplicate prevention at DB level
   try {
     if (INVOICE_MONGO_CONFIGURED) {
       await persistInvoiceMongo(preparedInvoice);
@@ -93,6 +102,23 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
   } catch (error) {
     console.error("Failed to persist invoice:", error);
     throw new Error("Nu s-a putut salva factura în baza de date");
+  }
+  
+  // After persistence, check if invoice actually exists with expected data
+  // This catches edge cases where duplicate prevention kicked in
+  try {
+    const persisted = await findInvoiceByContractPartnerAndDate(
+      preparedInvoice.contractId,
+      preparedInvoice.partnerId || preparedInvoice.partner,
+      preparedInvoice.issuedAt
+    );
+    if (persisted && persisted.id !== preparedInvoice.id) {
+      // Another invoice was already there, return it instead
+      console.warn(`Different invoice already persisted: ${persisted.id} vs expected ${preparedInvoice.id}`);
+      return persisted;
+    }
+  } catch (verifyError) {
+    console.warn("Could not verify persisted invoice:", verifyError);
   }
 
   // Step 4 & 5: Generate PDF and upload
@@ -147,14 +173,82 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
 
 /**
  * Persist invoice to MongoDB
+ * Uses compound key (contractId, partnerId/partner, issuedAt) to prevent duplicates
  */
 async function persistInvoiceMongo(invoice: Invoice): Promise<void> {
   try {
     const db = await getDb();
-    await db
-      .collection<Invoice>("invoices")
-      .updateOne({ id: invoice.id }, { $set: invoice }, { upsert: true });
-  } catch (error) {
+    const collection = db.collection<Invoice>("invoices");
+    
+    // Ensure unique compound index exists (idempotent operation)
+    try {
+      await collection.createIndex(
+        { contractId: 1, partnerId: 1, issuedAt: 1 },
+        { 
+          unique: true, 
+          partialFilterExpression: { 
+            partnerId: { $type: "string", $ne: "" }
+          },
+          name: "unique_invoice_contract_partner_date"
+        }
+      );
+      await collection.createIndex(
+        { contractId: 1, partner: 1, issuedAt: 1 },
+        { 
+          unique: true,
+          partialFilterExpression: { 
+            $and: [
+              { partnerId: { $exists: false } },
+              { partner: { $type: "string", $ne: "" } }
+            ]
+          },
+          name: "unique_invoice_contract_partnername_date"
+        }
+      );
+    } catch (indexError) {
+      // Index creation might fail if already exists or in read-only mode - non-fatal
+      console.warn("Could not create unique indexes:", indexError);
+    }
+    
+    // Use compound filter for upsert to prevent duplicates
+    const partnerFilter = invoice.partnerId 
+      ? { partnerId: invoice.partnerId }
+      : { partner: invoice.partner };
+    
+    const filter = {
+      contractId: invoice.contractId,
+      ...partnerFilter,
+      issuedAt: invoice.issuedAt,
+    };
+    
+    // First try to update by compound key (contract + partner + date)
+    const result = await collection.updateOne(
+      filter,
+      { $set: invoice },
+      { upsert: true }
+    );
+    
+    // If this is an insert, also ensure we can find it by ID
+    if (result.upsertedCount > 0) {
+      // Document was inserted, no need to do anything else
+      return;
+    }
+    
+    // If it was an update, make sure the ID matches what we expect
+    // This handles the case where an old invoice exists with the same contract/partner/date
+    await collection.updateOne(
+      filter,
+      { $set: { id: invoice.id, number: invoice.number } }
+    );
+    
+  } catch (error: any) {
+    // Check if it's a duplicate key error
+    if (error?.code === 11000) {
+      console.warn("Duplicate invoice detected, fetching existing:", error);
+      // Invoice already exists, this is OK (idempotent)
+      return;
+    }
+    
     if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     console.warn("MongoDB persistence failed, falling back to local:", error);
     await persistInvoiceLocal(invoice);
