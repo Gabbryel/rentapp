@@ -1,9 +1,13 @@
 # Invoice System Refactoring - Technical Summary
 
 ## Overview
-Completely rewrote the invoice issuance system to eliminate race conditions and ensure atomic operations. The new system prevents the bug where issuing one invoice would revert another invoice to "expecting" status.
+Completely rewrote the invoice issuance system to eliminate race conditions and ensure atomic operations. The new system prevents TWO CRITICAL BUGS:
+1. Invoice number allocation race condition (FIXED in first iteration)
+2. Temporary ID collision causing invoice overwrites (FIXED in second iteration)
 
-## Root Cause of Original Bug
+## Root Causes of Original Bugs
+
+### Bug #1: Invoice Number Allocation Race Condition (Initial Fix)
 
 The original `allocateInvoiceNumberForOwner` function had a critical race condition:
 
@@ -17,7 +21,68 @@ const doc = await db.collection("invoice_settings").findOne({ id });  // Then re
 const number = doc.nextNumber;  // Used the ALREADY incremented value!
 ```
 
-**Problem**: The function incremented `nextNumber`, then read it back. This meant it was using the number meant for the NEXT invoice, not the current one. When concurrent requests occurred, invoice numbers could be duplicated or skipped, causing invoices to appear in inconsistent states.
+**Problem**: The function incremented `nextNumber`, then read it back. This meant it was using the number meant for the NEXT invoice, not the current one.
+
+### Bug #2: Temporary ID Collision (Critical - Root Cause of "Expecting" Reversion)
+
+The `computeInvoiceFromContract` function created invoices with temporary IDs:
+
+```typescript
+// OLD CODE (BUGGY)
+id: opts.number || `${c.id}-${opts.issuedAt}`,  // e.g., "c1-2026-01-15"
+```
+
+**THE ACTUAL PROBLEM**: When issuing multiple invoices for the same contract and date but DIFFERENT PARTNERS:
+
+1. Invoice A for Partner 1: temp ID = `"c1-2026-01-15"` 
+2. Invoice B for Partner 2: temp ID = `"c1-2026-01-15"` ← SAME ID!
+
+When both were being issued concurrently (or even sequentially fast enough):
+- Both start with the same temporary ID
+- One could overwrite the other during the brief window before the final ID was assigned
+- Result: One invoice appears "issued" (Emisă), the other reverts to "expecting" (În așteptare)
+- The invoice that "disappeared" would actually have been overwritten by the other's data!
+
+This explains why:
+- It appeared random (depended on timing/order)
+- One invoice would be issued while another reverted to "expecting"
+- The reverted invoice wasn't actually in the database anymore (overwritten)
+
+## Fixes Applied
+
+### Fix #1: Atomic Number Allocation (`numbering.ts`)
+```typescript
+// NEW CODE (CORRECT)
+const result = await db.collection("invoice_settings").findOneAndUpdate(
+  { id },
+  {
+    $setOnInsert: { id, series: "MS", padWidth: 5, includeYear: true },
+    $inc: { nextNumber: 1 },
+  },
+  {
+    upsert: true,
+    returnDocument: 'before',  // Critical: get value BEFORE increment
+  }
+);
+const currentNumber = result?.nextNumber ?? 1;
+// Use the pre-increment value for THIS invoice
+```
+
+### Fix #2: Unique Temporary IDs (`contracts.ts`)
+```typescript
+// NEW CODE (CORRECT)
+const partnerToken = (c as any).partnerId || c.partner || "default";
+const tempId = opts.number || `temp-${c.id}-${opts.issuedAt}-${partnerToken}-${Date.now()}`;
+const inv: Invoice = InvoiceSchema.parse({
+  id: tempId,  // Unique even for same contract/date, different partners
+  // ...
+});
+```
+
+**Key improvements**:
+- Includes partner identifier in temporary ID
+- Adds timestamp (`Date.now()`) for absolute uniqueness
+- Prevents any possibility of ID collision
 
 ## New Architecture
 

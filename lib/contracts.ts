@@ -1188,9 +1188,12 @@ export function computeInvoiceFromContract(opts: {
   const totalRON = netRON + vatRON;
 
   const nowIso = new Date().toISOString().slice(0, 10);
+  // Create a unique temporary ID that includes partner info to avoid collisions
+  const partnerToken = (c as any).partnerId || c.partner || "default";
+  const tempId = opts.number || `temp-${c.id}-${opts.issuedAt}-${partnerToken}-${Date.now()}`;
   const inv: Invoice = InvoiceSchema.parse({
     // Temporary id; will be overwritten with the invoice number at issuance
-    id: opts.number || `${c.id}-${opts.issuedAt}`,
+    id: tempId,
     contractId: c.id,
     contractName: c.name,
     issuedAt: opts.issuedAt,
