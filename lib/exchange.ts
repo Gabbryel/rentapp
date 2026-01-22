@@ -26,16 +26,25 @@ function todayBucharest(): string {
 async function fetchBnrEurRon(opts?: { date?: string }): Promise<{ rate: number; date: string }> {
   const target = opts?.date?.slice(0, 10);
   const query = target ? `?date=${target}` : "";
-  const res = await fetch(`https://bnr.ro/nbrfxrates.xml${query}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`BNR request failed: ${res.status}`);
-  const xml = await res.text();
-  const m = /<Rate\s+currency="EUR">\s*([\d.,]+)\s*<\/Rate>/i.exec(xml);
-  if (!m) throw new Error("EUR rate not found in BNR XML");
-  const num = Number(m[1].replace(/,/g, "."));
-  if (!Number.isFinite(num) || num <= 0) throw new Error("Invalid rate value");
-  const dateMatch = /<Cube\s+date="(\d{4}-\d{2}-\d{2})"/i.exec(xml);
-  const effectiveDate = dateMatch?.[1] ?? target ?? todayBucharest();
-  return { rate: num, date: effectiveDate };
+  
+  try {
+    const res = await fetch(`https://bnr.ro/nbrfxrates.xml${query}`, { 
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
+    if (!res.ok) throw new Error(`BNR request failed: ${res.status}`);
+    const xml = await res.text();
+    const m = /<Rate\s+currency="EUR">\s*([\d.,]+)\s*<\/Rate>/i.exec(xml);
+    if (!m) throw new Error("EUR rate not found in BNR XML");
+    const num = Number(m[1].replace(/,/g, "."));
+    if (!Number.isFinite(num) || num <= 0) throw new Error("Invalid rate value");
+    const dateMatch = /<Cube\s+date="(\d{4}-\d{2}-\d{2})"/i.exec(xml);
+    const effectiveDate = dateMatch?.[1] ?? target ?? todayBucharest();
+    return { rate: num, date: effectiveDate };
+  } catch (error) {
+    console.warn("BNR fetch failed:", error instanceof Error ? error.message : error);
+    throw error;
+  }
 }
 
 export async function getDailyEurRon(options?: { forceRefresh?: boolean }) {
@@ -44,21 +53,43 @@ export async function getDailyEurRon(options?: { forceRefresh?: boolean }) {
 
   // Prefer Mongo-backed cache if configured
   if (process.env.MONGODB_URI) {
-    const db = await getDb();
-    const coll = db.collection<RateDoc>("exchange_rates");
-    if (!force) {
-      const doc = await coll.findOne({ key: "EURRON", date: requestedDate });
-      if (doc) return { rate: doc.rate, date: doc.date, source: "db" as const };
+    try {
+      const db = await getDb();
+      const coll = db.collection<RateDoc>("exchange_rates");
+      if (!force) {
+        const doc = await coll.findOne({ key: "EURRON", date: requestedDate });
+        if (doc) return { rate: doc.rate, date: doc.date, source: "db" as const };
+      }
+      const { rate, date } = await fetchBnrEurRon({ date: requestedDate });
+      await coll.updateOne(
+        { key: "EURRON", date },
+        { $set: { key: "EURRON", date, rate, fetchedAt: new Date() } },
+        { upsert: true }
+      );
+      memCache.set(requestedDate, { rate, date });
+      if (date !== requestedDate) memCache.set(date, { rate, date });
+      return { rate, date, source: "bnr" as const };
+    } catch (error) {
+      console.error("Failed to get EUR/RON rate from DB/BNR:", error);
+      // Try to get last known rate from DB as fallback
+      try {
+        const db = await getDb();
+        const coll = db.collection<RateDoc>("exchange_rates");
+        const lastKnown = await coll.findOne(
+          { key: "EURRON" },
+          { sort: { date: -1 } }
+        );
+        if (lastKnown) {
+          console.warn(`Using last known rate from ${lastKnown.date}`);
+          return { rate: lastKnown.rate, date: lastKnown.date, source: "db" as const };
+        }
+      } catch (dbError) {
+        console.error("Failed to fetch fallback rate from DB:", dbError);
+      }
+      // Final fallback: return a reasonable default rate
+      console.warn("Using fallback EUR/RON rate: 5.0");
+      return { rate: 5.0, date: requestedDate, source: "cache" as const };
     }
-    const { rate, date } = await fetchBnrEurRon({ date: requestedDate });
-    await coll.updateOne(
-      { key: "EURRON", date },
-      { $set: { key: "EURRON", date, rate, fetchedAt: new Date() } },
-      { upsert: true }
-    );
-    memCache.set(requestedDate, { rate, date });
-    if (date !== requestedDate) memCache.set(date, { rate, date });
-    return { rate, date, source: "bnr" as const };
   }
 
   // Fallback to in-memory daily cache if DB not configured
@@ -68,10 +99,26 @@ export async function getDailyEurRon(options?: { forceRefresh?: boolean }) {
       return { rate: cached.rate, date: cached.date, source: "cache" as const };
     }
   }
-  const { rate, date } = await fetchBnrEurRon({ date: requestedDate });
-  memCache.set(requestedDate, { rate, date });
-  if (date !== requestedDate) memCache.set(date, { rate, date });
-  return { rate, date, source: "bnr" as const };
+  
+  try {
+    const { rate, date } = await fetchBnrEurRon({ date: requestedDate });
+    memCache.set(requestedDate, { rate, date });
+    if (date !== requestedDate) memCache.set(date, { rate, date });
+    return { rate, date, source: "bnr" as const };
+  } catch (error) {
+    console.error("Failed to fetch EUR/RON rate:", error);
+    // Check memory cache for any recent rate
+    const lastCached = Array.from(memCache.values()).sort((a, b) => 
+      b.date.localeCompare(a.date)
+    )[0];
+    if (lastCached) {
+      console.warn(`Using cached rate from ${lastCached.date}`);
+      return { rate: lastCached.rate, date: lastCached.date, source: "cache" as const };
+    }
+    // Final fallback
+    console.warn("Using fallback EUR/RON rate: 5.0");
+    return { rate: 5.0, date: requestedDate, source: "cache" as const };
+  }
 }
 
 export async function getEurRonForDate(

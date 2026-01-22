@@ -56,8 +56,8 @@ export default async function HomePage({
     (typeof sp.ownerId === "string"
       ? sp.ownerId
       : Array.isArray(sp.ownerId)
-      ? sp.ownerId[0]
-      : owners[0]?.id) ||
+        ? sp.ownerId[0]
+        : owners[0]?.id) ||
     owners[0]?.id ||
     "";
   const selectedOwner =
@@ -75,9 +75,16 @@ export default async function HomePage({
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
-  // Get exchange rate
-  const exchangeRate = await getDailyEurRon({ forceRefresh: false });
-  const eurRonRate = exchangeRate?.rate || 5.0;
+  // Get exchange rate with error handling
+  let exchangeRate;
+  let eurRonRate = 5.0; // Default fallback
+  try {
+    exchangeRate = await getDailyEurRon({ forceRefresh: false });
+    eurRonRate = exchangeRate?.rate || 5.0;
+  } catch (error) {
+    console.error("Failed to fetch exchange rate for homepage:", error);
+    // Continue with default rate
+  }
 
   // Active contracts
   const activeContracts = contracts.filter((c) => {
@@ -132,15 +139,15 @@ export default async function HomePage({
     });
     const revEUR = invs.reduce(
       (sum, inv) => sum + (inv.correctedAmountEUR || inv.amountEUR || 0),
-      0
+      0,
     );
     const revRONwithoutVAT = invs.reduce(
       (sum, inv) => sum + (inv.netRON || 0),
-      0
+      0,
     );
     const revRONwithVAT = invs.reduce(
       (sum, inv) => sum + (inv.totalRON || 0),
-      0
+      0,
     );
     monthlyData.push({
       month: m,
@@ -216,20 +223,20 @@ export default async function HomePage({
 
   // Contract types breakdown
   const monthlyContracts = activeContracts.filter(
-    (c) => c.rentType === "monthly"
+    (c) => c.rentType === "monthly",
   ).length;
   const yearlyContracts = activeContracts.filter(
-    (c) => c.rentType === "yearly"
+    (c) => c.rentType === "yearly",
   ).length;
 
   // Partner/tenant count
   const uniquePartners = new Set(
-    activeContracts.map((c) => c.partner || c.partnerId).filter(Boolean)
+    activeContracts.map((c) => c.partner || c.partnerId).filter(Boolean),
   ).size;
 
   // Asset/property count
   const uniqueAssets = new Set(
-    activeContracts.map((c) => c.assetId).filter(Boolean)
+    activeContracts.map((c) => c.assetId).filter(Boolean),
   ).size;
 
   // Total revenue for the selected owner
@@ -268,7 +275,7 @@ export default async function HomePage({
 
   const totalPartnerRevenue = partnerData.reduce(
     (sum, p) => sum + p.revenue,
-    0
+    0,
   );
   partnerData.forEach((p) => {
     p.percentage =
@@ -317,7 +324,7 @@ export default async function HomePage({
       if (d.done) return false;
       const diffDays = Math.floor(
         (new Date(d.forecastDate).getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24)
+          (1000 * 60 * 60 * 24),
       );
       return diffDays >= 0 && diffDays <= 60;
     });
@@ -337,14 +344,14 @@ export default async function HomePage({
     const start = new Date(c.startDate);
     const now = new Date();
     const diffDays = Math.floor(
-      (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+      (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
     );
     return diffDays;
   });
   const avgContractAge =
     contractAges.length > 0
       ? Math.round(
-          contractAges.reduce((sum, age) => sum + age, 0) / contractAges.length
+          contractAges.reduce((sum, age) => sum + age, 0) / contractAges.length,
         )
       : 0;
 
@@ -731,7 +738,7 @@ export default async function HomePage({
               {chartData.map((item, idx) => {
                 const barHeight = Math.max(
                   (item.normalizedHeight / 100) * 160,
-                  item.value > 0 ? 8 : 2
+                  item.value > 0 ? 8 : 2,
                 );
                 return (
                   <div
@@ -743,7 +750,7 @@ export default async function HomePage({
                       <div className="text-[10px] font-semibold text-foreground/70 whitespace-nowrap">
                         {formatCurrency(Math.round(item.value), "EUR").replace(
                           /\s/g,
-                          ""
+                          "",
                         )}
                       </div>
                     )}
@@ -758,7 +765,7 @@ export default async function HomePage({
                       }}
                       title={`${item.label}: ${formatCurrency(
                         item.value,
-                        "EUR"
+                        "EUR",
                       )} (${item.normalizedHeight.toFixed(1)}%)`}
                     />
                   </div>
@@ -1020,7 +1027,7 @@ export default async function HomePage({
                       width: `${Math.min(
                         (monthlyRevenueEUR / Math.max(expectedMonthlyEUR, 1)) *
                           100,
-                        100
+                        100,
                       )}%`,
                     }}
                   />
@@ -1029,7 +1036,7 @@ export default async function HomePage({
                   <p className="text-sm text-foreground/60">
                     {formatPercent(
                       (monthlyRevenueEUR / Math.max(expectedMonthlyEUR, 1)) *
-                        100
+                        100,
                     )}{" "}
                     realizare
                   </p>
@@ -1043,7 +1050,7 @@ export default async function HomePage({
                         Rămân{" "}
                         {formatCurrency(
                           expectedMonthlyEUR - monthlyRevenueEUR,
-                          "EUR"
+                          "EUR",
                         )}
                       </span>
                     )}
@@ -1082,7 +1089,7 @@ export default async function HomePage({
                   <span className="text-lg font-medium">
                     {formatCurrency(
                       Math.round(ytdRevenueEUR / currentMonth),
-                      "EUR"
+                      "EUR",
                     )}
                   </span>
                 </div>

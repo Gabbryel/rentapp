@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { escapeHtml } from "@/lib/utils/html";
 import {
   useActionState,
@@ -390,7 +391,7 @@ type TemplateValue = {
 
 function makeTemplateValue(
   raw: string | null | undefined,
-  placeholder: string
+  placeholder: string,
 ): TemplateValue {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) {
@@ -401,7 +402,7 @@ function makeTemplateValue(
 
 function makeDotDateTemplateValue(
   raw: string | null | undefined,
-  placeholder: string
+  placeholder: string,
 ): TemplateValue {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) {
@@ -434,7 +435,7 @@ function pickFirstFilled(...values: unknown[]): string {
 
 function formatInvoiceMonthModeLabel(
   mode: string | undefined,
-  fallback: string
+  fallback: string,
 ): string {
   const normalized = (mode ?? "").trim().toLowerCase();
   if (!normalized) return fallback;
@@ -445,7 +446,7 @@ function formatInvoiceMonthModeLabel(
 
 function buildOwnerPatchFromOption(
   owner: OwnerOption,
-  prev: EditorState
+  prev: EditorState,
 ): Partial<EditorState> {
   const administrators = Array.isArray(owner.administrators)
     ? owner.administrators
@@ -497,7 +498,7 @@ function buildOwnerPatchFromOption(
 
 function buildPartnerPatchFromOption(
   partner: PartnerOption,
-  prev: EditorState
+  prev: EditorState,
 ): Partial<EditorState> {
   const representatives = Array.isArray(partner.representatives)
     ? partner.representatives
@@ -573,168 +574,168 @@ function createTemplateBody(state: EditorState): string {
   const ownerNameTemplate = makeTemplateValue(state.ownerName, "________");
   const ownerEmailsTemplate = makeTemplateValue(
     state.ownerContactEmails,
-    "________"
+    "________",
   );
   const ownerPhonesTemplate = makeTemplateValue(
     state.ownerContactPhones,
-    "________"
+    "________",
   );
   const ownerHeadOfficeTemplate = makeTemplateValue(
     state.ownerHeadOffice,
-    "________"
+    "________",
   );
   const ownerAddressTemplate = makeTemplateValue(
     state.ownerAddress,
-    "________"
+    "________",
   );
   const ownerRegistrationTemplate = makeTemplateValue(
     state.ownerRegistration,
-    "________"
+    "________",
   );
   const ownerTaxIdTemplate = makeTemplateValue(state.ownerTaxId, "________");
   const ownerAdministratorsTemplate = makeTemplateValue(
     state.ownerRepresentative,
-    "________"
+    "________",
   );
   const ownerRepresentativeTitleTemplate = makeTemplateValue(
     state.ownerRepresentativeTitle,
-    "________"
+    "________",
   );
 
   const partnerNameTemplate = makeTemplateValue(state.partnerName, "________");
   const partnerEmailTemplate = makeTemplateValue(
     state.partnerEmail,
-    "________"
+    "________",
   );
   const partnerPhoneTemplate = makeTemplateValue(
     state.partnerPhone,
-    "________"
+    "________",
   );
   const partnerHeadOfficeTemplate = makeTemplateValue(
     state.partnerHeadOffice,
-    "________"
+    "________",
   );
   const partnerRegistrationTemplate = makeTemplateValue(
     state.partnerRegistration,
-    "________"
+    "________",
   );
   const partnerTaxIdTemplate = makeTemplateValue(
     state.partnerTaxId,
-    "________"
+    "________",
   );
   const partnerRepresentativesTemplate = makeTemplateValue(
     state.partnerRepresentative,
-    "________"
+    "________",
   );
   const partnerRepresentativeTitleTemplate = makeTemplateValue(
     state.partnerRepresentativeTitle,
-    "________"
+    "________",
   );
 
   const assetNameTemplate = makeTemplateValue(state.assetName, "________");
   const assetSurfaceTemplate = makeTemplateValue(
     extractSurfaceValue(state.spaceSurface),
-    "________"
+    "________",
   );
   const assetAddressTemplate = makeTemplateValue(
     state.assetAddress,
-    "________"
+    "________",
   );
   const intendedUseTemplate = makeTemplateValue(state.intendedUse, "________");
 
   const contractStartTemplate = makeDotDateTemplateValue(
     state.contractStartDate,
-    "——"
+    "——",
   );
   const contractEndTemplate = makeDotDateTemplateValue(
     state.contractEndDate,
-    "——"
+    "——",
   );
   const contractSignedAtTemplate = makeDotDateTemplateValue(
     state.contractSignedAt,
-    "________"
+    "________",
   );
 
   const invoiceIssueDayTemplate = makeTemplateValue(
     state.monthlyInvoiceDay || state.invoiceIssueDay,
-    "________"
+    "________",
   );
   const invoiceMonthModeLabel = formatInvoiceMonthModeLabel(
     state.invoiceMonthMode,
-    state.monthOfRent
+    state.monthOfRent,
   );
   const invoiceMonthModeTemplate = makeTemplateValue(
     invoiceMonthModeLabel,
-    "________"
+    "________",
   );
   const paymentDueDaysTemplate = makeTemplateValue(
     state.paymentDueDays,
-    "________"
+    "________",
   );
   const bankAccountTemplate = makeTemplateValue(state.bankAccount, "________");
 
   const indexingMonthRaw =
     state.indexingMonth || formatMonthName(state.contractStartDate) || "";
   const indexingMonthValue = boldTemplateValue(
-    makeTemplateValue(indexingMonthRaw, "________")
+    makeTemplateValue(indexingMonthRaw, "________"),
   );
 
   const guaranteeMultiplierTemplate = makeTemplateValue(
     state.guaranteeMultiplier,
-    "________"
+    "________",
   );
   const guaranteeFormsTemplate = makeTemplateValue(
     state.guaranteeForms,
-    "________"
+    "________",
   );
   const guaranteeBoMultiplierTemplate = makeTemplateValue(
     state.guaranteeBoMultiplier,
-    "________"
+    "________",
   );
   const latePaymentNotificationFeeTemplate = makeTemplateValue(
     state.latePaymentNotificationFee,
-    "________"
+    "________",
   );
   const evacuationFeeTemplate = makeTemplateValue(
     state.evacuationFee,
-    "________"
+    "________",
   );
   const storageFeeTemplate = makeTemplateValue(state.storageFee, "________");
   const nonPaymentTerminationDaysTemplate = makeTemplateValue(
     state.nonPaymentTerminationDays,
-    "________"
+    "________",
   );
   const denunciationNoticeDaysTemplate = makeTemplateValue(
     state.denunciationNoticeDays,
-    "________"
+    "________",
   );
   const denunciationLockMonthsTemplate = makeTemplateValue(
     state.denunciationLockMonths,
-    "________"
+    "________",
   );
   const denunciationPenaltyMonthsTemplate = makeTemplateValue(
     state.denunciationPenaltyMonths,
-    "________"
+    "________",
   );
   const denunciationPenaltyFixedTemplate = makeTemplateValue(
     state.denunciationPenaltyFixed,
-    "________"
+    "________",
   );
   const abandonPenaltyTemplate = makeTemplateValue(
     state.abandonPenaltyDescription,
-    "________"
+    "________",
   );
   const confidentialityPenaltyTemplate = makeTemplateValue(
     state.confidentialityPenalty,
-    "________"
+    "________",
   );
   const signatureLocationTemplate = makeTemplateValue(
     state.signatureLocation,
-    "________"
+    "________",
   );
   const forceMajeureNoticeDaysTemplate = makeTemplateValue(
     state.forceMajeureNoticeDays,
-    "________"
+    "________",
   );
 
   const ownerName = boldTemplateValue(ownerNameTemplate);
@@ -746,7 +747,7 @@ function createTemplateBody(state: EditorState): string {
   const ownerTaxId = boldTemplateValue(ownerTaxIdTemplate);
   const ownerAdministrators = boldTemplateValue(ownerAdministratorsTemplate);
   const ownerRepresentativeTitleValue = boldTemplateValue(
-    ownerRepresentativeTitleTemplate
+    ownerRepresentativeTitleTemplate,
   );
 
   const partnerName = boldTemplateValue(partnerNameTemplate);
@@ -756,10 +757,10 @@ function createTemplateBody(state: EditorState): string {
   const partnerRegistration = boldTemplateValue(partnerRegistrationTemplate);
   const partnerTaxId = boldTemplateValue(partnerTaxIdTemplate);
   const partnerRepresentatives = boldTemplateValue(
-    partnerRepresentativesTemplate
+    partnerRepresentativesTemplate,
   );
   const partnerRepresentativeTitleValue = boldTemplateValue(
-    partnerRepresentativeTitleTemplate
+    partnerRepresentativeTitleTemplate,
   );
 
   const assetName = boldTemplateValue(assetNameTemplate);
@@ -785,39 +786,39 @@ function createTemplateBody(state: EditorState): string {
     : bankAccountValue;
 
   const guaranteeMultiplierValue = boldTemplateValue(
-    guaranteeMultiplierTemplate
+    guaranteeMultiplierTemplate,
   );
   const guaranteeFormsValue = boldTemplateValue(guaranteeFormsTemplate);
   const guaranteeBoMultiplierValue = boldTemplateValue(
-    guaranteeBoMultiplierTemplate
+    guaranteeBoMultiplierTemplate,
   );
   const latePaymentNotificationFeeValue = boldTemplateValue(
-    latePaymentNotificationFeeTemplate
+    latePaymentNotificationFeeTemplate,
   );
   const evacuationFeeValue = boldTemplateValue(evacuationFeeTemplate);
   const storageFeeValue = boldTemplateValue(storageFeeTemplate);
   const nonPaymentTerminationDaysValue = boldTemplateValue(
-    nonPaymentTerminationDaysTemplate
+    nonPaymentTerminationDaysTemplate,
   );
   const denunciationNoticeDaysValue = boldTemplateValue(
-    denunciationNoticeDaysTemplate
+    denunciationNoticeDaysTemplate,
   );
   const denunciationLockMonthsValue = boldTemplateValue(
-    denunciationLockMonthsTemplate
+    denunciationLockMonthsTemplate,
   );
   const denunciationPenaltyMonthsValue = boldTemplateValue(
-    denunciationPenaltyMonthsTemplate
+    denunciationPenaltyMonthsTemplate,
   );
   const denunciationPenaltyFixedValue = boldTemplateValue(
-    denunciationPenaltyFixedTemplate
+    denunciationPenaltyFixedTemplate,
   );
   const abandonmentPenaltyValue = boldTemplateValue(abandonPenaltyTemplate);
   const confidentialityPenaltyValue = boldTemplateValue(
-    confidentialityPenaltyTemplate
+    confidentialityPenaltyTemplate,
   );
   const signatureLocationValue = boldTemplateValue(signatureLocationTemplate);
   const forceMajeureNoticeDaysValue = boldTemplateValue(
-    forceMajeureNoticeDaysTemplate
+    forceMajeureNoticeDaysTemplate,
   );
 
   const rentNumber = (() => {
@@ -837,7 +838,7 @@ function createTemplateBody(state: EditorState): string {
     rentNumber !== null
       ? `<strong>${escapeHtml(formatNumberRo(rentNumber))}</strong>`
       : boldTemplateValue(
-          makeTemplateValue(stripEurSuffix(state.rentAmount), "_____")
+          makeTemplateValue(stripEurSuffix(state.rentAmount), "_____"),
         );
 
   const tvaPercentDisplay = resolveTvaPercentDisplay(state.tvaPercent);
@@ -853,7 +854,7 @@ function createTemplateBody(state: EditorState): string {
   const correctionPercentSnippet =
     correctionPercentNumber !== null && correctionPercentNumber > 0
       ? ` + <strong>${escapeHtml(
-          formatNumberRo(correctionPercentNumber)
+          formatNumberRo(correctionPercentNumber),
         )}%</strong>`
       : "";
 
@@ -874,7 +875,7 @@ function createTemplateBody(state: EditorState): string {
   const resolvedPaymentDueDaysValue =
     paymentDueDaysTemplate.isPlaceholder && utilityPaymentTermRaw
       ? `<strong>${normalizeUtilityPaymentTerm(
-          state.utilityPaymentTerm
+          state.utilityPaymentTerm,
         )}</strong>`
       : paymentDueDaysValue;
 
@@ -891,13 +892,13 @@ function createTemplateBody(state: EditorState): string {
     const fallbackFromOverstay = parseAmount(overstayRaw);
     if (fallbackFromOverstay !== null) {
       return `<strong>${escapeHtml(
-        formatNumberRo(fallbackFromOverstay)
+        formatNumberRo(fallbackFromOverstay),
       )}</strong>`;
     }
     const fallbackFromDaily = parseAmount(dailyPenaltyRaw);
     if (fallbackFromDaily !== null) {
       return `<strong>${escapeHtml(
-        formatNumberRo(fallbackFromDaily)
+        formatNumberRo(fallbackFromDaily),
       )}</strong>`;
     }
     if (overstayRaw.trim()) {
@@ -937,238 +938,238 @@ function createTemplateBody(state: EditorState): string {
 
   lines.push(`<p>Cap. I Părțile contractante</p>`);
   lines.push(
-    `<p>${ownerName}, societate constituită și care funcționează în conformitate cu legile române, cu sediul în ${ownerHeadOffice} înregistrată la ORC Bacău sub numărul ${ownerRegistration}, CIF ${ownerTaxId}, reprezentată legal prin ${ownerAdministrators}, în calitate de ${ownerRepresentativeTitleValue}, denumită în continuare LOCATOR și</p>`
+    `<p>${ownerName}, societate constituită și care funcționează în conformitate cu legile române, cu sediul în ${ownerHeadOffice} înregistrată la ORC Bacău sub numărul ${ownerRegistration}, CIF ${ownerTaxId}, reprezentată legal prin ${ownerAdministrators}, în calitate de ${ownerRepresentativeTitleValue}, denumită în continuare LOCATOR și</p>`,
   );
   lines.push(
-    `<p>${partnerName}, cu sediul în ${partnerHeadOffice}, ${partnerRegistration}, CUI ${partnerTaxId}, reprezentată prin ${partnerRepresentatives}, în calitate de ${partnerRepresentativeTitleValue}, denumită în continuare LOCATAR.</p>`
+    `<p>${partnerName}, cu sediul în ${partnerHeadOffice}, ${partnerRegistration}, CUI ${partnerTaxId}, reprezentată prin ${partnerRepresentatives}, în calitate de ${partnerRepresentativeTitleValue}, denumită în continuare LOCATAR.</p>`,
   );
   lines.push(
-    `<p>LOCATORUL și LOCATARUL vor fi denumite în continuare PĂRȚI ale prezentului contract.</p>`
+    `<p>LOCATORUL și LOCATARUL vor fi denumite în continuare PĂRȚI ale prezentului contract.</p>`,
   );
 
   lines.push(`<p>Cap. II Scopul contractului</p>`);
   lines.push(
-    `<p>Art. 2.1. Scopul acestui contract de închiriere (denumit în continuare „Contractul”) este pentru Locator de a pune în valoare activele Locatorului iar pentru Locatar de a dobândi folosința unui spațiu pentru stabilirea sediului social și pentru desfășurarea activității sale comerciale.</p>`
+    `<p>Art. 2.1. Scopul acestui contract de închiriere (denumit în continuare „Contractul”) este pentru Locator de a pune în valoare activele Locatorului iar pentru Locatar de a dobândi folosința unui spațiu pentru stabilirea sediului social și pentru desfășurarea activității sale comerciale.</p>`,
   );
   lines.push(
-    `<p>Art. 2.2. Drepturile şi obligațiile părților contractante decurg din prevederile Codului Civil Roman și din prezentul Contract.</p>`
+    `<p>Art. 2.2. Drepturile şi obligațiile părților contractante decurg din prevederile Codului Civil Roman și din prezentul Contract.</p>`,
   );
 
   lines.push(`<p>Cap. III Obiectul contractului</p>`);
   lines.push(
     `<p>Art. 3.1. LOCATORUL închiriază LOCATARULUI spațiul (${assetName}) situat în ${assetAddress} cu suprafața de ${assetSurfaceValue} mp denumit în continuare „SPAȚIUL” in schimbul CHIRIEI prevăzute la art. 5.1 de mai jos. SPAȚIUL va fi desemnat ca sediu social și/sau punct de lucru al LOCATARULUI și va fi utilizat de acesta exclusiv, pentru activități cuprinse în codurile CAEN cuprinse în obiectul de activitate al LOCATARULUI (activitate declarată ${intendedUseValue}), cu respectarea tuturor condițiilor pentru desfășurarea în deplină legalitate a acestora.
-    </p>`
+    </p>`,
   );
 
   lines.push(`<p>Cap. IV Durata contractului</p>`);
   lines.push(
-    `<p>Art. 4.1. Prezentul CONTRACT intră în vigoare la data de ${contractStart} și este valabil și produce efecte până la data de ${contractEnd}.</p>`
+    `<p>Art. 4.1. Prezentul CONTRACT intră în vigoare la data de ${contractStart} și este valabil și produce efecte până la data de ${contractEnd}.</p>`,
   );
   lines.push(
-    `<p>Art. 4.2. CONTRACTUL poate fi prelungit prin act adițional.</p>`
+    `<p>Art. 4.2. CONTRACTUL poate fi prelungit prin act adițional.</p>`,
   );
 
   lines.push(
-    `<p>Cap. V Chiria. Modalitatea de plată a chiriei. Prețul prestațiilor efectuate de locator.</p>`
+    `<p>Cap. V Chiria. Modalitatea de plată a chiriei. Prețul prestațiilor efectuate de locator.</p>`,
   );
   lines.push(
-    `<p>Art. 5.1. LOCATARUL va plăti Locatorului o chirie lunară în valoare de ${rentAmountValue} de euro + ${tvaPercentValue} ${tvaTypeValue} (sau oricare alt regim de T.V.A. va fi aplicabil LOCATARULUI în viitor), în lei la cursul B.N.R., denumită în continuare „chiria”${correctionPercentSnippet}. Chiria se va factura pe data de ${invoiceIssueDayValue} ale lunii pentru luna ${invoiceMonthModeValue}, iar plata trebuie efectuată de către LOCATAR în următoarele ${resolvedPaymentDueDaysValue} zile calendaristice în contul bancar al Locatorului: ${bankDetailsValue}</p>`
+    `<p>Art. 5.1. LOCATARUL va plăti Locatorului o chirie lunară în valoare de ${rentAmountValue} de euro + ${tvaPercentValue} ${tvaTypeValue} (sau oricare alt regim de T.V.A. va fi aplicabil LOCATARULUI în viitor), în lei la cursul B.N.R., denumită în continuare „chiria”${correctionPercentSnippet}. Chiria se va factura pe data de ${invoiceIssueDayValue} ale lunii pentru luna ${invoiceMonthModeValue}, iar plata trebuie efectuată de către LOCATAR în următoarele ${resolvedPaymentDueDaysValue} zile calendaristice în contul bancar al Locatorului: ${bankDetailsValue}</p>`,
   );
   lines.push(`<p>Factura se va transmite ${invoiceSendChannelsValue}.</p>`);
   lines.push(
-    `<p>Părțile stabilesc ca aceste mijloace de comunicare să fie folosite și recunoscute prin prezentul contract. Chiria se va indexa în luna ${indexingMonthValue} a fiecărui an cu inflația la euro înregistrată în anul precedent, modificarea chiriei urmând a se aplica de la data de 1 a lunii următoare.</p>`
+    `<p>Părțile stabilesc ca aceste mijloace de comunicare să fie folosite și recunoscute prin prezentul contract. Chiria se va indexa în luna ${indexingMonthValue} a fiecărui an cu inflația la euro înregistrată în anul precedent, modificarea chiriei urmând a se aplica de la data de 1 a lunii următoare.</p>`,
   );
   lines.push(
-    `<p>Art. 5.2. LOCATARUL va constitui o garanție de bună execuție a obligațiilor ce îi revin cu valoarea egală cu ${guaranteeMultiplierValue} chirii (chiria lunară x ${guaranteeMultiplierValue}) la data de ${guaranteeDueDateValue}. Forma de garanție poate fi: ${guaranteeFormsValue}.</p>`
+    `<p>Art. 5.2. LOCATARUL va constitui o garanție de bună execuție a obligațiilor ce îi revin cu valoarea egală cu ${guaranteeMultiplierValue} chirii (chiria lunară x ${guaranteeMultiplierValue}) la data de ${guaranteeDueDateValue}. Forma de garanție poate fi: ${guaranteeFormsValue}.</p>`,
   );
   lines.push(`<p>Art. 5.3.  Utilitățile. </p>`);
   lines.push(
-    `<p>1. Suplimentar față de chirie, LOCATARUL va achita lunar toate cheltuielile legate de utilitățile și întreținerea aferente Spațiului și a părților comune ale imobilului de care aparține acesta.</p>`
+    `<p>1. Suplimentar față de chirie, LOCATARUL va achita lunar toate cheltuielile legate de utilitățile și întreținerea aferente Spațiului și a părților comune ale imobilului de care aparține acesta.</p>`,
   );
   lines.push(
-    `<p>2. Cheltuielile cu utilitățile se vor factura de îndată ce Locatorul primește facturile de la furnizori. Locatorul îl va înștiința telefonic pe LOCATAR de primirea facturilor și îi va transmite în cel mai scurt timp prin sistemul SmartBill sau e-mail și/sau mesaj electronic (message, whatsapp) facturile cu sumele pe care LOCATARUL trebuie să le achite în termen de ${resolvedPaymentDueDaysValue} zile de la data emiterii.</p>`
+    `<p>2. Cheltuielile cu utilitățile se vor factura de îndată ce Locatorul primește facturile de la furnizori. Locatorul îl va înștiința telefonic pe LOCATAR de primirea facturilor și îi va transmite în cel mai scurt timp prin sistemul SmartBill sau e-mail și/sau mesaj electronic (message, whatsapp) facturile cu sumele pe care LOCATARUL trebuie să le achite în termen de ${resolvedPaymentDueDaysValue} zile de la data emiterii.</p>`,
   );
   lines.push(
-    `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATOR nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de ${invoiceIssueDayValue} a fiecărei luni.</p>`
+    `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATOR nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de ${invoiceIssueDayValue} a fiecărei luni.</p>`,
   );
   lines.push(
     `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, începând cu pria zi următoare scadenței, Locatarul poate fi notificat de Locator, după cum va considera rezonabil, prin email sau prin executor judecătoresc, ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare, ce va fi facturată ca atare de către Locator și constituie obligație de plată a Locatarului.
-    </p>`
+    </p>`,
   );
   lines.push(
-    `<p>Art. 5.6. De asemenea, începând cu ziua următoare datei de scadență, LOCATARUL va fi nevoit să plătească LOCATORULUI, de drept, fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități prealabile, penalități de ${latePaymentPenaltyPercentValue} pe zi (zi de întârziere) din suma datorată, cu prevederea expresă că valoarea penalităților va putea depăși valoarea sumei la care se aplică.</p>`
+    `<p>Art. 5.6. De asemenea, începând cu ziua următoare datei de scadență, LOCATARUL va fi nevoit să plătească LOCATORULUI, de drept, fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități prealabile, penalități de ${latePaymentPenaltyPercentValue} pe zi (zi de întârziere) din suma datorată, cu prevederea expresă că valoarea penalităților va putea depăși valoarea sumei la care se aplică.</p>`,
   );
   lines.push(
-    `<p>Art. 5.7. Locatarul nu va putea cere ca suma constituită drept „garanție” să fie considerată plată în avans și astfel să considere că nu a fost în întârziere la plata facturilor emise de către locator.</p>`
+    `<p>Art. 5.7. Locatarul nu va putea cere ca suma constituită drept „garanție” să fie considerată plată în avans și astfel să considere că nu a fost în întârziere la plata facturilor emise de către locator.</p>`,
   );
   lines.push(
     `<p>Art. 5.8. (1)  În cazul în care Locatarul din orice motiv întârzie cu mai mult de 15 zile calendaristice constituirea garanției, efectuarea plății chiriei și/sau a cheltuielilor cu utilitățile sau întreținere integral sau parțial, Locatorul poate să considere contractul încetat de plin drept fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități. În plus Locatarul va achita o penalitate în valoare de numărul de luni rămase din perioada contractuală x chiria lunară iar Locatorul va avea dreptul să rețină garanția cu titlu de clauză penală, fiind agreat că aceasta nu va fi folosită pentru acoperirea facturilor restante. În cazul în care motivul rezilierii a fost neconstituirea garanției, penalitatea va fi în valoare a 5 (cinci) chirii și este scadentă imediat simultan cu încetarea prezentului CONTRACT, în baza notificării rezilierii de drept transmisă de Locator, fără nicio altă formalitate ori procedură prealabilă. Toate sumele sunt exigibile imediat, fără nicio altă notifcare prealabilă sau intervenția instanțelor de judecată.
-    </p>`
+    </p>`,
   );
   lines.push(
-    `<p>(2)  Fără a aduce atingere prevederilor de mai sus, în cazul în care LOCATARUL din orice motiv întârzie efectuarea integrală sau parțială a plății facturilor de chirie și/sau cheltuielile cu utilitățile sau întreținere, în termen de 24 de ore de la data primirii notificării LOCATORULUI privind rezilierea CONTRACTULUI, pe lângă celelalte remedii prevăzute de prezentul contract, LOCATARUL recunoaște că LOCATORUL va avea următoarele drepturi fără a fi necesară vreo autorizație prealabilă din partea unei instanțe sau îndeplinirea vreunei alte formalități:</p>`
+    `<p>(2)  Fără a aduce atingere prevederilor de mai sus, în cazul în care LOCATARUL din orice motiv întârzie efectuarea integrală sau parțială a plății facturilor de chirie și/sau cheltuielile cu utilitățile sau întreținere, în termen de 24 de ore de la data primirii notificării LOCATORULUI privind rezilierea CONTRACTULUI, pe lângă celelalte remedii prevăzute de prezentul contract, LOCATARUL recunoaște că LOCATORUL va avea următoarele drepturi fără a fi necesară vreo autorizație prealabilă din partea unei instanțe sau îndeplinirea vreunei alte formalități:</p>`,
   );
   lines.push(
-    `<p>a) să înceteze furnizarea de utilități (apă, energie electrică, energie termică) cu preaviz de 24 de ore transmis prin orice mijloc electronic: sms, WhatsApp, email;</p>`
+    `<p>a) să înceteze furnizarea de utilități (apă, energie electrică, energie termică) cu preaviz de 24 de ore transmis prin orice mijloc electronic: sms, WhatsApp, email;</p>`,
   );
   lines.push(
-    `<p>b) să folosească orice modalitate să intre în spațiu, inclusiv prin demontarea încuietorilor. Pentru evitarea oricărui dubiu, Locatarul și Locatorul convin prin prezentul contract că ușile Spațiului și încuietorile acestora sunt proprietatea Locatorului de la data la care sunt montate sau incorporate și vor rămâne în cadrul Spațiului;</p>`
+    `<p>b) să folosească orice modalitate să intre în spațiu, inclusiv prin demontarea încuietorilor. Pentru evitarea oricărui dubiu, Locatarul și Locatorul convin prin prezentul contract că ușile Spațiului și încuietorile acestora sunt proprietatea Locatorului de la data la care sunt montate sau incorporate și vor rămâne în cadrul Spațiului;</p>`,
   );
   lines.push(
-    `<p>c) să efectueze inventarul bunurilor aflate în spațiu în prezența unui terț independent;</p>`
+    `<p>c) să efectueze inventarul bunurilor aflate în spațiu în prezența unui terț independent;</p>`,
   );
   lines.push(
-    `<p>d) să îndepărteze și să depoziteze bunurile Locatarului aflate în spațiu, LOCATARUL suportând toate costurile cu privire la respectivele operațiuni (inclusiv costurile cu privire la transportare și depozitare). Pentru eliminarea oricărui dubiu, Locatarul se angajează prin prezentul contract că va achita o taxă fixă de ${evacuationFeeValue} + TVA în cazul în care din culpa sa (neplata chiriei și/sau a cheltuielilor cu utilități integral sau parțial în termenul stabilit prin prezentul contract) LOCATORUL va fi nevoit să elibereze SPAȚIUL de bunurile LOCATARULUI. De asemenea, tot prin acest contract părțile stabilesc o taxă de depozitare de ${storageFeeValue} + T.V.A. indiferent de cantitatea sau volumul bunurilor și fără a lua în seamă valoarea CHIRIEI conform contractului;</p>`
+    `<p>d) să îndepărteze și să depoziteze bunurile Locatarului aflate în spațiu, LOCATARUL suportând toate costurile cu privire la respectivele operațiuni (inclusiv costurile cu privire la transportare și depozitare). Pentru eliminarea oricărui dubiu, Locatarul se angajează prin prezentul contract că va achita o taxă fixă de ${evacuationFeeValue} + TVA în cazul în care din culpa sa (neplata chiriei și/sau a cheltuielilor cu utilități integral sau parțial în termenul stabilit prin prezentul contract) LOCATORUL va fi nevoit să elibereze SPAȚIUL de bunurile LOCATARULUI. De asemenea, tot prin acest contract părțile stabilesc o taxă de depozitare de ${storageFeeValue} + T.V.A. indiferent de cantitatea sau volumul bunurilor și fără a lua în seamă valoarea CHIRIEI conform contractului;</p>`,
   );
   lines.push(
-    `<p>e) Prin acest contract, Locatarul recunoaște dreptul absolut, necondiționat, nelimitat și inalienabil al Locatorului de a intra în spațiu în orice situație va considera de cuviință.</p>`
+    `<p>e) Prin acest contract, Locatarul recunoaște dreptul absolut, necondiționat, nelimitat și inalienabil al Locatorului de a intra în spațiu în orice situație va considera de cuviință.</p>`,
   );
   lines.push(
-    `<p>(3) În cazul încetării contractului din culpa Locatarului, toate datoriile devin scadente și până la data achitării acestora, Locatorul are dreptul să rețină toate bunurile și echipamentele Locatarului, acestea făcând obiectul gajului constituit în favoarea Locatorului.</p>`
+    `<p>(3) În cazul încetării contractului din culpa Locatarului, toate datoriile devin scadente și până la data achitării acestora, Locatorul are dreptul să rețină toate bunurile și echipamentele Locatarului, acestea făcând obiectul gajului constituit în favoarea Locatorului.</p>`,
   );
   lines.push(
-    `<p>Pentru claritate, părțile convin expres și irevocabil că încetarea contractului din orice cauză echivalează cu încetarea posesiei asupra Spațiului iar, în caz de refuz de evacuare, Locatorul este îndreptățit să intre în Spațiu, fără ca Locatarul să aibă dreptul să invoce un prejudiciu, daună sau pierdere de orice fel. Încălcarea obligației de predare a Spațiului în termen de 24 de ore la încetarea Contractului, îndreptățește Locatorul să rețină Garanția, cu titlu de penalitate, fără ca acest drept să limiteze sau să condiționeze celelalte remedii recunoscute prin prezentul Contract.</p>`
+    `<p>Pentru claritate, părțile convin expres și irevocabil că încetarea contractului din orice cauză echivalează cu încetarea posesiei asupra Spațiului iar, în caz de refuz de evacuare, Locatorul este îndreptățit să intre în Spațiu, fără ca Locatarul să aibă dreptul să invoce un prejudiciu, daună sau pierdere de orice fel. Încălcarea obligației de predare a Spațiului în termen de 24 de ore la încetarea Contractului, îndreptățește Locatorul să rețină Garanția, cu titlu de penalitate, fără ca acest drept să limiteze sau să condiționeze celelalte remedii recunoscute prin prezentul Contract.</p>`,
   );
 
   lines.push(`<p>Cap. VI Obligațiile părților</p>`);
   lines.push(`<p>Art. 6.1. Locatorul se obligă la următoarele:</p>`);
   lines.push(
-    `<p>Să pună la dispoziția Locatarului Spațiul în starea de folosință în care se află la data încheierii prezentului contract, prin încheierea unui proces verbal de predare-primire.</p>`
+    `<p>Să pună la dispoziția Locatarului Spațiul în starea de folosință în care se află la data încheierii prezentului contract, prin încheierea unui proces verbal de predare-primire.</p>`,
   );
   lines.push(
-    `<p>Locatorul va asigura Locatarului folosința netulburată și posesia Spațiului pe toată durata prezentului contract garantându-l contra evicțiunii terților, cu condiția respectării de către locatar a tuturor obligațiilor asumate, în termenii și condițiile agreate.</p>`
+    `<p>Locatorul va asigura Locatarului folosința netulburată și posesia Spațiului pe toată durata prezentului contract garantându-l contra evicțiunii terților, cu condiția respectării de către locatar a tuturor obligațiilor asumate, în termenii și condițiile agreate.</p>`,
   );
   lines.push(`<p>Art. 6.2. LOCATARUL se obligă la următoarele:</p>`);
   lines.push(
-    `<p>1. Locatarul are obligația de a menține Spațiul în stare de funcționare și să respecte toate prevederile legale în vigoare. </p>`
+    `<p>1. Locatarul are obligația de a menține Spațiul în stare de funcționare și să respecte toate prevederile legale în vigoare. </p>`,
   );
   lines.push(
-    `<p>2. Să permită accesul Locatorului în programul de lucru al Locatarului pentru a controla starea Spaţiului în baza unei notificări prealabile de 2 zile.</p>`
+    `<p>2. Să permită accesul Locatorului în programul de lucru al Locatarului pentru a controla starea Spaţiului în baza unei notificări prealabile de 2 zile.</p>`,
   );
   lines.push(
-    `<p>3. Locatarul înțelege că suspendarea activității de către organele statului nu constituie o situație care îl exonerează de plata chiriei.</p>`
+    `<p>3. Locatarul înțelege că suspendarea activității de către organele statului nu constituie o situație care îl exonerează de plata chiriei.</p>`,
   );
   lines.push(
-    `<p>4. Să permită Locatorului să realizeze lucrările interioare și/sau exterioare necesare pentru întreținerea corespunzătoare a Spațiului și/sau repararea acestuia, fără să poată solicita reducerea Chiriei ori să ceară denunțarea Contractului, câtă vreme poate utiliza spațiul în proporție de minim 70%. În cazul în care lucrările necesare a fi efectuate la interior impun suspendarea activității, timpul alocat lucrărilor va fi scăzut din chirie dacă depașește 2 zile lucrătoare. Orice astfel de lucrări trebuie să fie efectuate într-un termen maxim de 30 de zile</p>`
+    `<p>4. Să permită Locatorului să realizeze lucrările interioare și/sau exterioare necesare pentru întreținerea corespunzătoare a Spațiului și/sau repararea acestuia, fără să poată solicita reducerea Chiriei ori să ceară denunțarea Contractului, câtă vreme poate utiliza spațiul în proporție de minim 70%. În cazul în care lucrările necesare a fi efectuate la interior impun suspendarea activității, timpul alocat lucrărilor va fi scăzut din chirie dacă depașește 2 zile lucrătoare. Orice astfel de lucrări trebuie să fie efectuate într-un termen maxim de 30 de zile</p>`,
   );
   lines.push(
-    `<p>5. Să nu facă modificări cu caracter permanent care ar influența structura de rezistență.</p>`
+    `<p>5. Să nu facă modificări cu caracter permanent care ar influența structura de rezistență.</p>`,
   );
   lines.push(
-    `<p>6. Să nu facă modificări la instalaţiile clădirii (apă, canalizarea, energie electrică, etc), fără avizul și aprobarea Locatorului și a organelor abilitate.</p>`
+    `<p>6. Să nu facă modificări la instalaţiile clădirii (apă, canalizarea, energie electrică, etc), fără avizul și aprobarea Locatorului și a organelor abilitate.</p>`,
   );
   lines.push(
-    `<p>7. Să nu obtureze calea de acces în spaţiul ce rămane în folosinţa Locatorului, a altor proprietari și/sau utilizatori de orice fel.</p>`
+    `<p>7. Să nu obtureze calea de acces în spaţiul ce rămane în folosinţa Locatorului, a altor proprietari și/sau utilizatori de orice fel.</p>`,
   );
   lines.push(
-    `<p>8. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`
+    `<p>8. Să suporte toate cheltuielile pentru orice modificări în Spațiul necesare desfășurării activității, fără ca Locatorul să fie obligat la despăgubiri.</p>`,
   );
   // lines.push(
   //   `<p>9. La expirarea CONTRACTULUI, LOCATARUL trebuie să predea LOCATORULUI SPAŢIUL închiriat în starea în care a fost predat, cu excepția uzurii normale a SPAȚIULUI, în temeiul unui 'Proces verbal de predare-primire la încetarea Contractului, fiind ținut să execute reparații pereți interiori, lavabil, reparații și/sau înlocuire mobilier deteriorat, aparate de ar condiționat ori centrală termică, dacă sunt nefuncționate total ori parțial, pentru alte motive decât cele rezultate din uzura normală.</p>`
   // );
   lines.push(
-    `<p>9. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`
+    `<p>9. Să obțină toate autorizațiile și avizele necesare funcționării activităților ce urmează a le desfășura, inclusiv montarea sistemelor de pază-alarmare și de prevenire și combatere a incendiilor.</p>`,
   );
   lines.push(
-    `<p>10. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`
+    `<p>10. Să asigure marfa și echipamentele din Spațiu, siguranța și protecția acestora fiind în responsabilitatea sa exclusivă. În acest sens, Locatarul va încheia o răspundere civilă pentru terți și o asigurare totală a proprietății închiriate.</p>`,
   );
   lines.push(
-    `<p>11. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`
+    `<p>11. Să suporte exclusiv orice amendă stabilită de organele competente pentru încălcarea/nerespectarea/omisiune prevederilor legale fiscale, contabile, de muncă, sanitare, etc. În acest sens, părțile stabilesc că Locatorul este exonerat de orice răspundere legată de acoperirea oricăror costuri, cheltuieli, taxe, amenzi, prejudicii, pagube provenite din sau în legătură cu activitatea din spațiu a Locatarului, Locatarul fiind unicul responsabil în relația cu autoritățile, personalul său, colaboratorii, clienții serviți în spațiu și orice altă persoană care ar putea invoca o pretenție de orice natură de la locatar.</p>`,
   );
   lines.push(
-    `<p>12. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`
+    `<p>12. Să suporte cheltuielile aferente Spațiului, energia electrică, energia termică, cheltuieli cu utilitățile sau întreținerea.</p>`,
   );
   lines.push(
-    `<p>13. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`
+    `<p>13. Să realizeze orice reparații necesare înainte de predarea Spațiului, din orice cauza de terminarea a contractului, care să asigure returnarea Spațiului în condiții de estetică și funcționare optimă (reparații echipamente/instalații, reparații pereți, lavabil). În cazul în care nu le realizează Locatarul, Locatorul face aceste reparații și le reține din garanție, urmând a restitui acestuia doar partea rămasă. În cazul în care garanția este reținută cu titlu de clauză penală, suma aferentă reparațiilor va fi facturată Locatarului si trebuie achitată de acesta în maxim 5 (cinci) zile de la transmiterea facturii. Obligația de plată este certă, lichidă și exigibilă, fără intervenția instanțelor și fără nicio altă formalitate. Locatarul are dreptul să primească facturile emise de terți pentru realizarea reparațiilor și intervențiilor necesare.</p>`,
   );
   lines.push(
-    `<p>14. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`
+    `<p>14. Să plătească chiria la termenul și in condițiile prevăzute in contract.</p>`,
   );
   lines.push(
-    `<p>15. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`
+    `<p>15. Să efectueze toate reparaţiile pentru stricăciunile cauzate Spațiului de salariaţii proprii, clienții, partenerii sau oricare altă persoană terță, care nu aparține Locatorului.</p>`,
   );
   // lines.push(
   //   `<p>17. Să execute pe propria cheltuială lucrările de amenajare necesare desfășurării activităților sale fără ca Locatorul să poată fi obligat la despăgubiri indiferent de situație, de costul acestora ori de momentul și cauza încetării Contractului.</p>`
   // );
   lines.push(
-    `<p>16. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`
+    `<p>16. La expirarea contractului, Locatarul trebuie să predea Locatorului Spațiul cu proces verbal de predare-primire.</p>`,
   );
   lines.push(
-    `<p>17. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`
+    `<p>17. Să folosească Spațiul conform destinației prevăzute în contract ca un bun utilizator.</p>`,
   );
   lines.push(
-    `<p>18. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`
+    `<p>18. Să respecte obligațiile pe linie PSI și protecția muncii ce îi revin conform cu legislația în vigoare, iar în cazul nerespectării acestora Locatarul va răspunde singur atât material cât și legal, Locatorul neputând fi tras la răspundere indiferent de situație.</p>`,
   );
   lines.push(
-    `<p>19.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`
+    `<p>19.  LOCATARUL se obligă să nu cesioneze, să nu transfere sau să greveze direct sau indirect drepturile care îi revin în baza prezentului CONTRACT și să nu subînchirieze sau să permită folosința sau ocuparea de către alte persoane a SPAȚIULUI în integralitatea lui sau doar în parte. Cu titlu de excepție, acesta va putea subînchiria parțial Spațiul doar cu acordul Locatorului. Chiar și în caz de subînchiriere, Locatarul rămâne pe deplin responsabil de toate obligațiile financiare stabilite de prezentul Contract, fapta sublocatarului fiind considerată ca faptă proprie.Cu toate acestea, Locatarul este îndrituit să cedeze folosința spațiului societăților afiliate în care acesta sau oricare dintre asociații săi deține cel puțin 25% din capitalul social, cu notificarea prealabila a Locatorului, rămânând singurul pe deplin responsabil de toate obligațiile asumate și stabilite de prezentul Contract, fapta oricărei persoane fizice sau juridice fiind ca fapta proprie a Locatarului.</p>`,
   );
   lines.push(
-    `<p>20. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`
+    `<p>20. La încetarea contractului, oricare ar fi motivul (denunțare unilaterală, reziliere, expirarea duratei), Locatarul va elibera în termen de 24 de ore Spațiul pe cheltuiala sa punându-l în exclusivitate la dispoziția Locatorului, liber de orice ocupanți și materiale sau alte articole aparținând Locatarului, acesta fiind pus de drept în întârziere, cu excepția cazului în care Locatorul îl notifică că își exercită dreptul de retenție privind bunurile și echipamentele Locatarului care constituie obiect al gajului pentru acoperirea datoriilor scadente. Părțile convin în mod irevocabil ca toate investițiile realizate în Spațiu rămân câștigate Spațiului și devin proprietatea Locatorului fără ca acesta să datoreze contravaloarea acestora.</p>`,
   );
   lines.push(
-    `<p>21. Prin prezentul Contract, Părțile stabilesc că tacita relocațiune nu va produce efecte în situația în care Locatarul nu eliberează spațiul în termen de maximum 24 de ore de la încetarea contractului, indiferent de motivul încetării acestuia, fie prin reziliere, fie prin ajungerea la termen. În asemenea caz, chiria datorată va fi de ${overstayPenaltyValue} euro/zi.</p>`
+    `<p>21. Prin prezentul Contract, Părțile stabilesc că tacita relocațiune nu va produce efecte în situația în care Locatarul nu eliberează spațiul în termen de maximum 24 de ore de la încetarea contractului, indiferent de motivul încetării acestuia, fie prin reziliere, fie prin ajungerea la termen. În asemenea caz, chiria datorată va fi de ${overstayPenaltyValue} euro/zi.</p>`,
   );
   lines.push(
-    `<p>22. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`
+    `<p>22. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`,
   );
   lines.push(
-    `<p>23. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`
+    `<p>23. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`,
   );
   lines.push(
-    `<p>24. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`
+    `<p>24. LOCATARUL va efectua toate demersurile la ONRC pentru radierea punctului de lucru ori ori schimbarea sediului social din Spațiu în termen de maxim 30 de zile de la data încetării Contractului, sub sancțiunea plății a 50 euro pe fiecare zi de întârziere peste acest termen.</p>`,
   );
 
   lines.push(`<p>CAP. 7. ÎNCETAREA CONTRACTULUI</p>`);
   lines.push(
-    `<p>Art. 7.1. Părțile pot înceta prezentul contract de comun acord prin semnarea unui act adițional.</p>`
+    `<p>Art. 7.1. Părțile pot înceta prezentul contract de comun acord prin semnarea unui act adițional.</p>`,
   );
   lines.push(
-    `<p>Art. 7.2. Locatarul poate solicita încetarea prezentului contract în cazul în care Locatorul nu își execută obligația de predare a Spaţiului.</p>`
+    `<p>Art. 7.2. Locatarul poate solicita încetarea prezentului contract în cazul în care Locatorul nu își execută obligația de predare a Spaţiului.</p>`,
   );
   lines.push(
     `<p>Art. 7.3. Locatorul poate considera prezentul contract reziliat de plin drept fără nicio notificare prealabilă și/sau punere în întârziere și/sau intervenția instanțelor judecătorești sau a altei autorități în cazul în care Locatarul nu își execută oricare dintre obligațiile asumate prin prezentul CONTRACT. În caz de reziliere, Locatarul este ținut să achite o penalitate în valoare de ${abandonmentPenaltyValue}. Penalitatea este exigibilă imediat, fără intervenția instanțelor de judecată ori proceduri prealabile. Art. 5.5. și 5.8. sunt aplicabilw în mod corespunzător.
-    </p>`
+    </p>`,
   );
   lines.push(
-    `<p>Art. 7.4. Locatorul poate denunța unilateral contractul oricând pe durata de valabilitate a acestuia fără a fi obligat să motiveze hotărârea, fără a fi obligat la despăgubiri către locatar fără nicio altă formalitate și/sau punere în întârziere și/sau intervenția instanțelor judecătorești și/sau a altor autorități. Locatorul este obligat să notifice Locatarului intenția sa cu 60 zile înainte de termenul la care Locatarul trebuie să elibereze Spațiul.</p>`
+    `<p>Art. 7.4. Locatorul poate denunța unilateral contractul oricând pe durata de valabilitate a acestuia fără a fi obligat să motiveze hotărârea, fără a fi obligat la despăgubiri către locatar fără nicio altă formalitate și/sau punere în întârziere și/sau intervenția instanțelor judecătorești și/sau a altor autorități. Locatorul este obligat să notifice Locatarului intenția sa cu 60 zile înainte de termenul la care Locatarul trebuie să elibereze Spațiul.</p>`,
   );
 
   lines.push(`<p>CAP. 8. ALTE CLAUZE</p>`);
   lines.push(
-    `<p>Art. 8.1. Prezentul contract poate fi modificat și/sau completat numai cu acordul ambelor părți prin încheierea unui act adițional.</p>`
+    `<p>Art. 8.1. Prezentul contract poate fi modificat și/sau completat numai cu acordul ambelor părți prin încheierea unui act adițional.</p>`,
   );
   lines.push(
-    `<p>Art. 8.2. Forța majoră exonerează de răspundere partea care o invocă în condițiile legii cu condiția notificării existenței cazului de forță majoră în termen de ${forceMajeureNoticeDaysValue} zile de la apariția acestuia și a prezentării unui certificat eliberat de o instituție cu competență în acest domeniu.</p>`
+    `<p>Art. 8.2. Forța majoră exonerează de răspundere partea care o invocă în condițiile legii cu condiția notificării existenței cazului de forță majoră în termen de ${forceMajeureNoticeDaysValue} zile de la apariția acestuia și a prezentării unui certificat eliberat de o instituție cu competență în acest domeniu.</p>`,
   );
   lines.push(
-    `<p>Art. 8.3. Orice modificare cu privire la sediul părților va fi notificată în scris celeilalte părți în termen de cel mult 5 zile calendaristice.</p>`
+    `<p>Art. 8.3. Orice modificare cu privire la sediul părților va fi notificată în scris celeilalte părți în termen de cel mult 5 zile calendaristice.</p>`,
   );
   lines.push(
-    `<p>Art. 8.4. Dacă orice termen, angajament sau condiție din prezentul contract sau aplicarea acestora este în orice măsură nulă sau inaplicabilă, restul acestui contract nu va fi afectat, iar fiecare termen, angajament sau condiție va fi valabil(ă) și aplicabil(ă) în totalitate în măsura maxim permisă de lege.</p>`
+    `<p>Art. 8.4. Dacă orice termen, angajament sau condiție din prezentul contract sau aplicarea acestora este în orice măsură nulă sau inaplicabilă, restul acestui contract nu va fi afectat, iar fiecare termen, angajament sau condiție va fi valabil(ă) și aplicabil(ă) în totalitate în măsura maxim permisă de lege.</p>`,
   );
   lines.push(
-    `<p>Art. 8.5. Părțile vor păstra confidențialitatea asupra conținutului prezentului contract precum și asupra oricărei informații la care ar fi putut avea acces sau pe care ar fi putut să o obțină de la cealaltă parte și nu o va dezvălui niciunui terț în afară de cei care au legal dreptul să cunoască clauzele contractului sau atunci când situația impune acest lucru. Orice încălcare a caracterului secret, dezvăluirea unor informații privind contractul sau discreditarea Locatorului ori a reprezentanților acestuia este considerată încălcare gravă și este sancționată cu ${confidentialityPenaltyValue}, independent dacă aceasta s-a produs în timpul contractului ori după încetarea acestuia.</p>`
+    `<p>Art. 8.5. Părțile vor păstra confidențialitatea asupra conținutului prezentului contract precum și asupra oricărei informații la care ar fi putut avea acces sau pe care ar fi putut să o obțină de la cealaltă parte și nu o va dezvălui niciunui terț în afară de cei care au legal dreptul să cunoască clauzele contractului sau atunci când situația impune acest lucru. Orice încălcare a caracterului secret, dezvăluirea unor informații privind contractul sau discreditarea Locatorului ori a reprezentanților acestuia este considerată încălcare gravă și este sancționată cu ${confidentialityPenaltyValue}, independent dacă aceasta s-a produs în timpul contractului ori după încetarea acestuia.</p>`,
   );
   lines.push(
-    `<p>Art. 8.6. Părțile vor lua măsuri tehnice și organizatorice adecvate în vederea asigurării unui nivel corespunzător de securitate a datelor cu caracter personal, în acord cu prevederile Regulamentului 697/2016, în scopul și temeiul legal pentru care s-a perfectat prezentul Contract.</p>`
+    `<p>Art. 8.6. Părțile vor lua măsuri tehnice și organizatorice adecvate în vederea asigurării unui nivel corespunzător de securitate a datelor cu caracter personal, în acord cu prevederile Regulamentului 697/2016, în scopul și temeiul legal pentru care s-a perfectat prezentul Contract.</p>`,
   );
   lines.push(
-    `<p>Art. 8.7. Litigiile care se pot naște între părți cu privire la executarea prezentului contract vor fi soluționate pe cale amiabilă, iar în cazul în care acest lucru nu este posibil instanța competentă este cea de pe raza sectorului 2 al municipiului București.</p>`
+    `<p>Art. 8.7. Litigiile care se pot naște între părți cu privire la executarea prezentului contract vor fi soluționate pe cale amiabilă, iar în cazul în care acest lucru nu este posibil instanța competentă este cea de pe raza sectorului 2 al municipiului București.</p>`,
   );
   lines.push(
-    `<p>Art. 8.8. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`
+    `<p>Art. 8.8. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`,
   );
   lines.push(
-    `<p>Art. 8.9. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`
+    `<p>Art. 8.9. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`,
   );
 
   lines.push(
-    `<p>Prezentul CONTRACT s-a încheiat la ${signatureLocationValue}, astăzi ${contractSignedAtValue} în două exemplare, câte unul pentru fiecare parte contractantă.</p>`
+    `<p>Prezentul CONTRACT s-a încheiat la ${signatureLocationValue}, astăzi ${contractSignedAtValue} în două exemplare, câte unul pentru fiecare parte contractantă.</p>`,
   );
 
   lines.push(`<p>${ownerName} - LOCATOR<br /> prin ${ownerAdministrators}</p>`);
   lines.push(
-    `<p>${partnerName} - LOCATAR<br /> prin ${partnerRepresentatives}</p>`
+    `<p>${partnerName} - LOCATAR<br /> prin ${partnerRepresentatives}</p>`,
   );
 
   return lines.join("\n");
@@ -1196,7 +1197,7 @@ function buildPrintableDocument(state: EditorState): string {
 
   const notesHtml = notes
     ? `<div class="document-notes"><h3>Note interne</h3><p>${escapeHtml(
-        notes
+        notes,
       ).replace(/\n+/g, "<br />")}</p></div>`
     : "";
 
@@ -1226,28 +1227,28 @@ function buildPrintableDocument(state: EditorState): string {
   const ownerHeaderHtml = `
     <div class="owner-header">
       <div class="owner-header__name">${formatHeaderField(
-        state.ownerName
+        state.ownerName,
       )}</div>
       <div class="owner-header__grid">
         <div><span class="label">ORC</span><span>${formatHeaderField(
-          state.ownerRegistration
+          state.ownerRegistration,
         )}</span></div>
         <div><span class="label">CIF</span><span>${formatHeaderField(
-          state.ownerTaxId
+          state.ownerTaxId,
         )}</span></div>
         <div><span class="label">Reprezentant</span><span>${representativeLabel}</span></div>
         <div><span class="label">Email</span><span>${formatHeaderField(
-          state.ownerContactEmails
+          state.ownerContactEmails,
         )}</span></div>
         <div><span class="label">Telefon</span><span>${formatHeaderField(
-          state.ownerContactPhones
+          state.ownerContactPhones,
         )}</span></div>
         <div><span class="label">IBAN / Bancă</span><span>${bankDetailsHeader}</span></div>
         <div><span class="label">Sediu social</span><span>${formatHeaderField(
-          state.ownerHeadOffice
+          state.ownerHeadOffice,
         )}</span></div>
         <div><span class="label">Adresă corespondență</span><span>${formatHeaderField(
-          state.ownerAddress
+          state.ownerAddress,
         )}</span></div>
       </div>
     </div>
@@ -1401,7 +1402,7 @@ function buildPrintableDocument(state: EditorState): string {
 }
 
 function mapPrefillToState(
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Partial<EditorState> {
   const mapped: Partial<EditorState> = {};
   const flag = data["__writtenContract"];
@@ -1435,7 +1436,7 @@ function mapPrefillToState(
 
   const copyIfString = (
     source: string,
-    target: Exclude<EditorStateKey, "signed">
+    target: Exclude<EditorStateKey, "signed">,
   ) => {
     const raw = data[source];
     if (typeof raw === "string" && raw.trim()) {
@@ -1498,7 +1499,7 @@ function mapPrefillToState(
     const tvaPercentForText = resolveTvaPercentDisplay(tvaRaw).display;
     const tvaTypeForText = resolveTvaTypeDisplay(mapped.tvaType).display;
     mapped.rentAmountText = `${rentRaw.toLocaleString(
-      "ro-RO"
+      "ro-RO",
     )} de euro + TVA ${tvaPercentForText} ${tvaTypeForText}`;
   } else if (typeof rentRaw === "string" && rentRaw.trim()) {
     mapped.rentAmount = rentRaw.trim();
@@ -1519,7 +1520,7 @@ function deriveBaseState(
   document: WrittenContract | null,
   owners: OwnerOption[],
   partners: PartnerOption[],
-  assets: AssetOption[]
+  assets: AssetOption[],
 ): EditorState {
   const raw = ensureRecord(contract);
 
@@ -1541,7 +1542,7 @@ function deriveBaseState(
   const ownerByName =
     !ownerById && ownerNameFromData
       ? owners.find(
-          (item) => item.name.toLowerCase() === ownerNameFromData.toLowerCase()
+          (item) => item.name.toLowerCase() === ownerNameFromData.toLowerCase(),
         )
       : undefined;
   const resolvedOwner = ownerById ?? ownerByName;
@@ -1560,7 +1561,7 @@ function deriveBaseState(
       ? partners.find(
           (item) =>
             item.name.trim().toLowerCase() ===
-            partnerNameFromData.trim().toLowerCase()
+            partnerNameFromData.trim().toLowerCase(),
         )
       : undefined;
   const resolvedPartner = partnerById ?? partnerByName;
@@ -1578,7 +1579,7 @@ function deriveBaseState(
       ? assets.find(
           (item) =>
             item.name.trim().toLowerCase() ===
-            assetNameFromData.trim().toLowerCase()
+            assetNameFromData.trim().toLowerCase(),
         )
       : undefined;
   const resolvedAsset = assetById ?? assetByName;
@@ -1662,7 +1663,7 @@ function deriveBaseState(
     document?.rentAmountText ??
     (rentNumber
       ? `${rentNumber.toLocaleString(
-          "ro-RO"
+          "ro-RO",
         )} de euro + TVA ${tvaPercentText} ${tvaTypeText}`
       : "");
 
@@ -1767,7 +1768,7 @@ function deriveBaseState(
       pickFirstFilled(
         resolvedAsset?.address,
         raw["assetAddress"],
-        raw["address"]
+        raw["address"],
       ),
     spaceSurface:
       document?.spaceSurface ??
@@ -1795,7 +1796,7 @@ function deriveBaseState(
       pickFirstFilled(
         raw["ownerAddress"],
         raw["address"],
-        resolvedOwner?.headquarters
+        resolvedOwner?.headquarters,
       ),
     ownerContactEmails:
       document?.ownerContactEmails ??
@@ -1946,6 +1947,7 @@ export default function WrittenContractForm({
   partners,
   assets,
 }: Props) {
+  const router = useRouter();
   const baseState = useMemo(
     () =>
       deriveBaseState(
@@ -1953,13 +1955,13 @@ export default function WrittenContractForm({
         initialDocument,
         owners,
         partners,
-        assets
+        assets,
       ),
-    [initialContract, initialDocument, owners, partners, assets]
+    [initialContract, initialDocument, owners, partners, assets],
   );
   const generatedTemplate = useMemo(
     () => createTemplateBody(baseState),
-    [baseState]
+    [baseState],
   );
   const initialBodyDirty = useMemo(() => {
     if (!initialDocument?.body) return false;
@@ -1993,7 +1995,7 @@ export default function WrittenContractForm({
     return map;
   }, [partners]);
   const lastAppliedPartnerRef = useRef<string | null>(
-    baseState.partnerId ?? null
+    baseState.partnerId ?? null,
   );
   const assetsById = useMemo(() => {
     const map = new Map<string, AssetOption>();
@@ -2011,12 +2013,18 @@ export default function WrittenContractForm({
       : PREFILL_STORAGE_KEY;
   }, [initialDocument?.id]);
 
+  const justSavedKey = useMemo(() => {
+    return initialDocument?.id
+      ? `written-contract-just-saved-${initialDocument.id}`
+      : null;
+  }, [initialDocument?.id]);
+
   useEffect(() => {
     const matchesTemplate =
       !initialDocument?.body ||
       normalizeHtml(initialDocument.body) === normalizeHtml(generatedTemplate);
     setState(
-      matchesTemplate ? { ...baseState, body: generatedTemplate } : baseState
+      matchesTemplate ? { ...baseState, body: generatedTemplate } : baseState,
     );
     const nextDirty = !matchesTemplate;
     setBodyDirty(nextDirty);
@@ -2032,6 +2040,17 @@ export default function WrittenContractForm({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Check if we just saved - if so, skip draft loading and clear the flag
+    if (justSavedKey) {
+      const wasSaved = window.sessionStorage.getItem(justSavedKey);
+      if (wasSaved) {
+        window.sessionStorage.removeItem(justSavedKey);
+        setLoadedDraft(true);
+        return;
+      }
+    }
+
     try {
       const raw = window.sessionStorage.getItem(storageKey);
       if (!raw) {
@@ -2057,7 +2076,7 @@ export default function WrittenContractForm({
     } finally {
       setLoadedDraft(true);
     }
-  }, [storageKey]);
+  }, [storageKey, justSavedKey]);
 
   useEffect(() => {
     if (!state.ownerId) {
@@ -2072,7 +2091,7 @@ export default function WrittenContractForm({
         return prev;
       }
       const patchEntries = Object.entries(
-        buildOwnerPatchFromOption(owner, prev)
+        buildOwnerPatchFromOption(owner, prev),
       ) as Array<[keyof EditorState, unknown]>;
       let changed = false;
       const next = { ...prev } as EditorState;
@@ -2107,7 +2126,7 @@ export default function WrittenContractForm({
         return prev;
       }
       const patchEntries = Object.entries(
-        buildPartnerPatchFromOption(partner, prev)
+        buildPartnerPatchFromOption(partner, prev),
       ) as Array<[keyof EditorState, unknown]>;
       let changed = false;
       const next = { ...prev } as EditorState;
@@ -2142,7 +2161,7 @@ export default function WrittenContractForm({
         return prev;
       }
       const patchEntries = Object.entries(
-        buildAssetPatchFromOption(asset)
+        buildAssetPatchFromOption(asset),
       ) as Array<[keyof EditorState, unknown]>;
       let changed = false;
       const next = { ...prev } as EditorState;
@@ -2174,7 +2193,7 @@ export default function WrittenContractForm({
           __writtenContract: true,
           __bodyDirty: bodyDirtyRef.current,
           ...state,
-        })
+        }),
       );
     } catch (error) {
       console.warn("Nu am putut salva draftul contractului scris", error);
@@ -2202,24 +2221,30 @@ export default function WrittenContractForm({
 
   const [formState, formAction] = useActionState<FormState, FormData>(
     saveWrittenContractAction,
-    { ok: false }
+    { ok: false },
   );
 
   useEffect(() => {
     if (!formState?.ok) return;
+
     if (typeof window !== "undefined") {
       try {
+        // Clear draft storage
         window.sessionStorage.removeItem(PREFILL_STORAGE_KEY);
         if (formState.id) {
-          window.sessionStorage.removeItem(
-            `written-contract-draft-${formState.id}`
-          );
+          const draftKey = `written-contract-draft-${formState.id}`;
+          window.sessionStorage.removeItem(draftKey);
+          // Set flag to skip draft loading after redirect
+          const savedKey = `written-contract-just-saved-${formState.id}`;
+          window.sessionStorage.setItem(savedKey, "true");
         }
       } catch (error) {
         console.warn("Nu am putut curăța draftul contractului scris", error);
       }
     }
+
     if (formState.redirectTo) {
+      // Use full page reload to ensure fresh server data
       window.location.href = formState.redirectTo;
     }
   }, [formState]);
@@ -2229,7 +2254,7 @@ export default function WrittenContractForm({
     (
       event: ChangeEvent<
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >
+      >,
     ) => {
       const rawValue = event.target.value;
       const isRelationField =
@@ -2341,7 +2366,7 @@ export default function WrittenContractForm({
       notes: state.notes,
       correctionPercent: state.correctionPercent,
     }),
-    [state]
+    [state],
   );
 
   const payloadJson = useMemo(() => JSON.stringify(payload), [payload]);
@@ -2393,7 +2418,7 @@ export default function WrittenContractForm({
     const runPrintWorkflow = (
       targetWindow: Window,
       onAfterPrint?: () => void,
-      onSetupError?: () => void
+      onSetupError?: () => void,
     ) => {
       const { document: targetDocument } = targetWindow;
       targetDocument.open();
@@ -2407,7 +2432,7 @@ export default function WrittenContractForm({
         } catch (error) {
           console.error(
             "Nu am putut porni imprimarea contractului scris",
-            error
+            error,
           );
           onSetupError?.();
         }
@@ -2417,7 +2442,7 @@ export default function WrittenContractForm({
         const finalize = () => {
           if (typeof targetWindow.requestAnimationFrame === "function") {
             targetWindow.requestAnimationFrame(() =>
-              targetWindow.requestAnimationFrame(doPrint)
+              targetWindow.requestAnimationFrame(doPrint),
             );
           } else {
             targetWindow.setTimeout(doPrint, 50);
@@ -2468,7 +2493,7 @@ export default function WrittenContractForm({
     const printWindow = window.open(
       "",
       "_blank",
-      "noopener=yes,width=900,height=640"
+      "noopener=yes,width=900,height=640",
     );
     if (printWindow) {
       runPrintWorkflow(printWindow, () => {
@@ -2511,7 +2536,7 @@ export default function WrittenContractForm({
     runPrintWorkflow(
       iframeWindow,
       () => cleanup(),
-      () => cleanup()
+      () => cleanup(),
     );
   }, [state]);
 
@@ -3090,7 +3115,6 @@ export default function WrittenContractForm({
                 </label>
                 <input
                   value={state.guaranteeMultiplier}
-                  defaultValue={3}
                   onChange={onFieldChange("guaranteeMultiplier")}
                   className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                 />
@@ -3293,9 +3317,9 @@ export default function WrittenContractForm({
         </aside>
 
         <section className="flex-1 space-y-4 xl:basis-3/5 xl:max-w-[60%] xl:overflow-y-auto xl:pl-2 xl:[scrollbar-gutter:stable]">
-          <div className="rounded-xl border border-foreground/10 bg-white text-zinc-900 shadow-md">
-            <div className="space-y-3 border-b border-foreground/10 bg-foreground/5 px-6 py-5">
-              <div className="rounded-md border border-foreground/10 bg-white/75 px-4 py-3 text-xs text-foreground/70 shadow-sm backdrop-blur">
+          <div className="rounded-xl border border-foreground/10 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-md">
+            <div className="space-y-3 border-b border-foreground/10 bg-foreground/5 dark:bg-foreground/10 px-6 py-5">
+              <div className="rounded-md border border-foreground/10 bg-white/75 dark:bg-zinc-800/75 px-4 py-3 text-xs text-foreground/70 shadow-sm backdrop-blur">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-[180px] flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
@@ -3386,13 +3410,13 @@ export default function WrittenContractForm({
                 value={state.title}
                 onChange={onFieldChange("title")}
                 placeholder="CONTRACT DE ÎNCHIRIERE"
-                className="w-full rounded-md border border-transparent bg-transparent text-lg font-semibold outline-none focus:border-foreground/30 focus:bg-white/40"
+                className="w-full rounded-md border border-transparent bg-transparent text-lg font-semibold outline-none focus:border-foreground/30 focus:bg-white/40 dark:focus:bg-zinc-800/40"
               />
               <input
                 value={state.subtitle}
                 onChange={onFieldChange("subtitle")}
                 placeholder="Proprietar · Chiriaș"
-                className="w-full rounded-md border border-transparent bg-transparent text-sm text-foreground/60 outline-none focus:border-foreground/30 focus:bg-white/40"
+                className="w-full rounded-md border border-transparent bg-transparent text-sm text-foreground/60 outline-none focus:border-foreground/30 focus:bg-white/40 dark:focus:bg-zinc-800/40"
               />
               <div className="flex flex-wrap gap-4">
                 <label className="flex min-w-[180px] flex-1 flex-col text-xs font-medium text-foreground/60">
