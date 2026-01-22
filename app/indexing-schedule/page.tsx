@@ -64,18 +64,30 @@ export default async function IndexingSchedulePage() {
       activeContracts.map(async (c) => {
         const notices = await listIndexingNotices(c.id);
         if (notices.length > 0) {
-          // Get the most recent notice date
-          const latestNotice = notices.sort((a, b) =>
-            String(b.at || "").localeCompare(String(a.at || ""))
-          )[0];
-          noticesMap.set(
-            c.id,
-            latestNotice.at ? String(latestNotice.at) : null
-          );
+          // Get the most recent sent date from sendHistory across all notices
+          let mostRecentSentDate: string | null = null;
+          for (const notice of notices) {
+            const sendHistory = (notice as any).sendHistory;
+            if (Array.isArray(sendHistory) && sendHistory.length > 0) {
+              // Get the latest send from this notice's history
+              const latestSend = sendHistory.sort((a, b) =>
+                String(b.sentAt || "").localeCompare(String(a.sentAt || "")),
+              )[0];
+              if (latestSend.sentAt) {
+                if (
+                  !mostRecentSentDate ||
+                  latestSend.sentAt > mostRecentSentDate
+                ) {
+                  mostRecentSentDate = latestSend.sentAt;
+                }
+              }
+            }
+          }
+          noticesMap.set(c.id, mostRecentSentDate);
         } else {
           noticesMap.set(c.id, null);
         }
-      })
+      }),
     );
   }
 
@@ -245,7 +257,7 @@ export default async function IndexingSchedulePage() {
                         <div className="text-sm">
                           {row.lastNoticeDate
                             ? formatDate(
-                                String(row.lastNoticeDate).slice(0, 10)
+                                String(row.lastNoticeDate).slice(0, 10),
                               )
                             : "—"}
                         </div>
@@ -265,8 +277,8 @@ export default async function IndexingSchedulePage() {
                               daysIdx !== null && daysIdx < 20
                                 ? "bg-red-500/10 text-red-600 dark:text-red-400"
                                 : daysIdx !== null && daysIdx < 60
-                                ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                : "bg-green-500/10 text-green-600 dark:text-green-400"
+                                  ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                  : "bg-green-500/10 text-green-600 dark:text-green-400"
                             }`}
                           >
                             Programat
