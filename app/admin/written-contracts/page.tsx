@@ -4,6 +4,7 @@ import { listWrittenContracts } from "@/lib/written-contracts";
 import type { WrittenContract } from "@/lib/schemas/written-contract";
 import { DeleteWrittenContractButton } from "./delete-button";
 import { WrittenContractPreviewButton } from "./preview-button";
+import { ToggleSignedButton } from "./toggle-signed-button";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,7 @@ function formatPeriod(document: WrittenContract): string {
   const hasEnd = Boolean(document.contractEndDate);
   if (hasStart && hasEnd) {
     return `${formatDate(document.contractStartDate)} → ${formatDate(
-      document.contractEndDate
+      document.contractEndDate,
     )}`;
   }
   if (hasStart) return formatDate(document.contractStartDate);
@@ -152,7 +153,7 @@ export default async function AdminWrittenContractsPage() {
       if (isSameMonth(doc.updatedAt, now)) acc.updatedThisMonth += 1;
       return acc;
     },
-    { total: 0, linked: 0, standalone: 0, updatedThisMonth: 0 }
+    { total: 0, linked: 0, standalone: 0, updatedThisMonth: 0 },
   );
 
   const statusCounts = enriched.reduce(
@@ -163,7 +164,7 @@ export default async function AdminWrittenContractsPage() {
     { draft: 0, upcoming: 0, active: 0, ended: 0 } as Record<
       DocumentStatus,
       number
-    >
+    >,
   );
 
   return (
@@ -240,7 +241,7 @@ export default async function AdminWrittenContractsPage() {
                     <div className="min-w-0">
                       <Link
                         href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
-                          document.id
+                          document.id,
                         )}`}
                         className="font-semibold text-foreground/90 hover:underline"
                       >
@@ -286,11 +287,11 @@ export default async function AdminWrittenContractsPage() {
                     <div className="flex items-center justify-between gap-3">
                       <dt className="text-foreground/60">Semnat</dt>
                       <dd className="text-right text-foreground/80">
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signedMeta.badgeClass}`}
-                        >
-                          {signedMeta.label}
-                        </span>
+                        <ToggleSignedButton
+                          id={document.id}
+                          title={document.title}
+                          currentSigned={document.signed}
+                        />
                       </dd>
                     </div>
                   </dl>
@@ -307,7 +308,7 @@ export default async function AdminWrittenContractsPage() {
                     />
                     <Link
                       href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
-                        document.id
+                        document.id,
                       )}`}
                       className="rounded bg-foreground px-3 py-1.5 text-sm font-semibold text-background hover:bg-foreground/90"
                     >
@@ -316,7 +317,7 @@ export default async function AdminWrittenContractsPage() {
                     {document.contractId ? (
                       <Link
                         href={`/contracts/${encodeURIComponent(
-                          document.contractId
+                          document.contractId,
                         )}`}
                         className="rounded border border-foreground/25 px-3 py-1.5 text-sm text-foreground/80 hover:bg-foreground/5"
                       >
@@ -335,111 +336,118 @@ export default async function AdminWrittenContractsPage() {
             })}
           </div>
 
-          <div className="mt-8 hidden overflow-x-auto rounded-xl border border-foreground/15 bg-background/60 sm:block">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-foreground/5 text-foreground/60">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Document</th>
-                  <th className="px-4 py-3 font-medium">Partener</th>
-                  <th className="px-4 py-3 font-medium">Proprietar</th>
-                  <th className="px-4 py-3 font-medium">Perioadă</th>
-                  <th className="px-4 py-3 font-medium">Semnat</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actualizat</th>
-                  <th className="px-4 py-3 font-medium text-right">Acțiuni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enriched.map(({ document, status }) => {
-                  const meta = STATUS_META[status];
-                  const signedMeta = getSignedMeta(document.signed);
-                  const period = formatPeriod(document);
-                  return (
-                    <tr
-                      key={document.id}
-                      className="border-t border-foreground/10 text-foreground/80"
-                    >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Link
-                          href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
-                            document.id
-                          )}`}
-                          className="font-medium hover:underline"
-                        >
-                          {document.title}
-                        </Link>
-                        {document.documentNumber ? (
-                          <div className="text-xs text-foreground/60">
-                            {document.documentNumber}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {document.partnerName || "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {document.ownerName || "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">{period}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signedMeta.badgeClass}`}
-                        >
-                          {signedMeta.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${meta.badgeClass}`}
-                        >
-                          {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {formatDateTime(document.updatedAt)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
-                          <WrittenContractPreviewButton
-                            document={document}
-                            buttonLabel="Previzualizează"
-                            buttonTitle={
-                              document.title
-                                ? `Previzualizează ${document.title}`
-                                : "Previzualizează contractul scris"
-                            }
-                            className="!px-2 !py-1 text-xs"
-                          />
+          <div className="mt-8 hidden rounded-xl border border-foreground/15 bg-background/60 sm:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-foreground/5 text-foreground/60">
+                  <tr>
+                    <th className="px-3 py-3 font-medium">Document</th>
+                    <th className="px-3 py-3 font-medium">Părți</th>
+                    <th className="px-3 py-3 font-medium">Perioadă</th>
+                    <th className="px-3 py-3 font-medium">Status</th>
+                    <th className="px-3 py-3 font-medium text-right">
+                      Acțiuni
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enriched.map(({ document, status }) => {
+                    const meta = STATUS_META[status];
+                    const signedMeta = getSignedMeta(document.signed);
+                    const period = formatPeriod(document);
+                    return (
+                      <tr
+                        key={document.id}
+                        className="border-t border-foreground/10 text-foreground/80"
+                      >
+                        <td className="px-3 py-3 max-w-[200px]">
                           <Link
                             href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
-                              document.id
+                              document.id,
                             )}`}
-                            className="rounded bg-foreground px-2 py-1 text-xs font-semibold text-background hover:bg-foreground/90"
+                            className="font-medium hover:underline block"
                           >
-                            Editează
+                            {document.title}
                           </Link>
-                          {document.contractId ? (
-                            <Link
-                              href={`/contracts/${encodeURIComponent(
-                                document.contractId
-                              )}`}
-                              className="rounded border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
-                            >
-                              Contract
-                            </Link>
+                          {document.documentNumber ? (
+                            <div className="text-xs text-foreground/60 mt-0.5">
+                              {document.documentNumber}
+                            </div>
                           ) : null}
-                          <DeleteWrittenContractButton
-                            id={document.id}
-                            title={document.title}
-                            buttonClassName="inline-flex items-center justify-center rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <div className="text-xs text-foreground/50 mt-1">
+                            {formatDateTime(document.updatedAt)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 max-w-[180px]">
+                          <div className="text-sm">
+                            {document.partnerName || "—"}
+                          </div>
+                          <div className="text-xs text-foreground/60 mt-1">
+                            {document.ownerName || "—"}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="text-sm">{period}</div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-col gap-1.5">
+                            <span
+                              className={`inline-flex items-center self-start rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.badgeClass}`}
+                            >
+                              {meta.label}
+                            </span>
+                            <ToggleSignedButton
+                              id={document.id}
+                              title={document.title}
+                              currentSigned={document.signed}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            <WrittenContractPreviewButton
+                              document={document}
+                              buttonLabel="👁️"
+                              buttonTitle={
+                                document.title
+                                  ? `Previzualizează ${document.title}`
+                                  : "Previzualizează contractul scris"
+                              }
+                              className="!px-2 !py-1 text-xs"
+                            />
+                            <Link
+                              href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
+                                document.id,
+                              )}`}
+                              className="rounded bg-foreground px-2 py-1 text-xs font-semibold text-background hover:bg-foreground/90"
+                              title="Editează contractul"
+                            >
+                              ✏️
+                            </Link>
+                            {document.contractId ? (
+                              <Link
+                                href={`/contracts/${encodeURIComponent(
+                                  document.contractId,
+                                )}`}
+                                className="rounded border border-foreground/20 px-2 py-1 text-xs hover:bg-foreground/5"
+                                title="Vezi contractul asociat"
+                              >
+                                📄
+                              </Link>
+                            ) : null}
+                            <DeleteWrittenContractButton
+                              id={document.id}
+                              title={document.title}
+                              buttonClassName="inline-flex items-center justify-center rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
