@@ -666,6 +666,28 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       }
       return mapped;
     })(),
+    // Mementos: reminders for additional invoice items
+    mementos: ((): { type: string; message?: string; endDate: string }[] => {
+      const arr = Array.isArray((r as any).mementos)
+        ? ((r as any).mementos as unknown[])
+        : [];
+      const mapped = arr
+        .map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>;
+          const type = typeof o.type === "string" ? o.type : undefined;
+          const message =
+            typeof o.message === "string" && o.message.trim()
+              ? o.message.trim()
+              : undefined;
+          const endDate = toYmd(o.endDate);
+          if (type && endDate) {
+            return { type, message, endDate };
+          }
+          return null;
+        })
+        .filter(Boolean) as { type: string; message?: string; endDate: string }[];
+      return mapped;
+    })(),
   } as Partial<ContractType>;
 }
 

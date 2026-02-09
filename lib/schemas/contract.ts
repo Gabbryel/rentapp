@@ -154,6 +154,30 @@ export const ContractSchema = z
     }),
   // Correction percent (0-100), can be decimal; applied to base amount before TVA
   correctionPercent: z.number().min(0).max(100).optional(),
+  // Mementos: reminders for additional items to invoice (utilities, maintenance, etc.)
+  mementos: z
+    .array(
+      z.object({
+        type: z.enum([
+          "Water",
+          "Electricity",
+          "Gas",
+          "Heating",
+          "Internet",
+          "TV",
+          "Maintenance",
+          "Other",
+        ]),
+        message: z
+          .string()
+          .trim()
+          .max(500)
+          .optional()
+          .transform((v) => (v && v.length > 0 ? v : undefined)),
+        endDate: ISODate,
+      })
+    )
+    .default([]),
   // rentHistory removed; amounts are tracked via indexingDates
   // inflation tracking removed
   })

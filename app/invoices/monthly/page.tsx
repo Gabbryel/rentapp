@@ -22,6 +22,8 @@ import Link from "next/link";
 import ActionButton from "@/app/components/action-button";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import PdfModal from "@/app/components/pdf-modal";
+import MementoForm from "@/app/components/memento-form";
+import MementoEditButton from "@/app/components/memento-edit-button";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,12 +45,26 @@ function fmt(dateIso: string): string {
 
 const fmtEUR = (n: number) =>
   new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(
-    n
+    n,
   );
 const fmtRON = (n: number) =>
   new Intl.NumberFormat("ro-RO", { style: "currency", currency: "RON" }).format(
-    n
+    n,
   );
+
+function getMementoTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    Water: "Apă",
+    Electricity: "Electricitate",
+    Gas: "Gaz",
+    Heating: "Încălzire",
+    Internet: "Internet",
+    TV: "TV",
+    Maintenance: "Întreținere",
+    Other: "Altele",
+  };
+  return labels[type] || type;
+}
 
 type RateSelection =
   | Awaited<ReturnType<typeof getDailyEurRon>>
@@ -78,12 +94,12 @@ const normalizePartnerToken = (value: unknown): string => {
 const makeIssuedKey = (
   contractId: string,
   issuedAt: string,
-  partnerToken?: unknown
+  partnerToken?: unknown,
 ): string => {
   const normalizedDate =
     typeof issuedAt === "string" ? issuedAt.trim() : String(issuedAt ?? "");
   return `${contractId}|${normalizedDate}|${normalizePartnerToken(
-    partnerToken
+    partnerToken,
   )}`;
 };
 
@@ -126,8 +142,8 @@ export default async function MonthlyInvoicesPage({
     typeof rateParamRaw === "string"
       ? rateParamRaw
       : Array.isArray(rateParamRaw)
-      ? rateParamRaw[0]
-      : undefined;
+        ? rateParamRaw[0]
+        : undefined;
   const validRateDate =
     typeof requestedRateDate === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(requestedRateDate)
@@ -210,7 +226,7 @@ export default async function MonthlyInvoicesPage({
           : new Date(c.startDate).getDate();
       const day = Math.min(Math.max(1, baseDay), monthDays);
       const issuedAt = `${year}-${String(month).padStart(2, "0")}-${String(
-        day
+        day,
       ).padStart(2, "0")}`;
       const issuedDate = new Date(issuedAt);
       // Ensure the invoice day itself lies within contract active range (for first/last months) *for current-mode billing*
@@ -230,7 +246,7 @@ export default async function MonthlyInvoicesPage({
         const nextMonthVal = month === 12 ? 1 : month + 1;
         const nextIso = `${nextYearVal}-${String(nextMonthVal).padStart(
           2,
-          "0"
+          "0",
         )}-01`;
         const base = rentAmountAtDate(c, nextIso);
         if (typeof base === "number") {
@@ -253,7 +269,7 @@ export default async function MonthlyInvoicesPage({
         (total, partner) =>
           total +
           (typeof partner.sharePercent === "number" ? partner.sharePercent : 0),
-        0
+        0,
       );
       if (partners.length > 1 && sumShares > 0) {
         for (const partner of partners) {
@@ -294,14 +310,14 @@ export default async function MonthlyInvoicesPage({
         Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
           ? c.irregularInvoices
           : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
-          ? c.yearlyInvoices
-          : undefined;
+            ? c.yearlyInvoices
+            : undefined;
       if (!entries) continue;
       for (const yi of entries) {
         if (yi.month !== month) continue;
         const day = Math.min(Math.max(1, yi.day), monthDays);
         const issuedAt = `${year}-${String(month).padStart(2, "0")}-${String(
-          day
+          day,
         ).padStart(2, "0")}`;
         const issuedDate = new Date(issuedAt);
         if (issuedDate < start || issuedDate > end) continue;
@@ -314,7 +330,7 @@ export default async function MonthlyInvoicesPage({
             (typeof partner.sharePercent === "number"
               ? partner.sharePercent
               : 0),
-          0
+          0,
         );
         if (partners.length > 1 && sumShares > 0) {
           for (const partner of partners) {
@@ -368,13 +384,13 @@ export default async function MonthlyInvoicesPage({
     if (!contractId || !issuedAt) {
       publishToast(
         "Nu am primit datele necesare pentru emiterea facturii.",
-        "error"
+        "error",
       );
       return;
     }
 
     const c = await fetchContracts().then((all) =>
-      all.find((x) => x.id === contractId)
+      all.find((x) => x.id === contractId),
     );
     if (!c) {
       publishToast("Contractul nu a fost găsit.", "error");
@@ -432,13 +448,13 @@ export default async function MonthlyInvoicesPage({
       });
       publishToast(
         `Factura #${invoice.number || invoice.id} a fost emisă cu succes.`,
-        "success"
+        "success",
       );
     } catch (err) {
       console.error("Issue invoice error:", err);
       publishToast(
         err instanceof Error ? err.message : "Eroare la emiterea facturii.",
-        "error"
+        "error",
       );
     }
     revalidatePath("/invoices/monthly");
@@ -453,7 +469,7 @@ export default async function MonthlyInvoicesPage({
       const m = Number(issuedAt.slice(5, 7));
       const monthInvs = await listInvoicesForMonth(y, m);
       const all = monthInvs.filter(
-        (it) => it.contractId === contractId && it.issuedAt === issuedAt
+        (it) => it.contractId === contractId && it.issuedAt === issuedAt,
       );
       for (const inv of all) {
         await deleteInvoiceById(inv.id);
@@ -462,6 +478,219 @@ export default async function MonthlyInvoicesPage({
         invalidateYearInvoicesCache();
       } catch {}
     } catch {}
+    revalidatePath("/invoices/monthly");
+  }
+
+  async function addMemento(formData: FormData) {
+    "use server";
+    try {
+      const contractId = String(formData.get("contractId"));
+      const type = String(formData.get("type"));
+      const messageRaw = formData.get("message");
+      const message =
+        typeof messageRaw === "string" && messageRaw.trim().length > 0
+          ? messageRaw.trim()
+          : undefined;
+      const endDate = String(formData.get("endDate"));
+
+      if (!contractId || !type || !endDate) {
+        publishToast("Date incomplete pentru memento.", "error");
+        return;
+      }
+
+      // Validate type is a valid enum value
+      const validTypes = [
+        "Water",
+        "Electricity",
+        "Gas",
+        "Heating",
+        "Internet",
+        "TV",
+        "Maintenance",
+        "Other",
+      ];
+      if (!validTypes.includes(type)) {
+        publishToast("Tip invalid pentru memento.", "error");
+        return;
+      }
+
+      const contracts = await fetchContracts();
+      const c = contracts.find((x) => x.id === contractId);
+      if (!c) {
+        publishToast("Contractul nu a fost găsit.", "error");
+        return;
+      }
+
+      const mementos = Array.isArray(c.mementos) ? [...c.mementos] : [];
+      mementos.push({
+        type: type as
+          | "Water"
+          | "Electricity"
+          | "Gas"
+          | "Heating"
+          | "Internet"
+          | "TV"
+          | "Maintenance"
+          | "Other",
+        message,
+        endDate,
+      });
+
+      const { upsertContract } = await import("@/lib/contracts");
+      await upsertContract({
+        ...c,
+        mementos,
+      });
+
+      await logAction({
+        action: "add_memento",
+        targetType: "contract",
+        targetId: contractId,
+        meta: { type, endDate, message },
+      });
+
+      publishToast("Memento adăugat cu succes.", "success");
+    } catch (err) {
+      console.error("Error adding memento:", err);
+      if (err instanceof Error) {
+        console.error("Error details:", err.message, err.stack);
+      }
+      publishToast("Eroare la adăugarea memento-ului.", "error");
+    }
+    revalidatePath("/invoices/monthly");
+  }
+
+  async function deleteMemento(formData: FormData) {
+    "use server";
+    try {
+      const contractId = String(formData.get("contractId"));
+      const index = Number(formData.get("index"));
+
+      if (!contractId || isNaN(index)) {
+        publishToast("Date incomplete pentru ștergere memento.", "error");
+        return;
+      }
+
+      const c = await fetchContracts().then((all) =>
+        all.find((x) => x.id === contractId),
+      );
+      if (!c) {
+        publishToast("Contractul nu a fost găsit.", "error");
+        return;
+      }
+
+      const mementos = Array.isArray(c.mementos) ? [...c.mementos] : [];
+      if (index < 0 || index >= mementos.length) {
+        publishToast("Memento invalid.", "error");
+        return;
+      }
+
+      mementos.splice(index, 1);
+
+      await (
+        await import("@/lib/contracts")
+      ).upsertContract({
+        ...c,
+        mementos,
+      });
+
+      await logAction({
+        action: "delete_memento",
+        targetType: "contract",
+        targetId: contractId,
+        meta: { index },
+      });
+
+      publishToast("Memento șters cu succes.", "success");
+    } catch (err) {
+      console.error("Error deleting memento:", err);
+      publishToast("Eroare la ștergerea memento-ului.", "error");
+    }
+    revalidatePath("/invoices/monthly");
+  }
+
+  async function editMemento(formData: FormData) {
+    "use server";
+    try {
+      const contractId = String(formData.get("contractId"));
+      const index = Number(formData.get("index"));
+      const type = String(formData.get("type"));
+      const messageRaw = formData.get("message");
+      const message =
+        typeof messageRaw === "string" && messageRaw.trim().length > 0
+          ? messageRaw.trim()
+          : undefined;
+      const endDate = String(formData.get("endDate"));
+
+      if (!contractId || isNaN(index) || !type || !endDate) {
+        publishToast("Date incomplete pentru memento.", "error");
+        return;
+      }
+
+      // Validate type is a valid enum value
+      const validTypes = [
+        "Water",
+        "Electricity",
+        "Gas",
+        "Heating",
+        "Internet",
+        "TV",
+        "Maintenance",
+        "Other",
+      ];
+      if (!validTypes.includes(type)) {
+        publishToast("Tip invalid pentru memento.", "error");
+        return;
+      }
+
+      const contracts = await fetchContracts();
+      const c = contracts.find((x) => x.id === contractId);
+      if (!c) {
+        publishToast("Contractul nu a fost găsit.", "error");
+        return;
+      }
+
+      const mementos = Array.isArray(c.mementos) ? [...c.mementos] : [];
+      if (index < 0 || index >= mementos.length) {
+        publishToast("Memento invalid.", "error");
+        return;
+      }
+
+      mementos[index] = {
+        type: type as
+          | "Water"
+          | "Electricity"
+          | "Gas"
+          | "Heating"
+          | "Internet"
+          | "TV"
+          | "Maintenance"
+          | "Other",
+        message,
+        endDate,
+      };
+
+      const { upsertContract } = await import("@/lib/contracts");
+      await upsertContract({
+        ...c,
+        mementos,
+      });
+
+      await logAction({
+        action: "edit_memento",
+        targetType: "contract",
+        targetId: contractId,
+        meta: { index, type, endDate, message },
+      });
+
+      publishToast("Memento actualizat cu succes.", "success");
+    } catch (err) {
+      console.error("Error editing memento:", err);
+      if (err instanceof Error) {
+        console.error("Error details:", err.message, err.stack);
+      }
+      publishToast("Eroare la actualizarea memento-ului.", "error");
+    }
     revalidatePath("/invoices/monthly");
   }
 
@@ -553,7 +782,7 @@ export default async function MonthlyInvoicesPage({
             groups.set(owner, arr);
           }
           const owners = Array.from(groups.keys()).sort((a, b) =>
-            a.localeCompare(b)
+            a.localeCompare(b),
           );
           return owners.map((owner) => (
             <section
@@ -616,7 +845,7 @@ export default async function MonthlyInvoicesPage({
                       const candidateKey = makeIssuedKey(
                         d.contract.id,
                         d.issuedAt,
-                        candidate
+                        candidate,
                       );
                       if (issuedByKey.has(candidateKey)) {
                         matchingKey = candidateKey;
@@ -627,7 +856,7 @@ export default async function MonthlyInvoicesPage({
                       const baseKey = makeIssuedKey(
                         d.contract.id,
                         d.issuedAt,
-                        ""
+                        "",
                       );
                       const dueBaseCount = dueCountsByBase.get(baseKey) ?? 0;
                       if (
@@ -642,13 +871,13 @@ export default async function MonthlyInvoicesPage({
                       ? makeIssuedKey(
                           d.contract.id,
                           d.issuedAt,
-                          partnerTokenCandidates[0]
+                          partnerTokenCandidates[0],
                         )
                       : makeIssuedKey(d.contract.id, d.issuedAt, "");
                     const listKey = matchingKey ?? fallbackKey;
                     const billedAt = resolveBilledPeriodDate(
                       d.contract,
-                      d.issuedAt
+                      d.issuedAt,
                     );
                     const amtEUR =
                       typeof d.amountEUR === "number"
@@ -659,60 +888,60 @@ export default async function MonthlyInvoicesPage({
                         ? d.exchangeRateOverride
                         : undefined;
                     const inv = matchingKey
-                      ? issuedInvoiceMap.get(matchingKey) ?? null
+                      ? (issuedInvoiceMap.get(matchingKey) ?? null)
                       : null;
                     const rate = already
                       ? inv?.exchangeRateRON
                       : typeof rateOverrideItem === "number"
-                      ? rateOverrideItem
-                      : typeof d.contract.exchangeRateRON === "number"
-                      ? d.contract.exchangeRateRON
-                      : undefined;
+                        ? rateOverrideItem
+                        : typeof d.contract.exchangeRateRON === "number"
+                          ? d.contract.exchangeRateRON
+                          : undefined;
                     const corrPct = already
-                      ? inv?.correctionPercent ?? 0
+                      ? (inv?.correctionPercent ?? 0)
                       : typeof d.contract.correctionPercent === "number"
-                      ? d.contract.correctionPercent
-                      : 0;
+                        ? d.contract.correctionPercent
+                        : 0;
                     const tvaPct = already
-                      ? inv?.tvaPercent ?? 0
+                      ? (inv?.tvaPercent ?? 0)
                       : typeof d.contract.tvaPercent === "number"
-                      ? d.contract.tvaPercent
-                      : 0;
+                        ? d.contract.tvaPercent
+                        : 0;
                     const correctedEUR = already
                       ? inv?.correctedAmountEUR
                       : typeof amtEUR === "number"
-                      ? amtEUR * (1 + (corrPct || 0) / 100)
-                      : undefined;
+                        ? amtEUR * (1 + (corrPct || 0) / 100)
+                        : undefined;
                     const netRON = already
                       ? inv?.netRON
                       : typeof correctedEUR === "number" &&
-                        typeof rate === "number"
-                      ? correctedEUR * rate
-                      : undefined;
+                          typeof rate === "number"
+                        ? correctedEUR * rate
+                        : undefined;
                     const vatRON = already
                       ? inv?.vatRON
                       : typeof netRON === "number"
-                      ? netRON * ((tvaPct || 0) / 100)
-                      : undefined;
+                        ? netRON * ((tvaPct || 0) / 100)
+                        : undefined;
                     const totalRON = already
                       ? inv?.totalRON
                       : typeof netRON === "number"
-                      ? netRON + (vatRON ?? 0)
-                      : undefined;
+                        ? netRON + (vatRON ?? 0)
+                        : undefined;
                     const partners: ContractPartner[] = Array.isArray(
-                      d.contract.partners
+                      d.contract.partners,
                     )
                       ? d.contract.partners
                       : [];
                     const partnerCount = partners.filter(
                       (partner) =>
                         typeof partner?.name === "string" &&
-                        partner.name.trim().length > 0
+                        partner.name.trim().length > 0,
                     ).length;
                     const partnerHrefId =
                       d.partnerId || d.contract.partnerId || null;
                     const partnerSlug = encodeURIComponent(
-                      d.partnerName ?? d.contract.partner
+                      d.partnerName ?? d.contract.partner,
                     );
 
                     const liBase =
@@ -800,7 +1029,6 @@ export default async function MonthlyInvoicesPage({
                             {already ? (
                               <form
                                 action={deleteIssued}
-                                method="post"
                                 className="flex items-center"
                               >
                                 <input
@@ -885,7 +1113,6 @@ export default async function MonthlyInvoicesPage({
                             ) : (
                               <form
                                 action={issueDue}
-                                method="post"
                                 className="flex items-center"
                               >
                                 <input
@@ -984,9 +1211,10 @@ export default async function MonthlyInvoicesPage({
                                     strokeLinejoin="round"
                                     aria-hidden="true"
                                   >
-                                    <path d="M12 5v14" />
-                                    <path d="M5 12h14" />
-                                    <circle cx="12" cy="12" r="9" />
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="12" y1="18" x2="12" y2="12" />
+                                    <line x1="9" y1="15" x2="15" y2="15" />
                                   </svg>
                                 </ActionButton>
                               </form>
@@ -998,6 +1226,10 @@ export default async function MonthlyInvoicesPage({
                                 className="ml-1"
                               />
                             ) : null}
+                            <MementoForm
+                              contractId={d.contract.id}
+                              addMementoAction={addMemento}
+                            />
                           </div>
                         </div>
                         <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 text-[15px]">
@@ -1011,8 +1243,8 @@ export default async function MonthlyInvoicesPage({
                                   ? fmtEUR(inv.amountEUR)
                                   : "–"
                                 : typeof amtEUR === "number"
-                                ? fmtEUR(amtEUR)
-                                : "–"}
+                                  ? fmtEUR(amtEUR)
+                                  : "–"}
                             </div>
                           </div>
                           {partnerCount > 1 &&
@@ -1047,7 +1279,7 @@ export default async function MonthlyInvoicesPage({
                                     >
                                       <Link
                                         href={`/partners/${encodeURIComponent(
-                                          p.id || p.name || ""
+                                          p.id || p.name || "",
                                         )}`}
                                         className="hover:underline"
                                       >
@@ -1131,6 +1363,105 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           </div>
                         </div>
+                        {(() => {
+                          // Display active mementos (endDate >= today)
+                          const today =
+                            calendarDateInTimezone(BILLING_TIMEZONE);
+                          const todayIso = `${today.year}-${String(
+                            today.month,
+                          ).padStart(2, "0")}-${String(today.day).padStart(
+                            2,
+                            "0",
+                          )}`;
+
+                          const activeMementos = Array.isArray(
+                            d.contract.mementos,
+                          )
+                            ? d.contract.mementos.filter(
+                                (m) => m.endDate >= todayIso,
+                              )
+                            : [];
+
+                          if (activeMementos.length === 0) return null;
+
+                          return (
+                            <div className="mt-4 space-y-2">
+                              {activeMementos.map((memento, idx) => {
+                                const originalIndex =
+                                  d.contract.mementos?.indexOf(memento) ?? idx;
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                          {getMementoTypeLabel(memento.type)}
+                                        </span>
+                                        <span className="text-foreground/50">
+                                          valabil până la {fmt(memento.endDate)}
+                                        </span>
+                                      </div>
+                                      {memento.message ? (
+                                        <p className="text-foreground/70">
+                                          {memento.message}
+                                        </p>
+                                      ) : (
+                                        <p className="text-foreground/60 italic">
+                                          Reamintire: există alte costuri de
+                                          facturat
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <MementoEditButton
+                                        contractId={d.contract.id}
+                                        memento={memento}
+                                        index={originalIndex}
+                                        editMementoAction={editMemento}
+                                      />
+                                      <form
+                                        action={deleteMemento}
+                                        className="flex-shrink-0"
+                                      >
+                                        <input
+                                          type="hidden"
+                                          name="contractId"
+                                          value={d.contract.id}
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="index"
+                                          value={originalIndex}
+                                        />
+                                        <button
+                                          type="submit"
+                                          className="rounded-md p-1 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                          title="Șterge memento"
+                                        >
+                                          <svg
+                                            className="h-3.5 w-3.5"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            aria-hidden="true"
+                                          >
+                                            <path d="M18 6L6 18" />
+                                            <path d="M6 6l12 12" />
+                                          </svg>
+                                        </button>
+                                      </form>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </li>
                     );
                   })}
