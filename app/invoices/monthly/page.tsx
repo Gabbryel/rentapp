@@ -78,6 +78,7 @@ type DueItem = {
   contract: ContractType;
   issuedAt: string;
   amountEUR?: number;
+  isPartial?: boolean;
   partnerId?: string;
   partnerName?: string;
   sharePercent?: number;
@@ -309,6 +310,7 @@ export default async function MonthlyInvoicesPage({
             contract: c,
             issuedAt,
             amountEUR: partAmount,
+            isPartial: basePreview.billedDays < basePreview.totalDays,
             partnerId: partner.id ?? undefined,
             partnerName: partner.name,
             sharePercent: partner.sharePercent,
@@ -335,6 +337,7 @@ export default async function MonthlyInvoicesPage({
           contract: c,
           issuedAt,
           amountEUR: preview.computedAmountEUR,
+          isPartial: preview.billedDays < preview.totalDays,
           ...extra,
           ...rateProps,
         });
@@ -1016,9 +1019,12 @@ export default async function MonthlyInvoicesPage({
 
                     const liBase =
                       "group rounded-lg border transition-colors shadow-sm p-4 text-black dark:text-white text-[110%]";
+                    const isPartialDue = !already && Boolean(d.isPartial);
                     const liClass = already
                       ? `${liBase} border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20`
-                      : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;
+                      : isPartialDue
+                        ? `${liBase} border-red-500/30 bg-red-500/10 hover:bg-red-500/20`
+                        : `${liBase} border-foreground/10 bg-background/60 hover:bg-background/70`;
                     return (
                       <li key={listKey} className={liClass}>
                         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1052,6 +1058,11 @@ export default async function MonthlyInvoicesPage({
                               <span className="text-[11px] text-foreground/50">
                                 {fmt(d.issuedAt)}
                               </span>
+                              {isPartialDue ? (
+                                <span className="inline-flex items-center rounded-md border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">
+                                  Factură parțială
+                                </span>
+                              ) : null}
                               {corrPct ? (
                                 <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                                   +{corrPct}%
