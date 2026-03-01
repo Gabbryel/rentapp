@@ -13,7 +13,11 @@ import type { Invoice } from "@/lib/schemas/invoice";
 import { getDb } from "@/lib/mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
 import { allocateInvoiceNumber } from "@/lib/invoices/numbering";
-import { findInvoiceByContractPartnerAndDate, invalidateYearInvoicesCache } from "@/lib/invoices/queries";
+import {
+  findInvoiceByContractPartnerAndDate,
+  invalidateYearInvoicesCache,
+  listInvoicesForContract,
+} from "@/lib/invoices/queries";
 import { renderInvoicePdf } from "@/lib/invoices/pdf";
 import { saveBufferAsUpload } from "@/lib/storage";
 import { createMessage } from "@/lib/messages";
@@ -40,6 +44,27 @@ const ALLOW_INVOICE_LOCAL_FALLBACK = process.env.NODE_ENV === "development";
  * @throws Error if invoice data is invalid or persistence fails
  */
 export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
+  const periodFrom = String((invoice as any).periodFrom || "").slice(0, 10);
+  const periodTo = String((invoice as any).periodTo || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodFrom) && /^\d{4}-\d{2}-\d{2}$/.test(periodTo)) {
+    const allForContract = await listInvoicesForContract(invoice.contractId);
+    const partnerKey = invoice.partnerId || invoice.partner;
+    const overlap = allForContract.find((existing) => {
+      if (existing.id === invoice.id) return false;
+      const existingPartner = existing.partnerId || existing.partner;
+      if (String(existingPartner || "") !== String(partnerKey || "")) return false;
+      const existingFrom = String((existing as any).periodFrom || "").slice(0, 10);
+      const existingTo = String((existing as any).periodTo || "").slice(0, 10);
+      if (!existingFrom || !existingTo) return false;
+      return !(periodTo < existingFrom || periodFrom > existingTo);
+    });
+    if (overlap) {
+      throw new Error(
+        `Perioada selectată se suprapune cu factura ${overlap.number || overlap.id}`
+      );
+    }
+  }
+
   // Step 1: Robust duplicate check using contract+partner+date compound key
   try {
     const partnerKey = invoice.partnerId || invoice.partner;

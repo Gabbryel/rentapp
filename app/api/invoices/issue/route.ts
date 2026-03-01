@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { fetchContractById } from "@/lib/contracts";
+import { fetchContractById, listInvoicesForContract } from "@/lib/contracts";
 import { computeInvoiceFromContract, issueInvoiceAndGeneratePdf } from "@/lib/contracts";
 import { resolveBilledPeriodDate } from "@/lib/contracts";
+import { prepareInvoicePreview } from "@/lib/invoice-custom-period";
 
 export async function POST(req: Request) {
   try {
@@ -13,14 +14,37 @@ export async function POST(req: Request) {
     }
     const contract = await fetchContractById(contractId);
     if (!contract) return NextResponse.json({ error: "Contract inexistent" }, { status: 404 });
-    // computeInvoiceFromContract will validate amount/rate; call directly
-    const inv = computeInvoiceFromContract({
-      contract,
-      issuedAt,
-      number: body.number,
-      billedAt: resolveBilledPeriodDate(contract, issuedAt),
-    });
-    const saved = await issueInvoiceAndGeneratePdf(inv);
+
+    let inv;
+    if (contract.rentType === "monthly") {
+      const existingInvoices = await listInvoicesForContract(contractId);
+      const preview = await prepareInvoicePreview({
+        contract,
+        existingInvoices,
+        issuedAt,
+        kind: "standard",
+        partnerKey: [contract.partnerId, contract.partner].filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0,
+        ),
+      });
+      if (!preview) {
+        return NextResponse.json(
+          { error: "Nu mai există sumă de facturat pentru această perioadă" },
+          { status: 409 }
+        );
+      }
+      inv = { ...preview.invoice, number: body.number };
+    } else {
+      inv = computeInvoiceFromContract({
+        contract,
+        issuedAt,
+        number: body.number,
+        billedAt: resolveBilledPeriodDate(contract, issuedAt),
+      });
+    }
+
+    const saved = await issueInvoiceAndGeneratePdf(inv as any);
     return NextResponse.json(saved, { status: 201 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Eroare";

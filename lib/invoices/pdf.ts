@@ -34,6 +34,9 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
   text("Factură", { size: 20, bold: true });
   text(`Număr: ${invoice.number || invoice.id}`);
   text(`Data emiterii: ${invoice.issuedAt}`);
+  if ((invoice as any).periodFrom && (invoice as any).periodTo) {
+    text(`Perioada facturată: ${(invoice as any).periodFrom} - ${(invoice as any).periodTo}`);
+  }
   text("");
 
   // Contract and parties

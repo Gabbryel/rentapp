@@ -8,6 +8,7 @@ import {
   computeInvoiceFromContract,
   issueInvoiceAndGeneratePdf,
   listInvoicesForMonth,
+  listInvoicesForContract,
   deleteInvoiceById,
   invalidateYearInvoicesCache,
 } from "@/lib/contracts";
@@ -24,6 +25,7 @@ import ConfirmSubmit from "@/app/components/confirm-submit";
 import PdfModal from "@/app/components/pdf-modal";
 import MementoForm from "@/app/components/memento-form";
 import MementoEditButton from "@/app/components/memento-edit-button";
+import { prepareInvoicePreview } from "@/lib/invoice-custom-period";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -208,6 +210,15 @@ export default async function MonthlyInvoicesPage({
 
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month - 1, monthDays);
+  const existingInvoicesByContract = new Map<string, Invoice[]>();
+  const getExistingInvoicesForContract = async (contractId: string) => {
+    if (existingInvoicesByContract.has(contractId)) {
+      return existingInvoicesByContract.get(contractId) ?? [];
+    }
+    const rows = await listInvoicesForContract(contractId);
+    existingInvoicesByContract.set(contractId, rows);
+    return rows;
+  };
 
   for (const c of contracts) {
     if (!c.startDate) continue;
@@ -233,6 +244,8 @@ export default async function MonthlyInvoicesPage({
       // For next-mode we only require contract active at some point this current month (already ensured above) and active in the next month window.
       if (mode === "current" && (issuedDate < start || issuedDate > end))
         continue;
+
+      const existingInvoices = await getExistingInvoicesForContract(c.id);
 
       let amountEUROverride: number | undefined = undefined;
       if (mode === "next") {
@@ -278,10 +291,20 @@ export default async function MonthlyInvoicesPage({
               ? partner.sharePercent / 100
               : 0;
           if (share <= 0) continue;
-          const partAmount =
-            typeof amountEUROverride === "number"
-              ? amountEUROverride * share
-              : undefined;
+
+          const basePreview = await prepareInvoicePreview({
+            contract: c,
+            existingInvoices,
+            issuedAt,
+            kind: "standard",
+            partnerKey: [partner.id, partner.name, c.partnerId, c.partner].filter(
+              (value): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            ),
+          });
+          if (!basePreview) continue;
+          const partAmount = basePreview.computedAmountEUR * share;
+
           due.push({
             contract: c,
             issuedAt,
@@ -297,10 +320,21 @@ export default async function MonthlyInvoicesPage({
         const extra: Pick<DueItem, "partnerId" | "partnerName"> = {};
         if (c.partnerId) extra.partnerId = c.partnerId;
         if (c.partner) extra.partnerName = c.partner;
+        const preview = await prepareInvoicePreview({
+          contract: c,
+          existingInvoices,
+          issuedAt,
+          kind: "standard",
+          partnerKey: [c.partnerId, c.partner].filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          ),
+        });
+        if (!preview) continue;
         due.push({
           contract: c,
           issuedAt,
-          amountEUR: amountEUROverride,
+          amountEUR: preview.computedAmountEUR,
           ...extra,
           ...rateProps,
         });
@@ -418,14 +452,50 @@ export default async function MonthlyInvoicesPage({
         : undefined;
 
     try {
-      const invoice = await computeInvoiceFromContract({
+      const existingInvoices = await listInvoicesForContract(c.id);
+      const partnerKey = [partnerId, partnerName, c.partnerId, c.partner].filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      );
+
+      const basePreview = await prepareInvoicePreview({
         contract: c,
+        existingInvoices,
         issuedAt,
-        amountEUROverride:
-          typeof sharePercent === "number"
-            ? (rentAmountAtDate(c, issuedAt) ?? 0) * (sharePercent / 100)
-            : undefined,
+        kind: "standard",
+        partnerKey,
       });
+
+      if (!basePreview) {
+        throw new Error(
+          "Nu mai există sumă de facturat pentru această perioadă.",
+        );
+      }
+
+      const amountOverride =
+        typeof sharePercent === "number" && sharePercent > 0
+          ? basePreview.computedAmountEUR * (sharePercent / 100)
+          : undefined;
+
+      const preview =
+        typeof amountOverride === "number" && amountOverride > 0
+          ? await prepareInvoicePreview({
+              contract: c,
+              existingInvoices,
+              issuedAt,
+              kind: "standard",
+              partnerKey,
+              manualAmountEUR: amountOverride,
+            })
+          : basePreview;
+
+      if (!preview) {
+        throw new Error(
+          "Nu mai există sumă de facturat pentru această perioadă.",
+        );
+      }
+
+      const invoice = preview.invoice;
 
       // Apply partner info and rate override to the invoice
       if (partnerId) invoice.partnerId = partnerId;

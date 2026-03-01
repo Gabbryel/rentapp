@@ -29,6 +29,16 @@ export const InvoiceSchema = z
   number: z.string().min(1).nullish(), // număr factură (poate lipsi)
     note: z.string().optional(),
     pdfUrl: z.string().optional(), // link către PDF salvat (dacă e cazul)
+    kind: z.enum(["standard", "custom_period"]).optional(),
+    billedAt: ISODate.optional(),
+    periodFrom: ISODate.optional(),
+    periodTo: ISODate.optional(),
+    amountSource: z.enum(["auto", "manual"]).optional(),
+    autoAmountEUR: z.number().positive().optional(),
+    manualOverrideEUR: z.number().positive().optional(),
+    exchangeRateDate: ISODate.optional(),
+    issuedByEmail: z.string().email().optional(),
+    previewToken: z.string().optional(),
     // Timestamps
     createdAt: ISODate,
     updatedAt: ISODate,

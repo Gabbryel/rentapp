@@ -1261,6 +1261,15 @@ export function resolveBilledPeriodDate(
 // Return the EUR rent amount effective on the given ISO date (YYYY-MM-DD)
 export function rentAmountAtDate(c: ContractType, isoDate: string): number | undefined {
     const rows: Array<{ date: string; value: number }> = [];
+  const legacyAmount = (() => {
+    const raw = (c as any).rentAmountEuro ?? (c as any).amountEUR;
+    if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+    if (typeof raw === "string" && raw.trim() !== "") {
+      const n = Number(raw.replace(",", "."));
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return undefined;
+  })();
   if (c.rentType === "yearly" && Array.isArray((c as any).irregularInvoices)) {
     const target = new Date(isoDate);
     const month = target.getMonth() + 1;
@@ -1284,10 +1293,18 @@ export function rentAmountAtDate(c: ContractType, isoDate: string): number | und
         if (eff) rows.push({ date: eff, value: it.newRentAmount as number });
       });
   }
-  if (rows.length === 0) return undefined;
+  if (rows.length === 0) return legacyAmount;
   rows.sort((a, b) => a.date.localeCompare(b.date));
   const candidate = rows.filter((r) => r.date <= isoDate).pop();
-  return candidate?.value;
+  if (candidate?.value && Number.isFinite(candidate.value) && candidate.value > 0) {
+    return candidate.value;
+  }
+  // If the queried date is before the first indexed row, fallback to earliest known amount.
+  const earliest = rows[0]?.value;
+  if (typeof earliest === "number" && Number.isFinite(earliest) && earliest > 0) {
+    return earliest;
+  }
+  return legacyAmount;
 }
 
 // Convenience for "today"

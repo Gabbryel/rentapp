@@ -44,6 +44,36 @@ function getMonthName(month: number): string {
   return months[month - 1] || "";
 }
 
+function getContractPartnerRows(
+  c: any,
+): Array<{ name: string; sharePercent?: number }> {
+  const rows = Array.isArray(c?.partners)
+    ? c.partners
+        .map((p: any) => ({
+          name:
+            typeof p?.name === "string" && p.name.trim().length > 0
+              ? p.name.trim()
+              : "",
+          sharePercent:
+            typeof p?.sharePercent === "number" &&
+            Number.isFinite(p.sharePercent)
+              ? p.sharePercent
+              : undefined,
+        }))
+        .filter((p: { name: string }) => p.name.length > 0)
+    : [];
+
+  if (rows.length > 0) return rows;
+
+  const fallback =
+    typeof c?.partner === "string" && c.partner.trim().length > 0
+      ? c.partner.trim()
+      : typeof c?.partnerId === "string" && c.partnerId.trim().length > 0
+        ? c.partnerId.trim()
+        : "";
+  return fallback ? [{ name: fallback }] : [];
+}
+
 export default async function HomePage({
   searchParams,
 }: {
@@ -231,7 +261,9 @@ export default async function HomePage({
 
   // Partner/tenant count
   const uniquePartners = new Set(
-    activeContracts.map((c) => c.partner || c.partnerId).filter(Boolean),
+    activeContracts.flatMap((c) =>
+      getContractPartnerRows(c).map((p) => p.name),
+    ),
   ).size;
 
   // Asset/property count
@@ -254,14 +286,41 @@ export default async function HomePage({
   // Partner breakdown for pie chart
   const partnerMap = new Map<string, { count: number; revenue: number }>();
   for (const c of activeContracts) {
-    const partner = c.partner || c.partnerId || "Unknown";
-    const current = partnerMap.get(partner) || { count: 0, revenue: 0 };
     const amount = rentAmountAtDate(c, today);
-    current.count += 1;
-    if (typeof amount === "number") {
-      current.revenue += c.rentType === "monthly" ? amount : amount / 12;
+    const normalizedAmount =
+      typeof amount === "number"
+        ? c.rentType === "monthly"
+          ? amount
+          : amount / 12
+        : 0;
+
+    const partnerRows = getContractPartnerRows(c);
+    const sumShares = partnerRows.reduce(
+      (sum, p) =>
+        sum + (typeof p.sharePercent === "number" ? p.sharePercent : 0),
+      0,
+    );
+
+    if (partnerRows.length === 0) {
+      const current = partnerMap.get("Unknown") || { count: 0, revenue: 0 };
+      current.count += 1;
+      current.revenue += normalizedAmount;
+      partnerMap.set("Unknown", current);
+      continue;
     }
-    partnerMap.set(partner, current);
+
+    for (const p of partnerRows) {
+      const current = partnerMap.get(p.name) || { count: 0, revenue: 0 };
+      current.count += 1;
+      if (sumShares > 0 && typeof p.sharePercent === "number") {
+        current.revenue += normalizedAmount * (p.sharePercent / sumShares);
+      } else if (partnerRows.length > 1) {
+        current.revenue += normalizedAmount / partnerRows.length;
+      } else {
+        current.revenue += normalizedAmount;
+      }
+      partnerMap.set(p.name, current);
+    }
   }
 
   const partnerData = Array.from(partnerMap.entries())

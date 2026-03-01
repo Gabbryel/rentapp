@@ -55,6 +55,12 @@ import {
 import { publishToast } from "@/lib/sse";
 import { escapeHtml } from "@/lib/utils/html";
 import { normalizeIsoDate } from "@/lib/utils/date";
+import { currentUser } from "@/lib/auth";
+import {
+  prepareInvoicePreview,
+  validatePreviewToken,
+} from "@/lib/invoice-custom-period";
+import CustomInvoiceModal from "./CustomInvoiceModal";
 
 function toEmailHtmlParagraphs(text: string) {
   const normalized = String(text ?? "").replace(/\r\n/g, "\n");
@@ -68,7 +74,7 @@ function toEmailHtmlParagraphs(text: string) {
 }
 
 function latestWrittenContractEnd(
-  writtenContracts: WrittenContract[]
+  writtenContracts: WrittenContract[],
 ): string | null {
   const ends = writtenContracts
     .map((wc) => normalizeIsoDate((wc as any)?.contractEndDate))
@@ -79,7 +85,7 @@ function latestWrittenContractEnd(
 
 function resolveEndDateWithWritten(
   baseEnd: unknown,
-  writtenEnd: unknown
+  writtenEnd: unknown,
 ): string {
   const base = normalizeIsoDate(baseEnd);
   const written = normalizeIsoDate(writtenEnd);
@@ -131,7 +137,7 @@ async function saveIndexing(formData: FormData) {
   if (!existing) return;
 
   const current = Array.isArray((existing as any).indexingDates)
-    ? ((existing as any).indexingDates as any[]) ?? []
+    ? (((existing as any).indexingDates as any[]) ?? [])
     : [];
 
   let updated = false;
@@ -253,7 +259,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   const subject =
     subjectRaw ||
     `Notificare indexare chirie – ${String(
-      (contract as any).name || contract.id
+      (contract as any).name || contract.id,
     )}`;
 
   const ownerName = String((contract as any).owner || "").trim();
@@ -284,7 +290,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
                 <div style="font-family:Arial, sans-serif;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Notificare</div>
                 <div style="font-family:Arial, sans-serif;font-size:18px;font-weight:700;color:#111827;margin-top:4px;">Indexare chirie</div>
                 <div style="font-family:Arial, sans-serif;font-size:12px;color:#6b7280;margin-top:6px;">Emisă: <strong style="color:#111827;">${escapeHtml(
-                  issuedAt || "—"
+                  issuedAt || "—",
                 )}</strong></div>
               </td>
             </tr>
@@ -302,47 +308,49 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;width:38%;">Partener</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
-                      partnerName || "—"
+                      partnerName || "—",
                     )}</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Contract</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
-                      contractName
+                      contractName,
                     )}</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Perioadă de referință</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
-                      fromMonth
+                      fromMonth,
                     )} → ${escapeHtml(toMonth)}${
-    source ? ` <span style="color:#6b7280">(${escapeHtml(source)})</span>` : ""
-  }</td>
+                      source
+                        ? ` <span style="color:#6b7280">(${escapeHtml(source)})</span>`
+                        : ""
+                    }</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Indexare</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
                       deltaPercent !== undefined
                         ? `+${deltaPercent.toFixed(2)}%`
-                        : "n/a"
+                        : "n/a",
                     )}${
-    deltaAmountEUR !== undefined
-      ? ` • ${escapeHtml(deltaAmountEUR.toFixed(2))} EUR`
-      : ""
-  }</td>
+                      deltaAmountEUR !== undefined
+                        ? ` • ${escapeHtml(deltaAmountEUR.toFixed(2))} EUR`
+                        : ""
+                    }</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Chirie la emitere</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;">${escapeHtml(
-                      rentEUR !== undefined ? rentEUR.toFixed(2) : "—"
+                      rentEUR !== undefined ? rentEUR.toFixed(2) : "—",
                     )} EUR</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">Chirie după indexare (începând cu ${escapeHtml(
-                      validFrom
+                      validFrom,
                     )})</td>
                     <td style="padding:10px 14px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:13px;color:#111827;"><strong>${escapeHtml(
-                      newRentEUR
+                      newRentEUR,
                     )} EUR</strong></td>
                   </tr>
                 </table>
@@ -352,7 +360,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
               <td style="padding:16px 20px 20px 20px;border-top:1px solid #e5e7eb;font-family:Arial, sans-serif;font-size:12px;color:#6b7280;">
                 Cu stimă,<nobr></nobr><br/>
                 <strong style="color:#111827;">${escapeHtml(
-                  ownerName || "Echipa"
+                  ownerName || "Echipa",
                 )}</strong>
               </td>
             </tr>
@@ -372,20 +380,20 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
   textLines.push(`Partener: ${partnerName || "—"}`);
   textLines.push(`Contract: ${contractName}`);
   textLines.push(
-    `Perioadă: ${fromMonth} -> ${toMonth}${source ? ` (${source})` : ""}`
+    `Perioadă: ${fromMonth} -> ${toMonth}${source ? ` (${source})` : ""}`,
   );
   textLines.push(
     `Indexare: ${
       deltaPercent !== undefined ? `+${deltaPercent.toFixed(2)}%` : "n/a"
     }${
       deltaAmountEUR !== undefined ? ` (${deltaAmountEUR.toFixed(2)} EUR)` : ""
-    }`
+    }`,
   );
   textLines.push(
-    `Chirie la emitere: ${rentEUR !== undefined ? rentEUR.toFixed(2) : "—"} EUR`
+    `Chirie la emitere: ${rentEUR !== undefined ? rentEUR.toFixed(2) : "—"} EUR`,
   );
   textLines.push(
-    `Chirie după indexare (începând cu ${validFrom}): ${newRentEUR} EUR`
+    `Chirie după indexare (începând cu ${validFrom}): ${newRentEUR} EUR`,
   );
   textLines.push("");
   textLines.push(`Cu stimă, ${ownerName || "Echipa"}`);
@@ -402,7 +410,7 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
 
   const attachmentFilename = `Notificare_indexare_${contractName.replace(
     /[^a-zA-Z0-9]/g,
-    "_"
+    "_",
   )}_${validFrom}.pdf`;
 
   const deliveryInfo = await sendMail({
@@ -430,13 +438,13 @@ async function sendIndexingNoticeEmailAction(formData: FormData) {
       noticePdfBuffer,
       attachmentFilename,
       "application/pdf",
-      { contractId }
+      { contractId },
     );
     savedPdfUrl = savedPdf.url;
   }
 
   const existingIndexingDates = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as any[]) ?? []
+    ? (((contract as any).indexingDates as any[]) ?? [])
     : [];
 
   // Preserve the current rent amount BEFORE the new indexing
@@ -672,7 +680,7 @@ async function applyIndexingNoticeAction(formData: FormData) {
   }
 
   const existingIndexingDates = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as any[]) ?? []
+    ? (((contract as any).indexingDates as any[]) ?? [])
     : [];
 
   // Preserve the current rent amount BEFORE the new indexing
@@ -897,7 +905,7 @@ async function sendIndexingNoticeToAdminsAction(formData: FormData) {
 
   const attachmentFilename = `Notificare_indexare_${contractName.replace(
     /[^a-zA-Z0-9]/g,
-    "_"
+    "_",
   )}_${validFrom || "draft"}.pdf`;
 
   const deliveryInfo = await sendMail({
@@ -933,7 +941,7 @@ async function sendIndexingNoticeToAdminsAction(formData: FormData) {
 
   publishToast(
     `Email trimis către ${adminEmails.length} administrator(i).`,
-    "success"
+    "success",
   );
   revalidatePath(`/contracts/${contractId}`);
 }
@@ -1067,7 +1075,7 @@ async function issueIndexingNoticeAction(formData: FormData) {
   if (!inflation) {
     publishToast(
       "Indicele HICP nu este disponibil acum. Încearcă din nou mai târziu.",
-      "error"
+      "error",
     );
     return;
   }
@@ -1135,7 +1143,7 @@ async function deleteIndexingNoticeAction(formData: FormData) {
   try {
     rollbackAttempted = true;
     const existingIndexingDates = Array.isArray((contract as any).indexingDates)
-      ? ((contract as any).indexingDates as any[]) ?? []
+      ? (((contract as any).indexingDates as any[]) ?? [])
       : [];
 
     const byNoticeId = (row: any) =>
@@ -1212,7 +1220,7 @@ async function deleteIndexingNoticeAction(formData: FormData) {
       if (candidates.length === 1) {
         const candidate = candidates[0];
         nextIndexingDates = nextIndexingDates.filter(
-          (row: any) => row !== candidate
+          (row: any) => row !== candidate,
         );
         changed = true;
         rollbackUsedHeuristic = true;
@@ -1238,17 +1246,17 @@ async function deleteIndexingNoticeAction(formData: FormData) {
     if (!rollbackAttempted || rollbackErrored) {
       publishToast(
         "Atenție: nu am putut restaura automat chiria (notificare veche sau eroare). Verifică manual indexările/chiria.",
-        "info"
+        "info",
       );
     } else if (!rollbackChanged) {
       publishToast(
         "Atenție: notificarea a fost ștearsă, dar chiria nu poate fi restaurată automat pentru notificări vechi. Verifică manual indexările/chiria.",
-        "info"
+        "info",
       );
     } else if (rollbackUsedHeuristic) {
       publishToast(
         "Atenție: rollback-ul chiriei a fost făcut best-effort (notificare veche). Te rog verifică chiria curentă.",
-        "info"
+        "info",
       );
     }
   }
@@ -1339,6 +1347,13 @@ async function issueInvoice(formData: FormData) {
   "use server";
   const contractId = formData.get("contractId") as string;
   if (!contractId) return;
+  const mode =
+    String(formData.get("mode") || "").trim() === "custom_period"
+      ? "custom_period"
+      : "standard";
+  const fromDate = String(formData.get("fromDate") || "").trim();
+  const toDate = String(formData.get("toDate") || "").trim();
+  const previewToken = String(formData.get("previewToken") || "").trim();
   // Support various inputs: direct issuedAt, or year/month/day, or dateKey = MM-DD
   let issuedAt = (formData.get("issuedAt") as string) || "";
   if (!issuedAt) {
@@ -1374,6 +1389,7 @@ async function issueInvoice(formData: FormData) {
   if (!issuedAt) issuedAt = new Date().toISOString().slice(0, 10);
   const contract = await fetchContractById(contractId);
   if (!contract) return;
+  const actor = await currentUser();
   try {
     const amountOverride = (() => {
       const raw = formData.get("amountEUR");
@@ -1397,11 +1413,99 @@ async function issueInvoice(formData: FormData) {
       : [];
     const sumShares = partners.reduce(
       (s, p) => s + (typeof p.sharePercent === "number" ? p.sharePercent : 0),
-      0
+      0,
     );
-    if (partners.length > 1 && sumShares > 0) {
+    const existingInvoices = await listInvoicesForContract(contractId);
+
+    if (contract.rentType === "monthly") {
+      const basePreview = await prepareInvoicePreview({
+        contract,
+        existingInvoices,
+        issuedAt,
+        kind: mode,
+        fromDate,
+        toDate,
+        manualAmountEUR: amountOverride,
+        partnerKey: [(contract as any).partnerId, contract.partner].filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0,
+        ),
+        issuedByEmail: actor?.email,
+      });
+
+      if (!basePreview) {
+        publishToast(
+          "Nu mai există sumă de facturat pentru această perioadă.",
+          "error",
+        );
+        revalidatePath(`/contracts/${contractId}`);
+        return;
+      }
+
+      if (
+        mode === "custom_period" &&
+        !validatePreviewToken(basePreview, previewToken)
+      ) {
+        throw new Error(
+          "Previzualizarea este obligatorie și trebuie refăcută înainte de emitere.",
+        );
+      }
+
+      const baseEUR = amountOverride ?? basePreview.computedAmountEUR;
+
+      if (partners.length > 1 && sumShares > 0) {
+        // Split issuance per partner with the same covered period metadata.
+        const partnerRateContract = {
+          ...(contract as any),
+          exchangeRateRON: basePreview.exchangeRateRON,
+        } as any;
+
+        for (const p of partners) {
+          const share =
+            typeof p.sharePercent === "number" ? p.sharePercent / 100 : 0;
+          if (share <= 0) continue;
+
+          const invPart = computeInvoiceFromContract({
+            contract: partnerRateContract,
+            issuedAt,
+            amountEUROverride: baseEUR * share,
+            billedAt: basePreview.billedAt,
+          });
+
+          const patched = {
+            ...invPart,
+            partner: p.name,
+            partnerId: p.id || p.name,
+            kind: basePreview.kind,
+            billedAt: basePreview.billedAt,
+            periodFrom: basePreview.periodFrom,
+            periodTo: basePreview.periodTo,
+            autoAmountEUR: basePreview.computedAmountEUR * share,
+            amountSource:
+              typeof amountOverride === "number" ? "manual" : "auto",
+            manualOverrideEUR:
+              typeof amountOverride === "number"
+                ? amountOverride * share
+                : undefined,
+            exchangeRateDate: basePreview.exchangeRateDate,
+            issuedByEmail: actor?.email,
+            previewToken:
+              mode === "custom_period" ? basePreview.previewToken : undefined,
+          } as any;
+
+          await issueInvoiceAndGeneratePdf(patched);
+        }
+      } else {
+        const patched = {
+          ...basePreview.invoice,
+          issuedByEmail: actor?.email,
+          previewToken:
+            mode === "custom_period" ? basePreview.previewToken : undefined,
+        } as any;
+        await issueInvoiceAndGeneratePdf(patched);
+      }
+    } else if (partners.length > 1 && sumShares > 0) {
       // Split issuance per partner
-      // Determine base EUR for this date if no override
       const baseInv = computeInvoiceFromContract({
         contract,
         issuedAt,
@@ -1424,6 +1528,7 @@ async function issueInvoice(formData: FormData) {
           ...invPart,
           partner: p.name,
           partnerId: p.id || p.name,
+          issuedByEmail: actor?.email,
         } as any;
         await issueInvoiceAndGeneratePdf(patched);
       }
@@ -1434,13 +1539,23 @@ async function issueInvoice(formData: FormData) {
         amountEUROverride: amountOverride,
         billedAt: resolveBilledPeriodDate(contract, issuedAt),
       });
-      await issueInvoiceAndGeneratePdf(invoiceData);
+      await issueInvoiceAndGeneratePdf({
+        ...invoiceData,
+        issuedByEmail: actor?.email,
+      } as any);
     }
     await logAction({
       action: "invoice.issue",
       targetType: "contract",
       targetId: contractId,
-      meta: { issuedAt },
+      meta: {
+        issuedAt,
+        mode,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        amountOverride,
+        issuedByEmail: actor?.email,
+      },
     });
   } catch (err: any) {
     const msg =
@@ -1666,7 +1781,7 @@ async function addExtension(formData: FormData) {
   // Server-side guardrails against common mistakes
   const signedAt = new Date(existing.signedAt);
   const currentEffectiveEnd = new Date(
-    resolveEndDateWithWritten(effectiveEndDate(existing), latestWrittenEnd)
+    resolveEndDateWithWritten(effectiveEndDate(existing), latestWrittenEnd),
   );
   const until = new Date(newEntry.extendedUntil);
   const docDt = new Date(newEntry.docDate);
@@ -1675,15 +1790,15 @@ async function addExtension(formData: FormData) {
   if (until < currentEffectiveEnd) {
     errors.push(
       `Data prelungirii trebuie să fie după sau egal cu data de expirare curentă (${norm(
-        String(currentEffectiveEnd.toISOString())
-      )})`
+        String(currentEffectiveEnd.toISOString()),
+      )})`,
     );
   }
   if (docDt < signedAt) {
     errors.push(
       `Data actului de prelungire trebuie să fie după sau egală cu data semnării (${norm(
-        String(signedAt.toISOString())
-      )})`
+        String(signedAt.toISOString()),
+      )})`,
     );
   }
   if (docDt > until) {
@@ -1706,7 +1821,7 @@ async function addExtension(formData: FormData) {
     (r) =>
       norm(String(r.extendedUntil || "")) === newEntry.extendedUntil &&
       norm(String(r.docDate || "")) === newEntry.docDate &&
-      String(r.document || "").trim() === newEntry.document
+      String(r.document || "").trim() === newEntry.document,
   )
     ? prev
     : [...prev, newEntry];
@@ -1848,7 +1963,7 @@ export default async function ContractPage({
     scansRaw.map(async (scan) => {
       const fileSize = await getFileSizeByUrl(scan.url);
       return { ...scan, fileSize };
-    })
+    }),
   );
 
   const latestWrittenContract = (() => {
@@ -1865,10 +1980,10 @@ export default async function ContractPage({
 
   const writtenContractLinkHref = latestWrittenContract
     ? `/contracts/written-contract?writtenContractId=${encodeURIComponent(
-        latestWrittenContract.id
+        latestWrittenContract.id,
       )}`
     : `/contracts/written-contract?contractId=${encodeURIComponent(
-        contract.id
+        contract.id,
       )}`;
 
   const writtenContractSignedBadgeClass = latestWrittenContract?.signed
@@ -1877,7 +1992,7 @@ export default async function ContractPage({
 
   const contractEnd = resolveEndDateWithWritten(
     effectiveEndDate(contract),
-    latestWrittenContract?.contractEndDate ?? null
+    latestWrittenContract?.contractEndDate ?? null,
   );
 
   const today = new Date();
@@ -1907,7 +2022,7 @@ export default async function ContractPage({
     const { include, fraction } = computeNextMonthProration(
       contract as any,
       today.getFullYear(),
-      today.getMonth() + 1
+      today.getMonth() + 1,
     );
     advanceFraction = include ? fraction : undefined;
   }
@@ -1939,7 +2054,7 @@ export default async function ContractPage({
   })();
 
   const alreadyIssuedForThisMonth = Boolean(
-    dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+    dueAt && invoices.some((inv) => inv.issuedAt === dueAt),
   );
 
   // Build rent series and indexation history from indexingDates entries.
@@ -1963,10 +2078,10 @@ export default async function ContractPage({
           .map((it) => {
             const eff = String(it.actualDate || it.forecastDate || "").slice(
               0,
-              10
+              10,
             );
             const appliedAt = String(
-              it.actualDate || it.forecastDate || ""
+              it.actualDate || it.forecastDate || "",
             ).slice(0, 10);
             return { eff, appliedAt, value: Number(it.newRentAmount) };
           })
@@ -2044,13 +2159,13 @@ export default async function ContractPage({
     const totalCount = all.length;
     const totalAmount = all.reduce(
       (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
-      0
+      0,
     );
     const deposited = all.filter((d) => d.isDeposited);
     const depositedCount = deposited.length;
     const depositedAmount = deposited.reduce(
       (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
-      0
+      0,
     );
     const pendingCount = totalCount - depositedCount;
     const pendingAmount = totalAmount - depositedAmount;
@@ -2177,7 +2292,7 @@ export default async function ContractPage({
                     <span className="text-foreground/60">Proprietar:</span>
                     <span className="font-medium truncate">
                       {String(
-                        (contract as { owner?: string }).owner || ""
+                        (contract as { owner?: string }).owner || "",
                       ).trim() || "—"}
                     </span>
                   </div>
@@ -2196,7 +2311,7 @@ export default async function ContractPage({
                               >
                                 <Link
                                   href={`/partners/${encodeURIComponent(
-                                    p?.id || p?.name || ""
+                                    p?.id || p?.name || "",
                                   )}`}
                                   className="hover:underline"
                                 >
@@ -2208,7 +2323,7 @@ export default async function ContractPage({
                                   </span>
                                 )}
                               </span>
-                            )
+                            ),
                           )}
                         </div>
                       </div>
@@ -2231,7 +2346,7 @@ export default async function ContractPage({
                   </div>
                   {(() => {
                     const arr = Array.isArray(
-                      (contract as any).contractExtensions
+                      (contract as any).contractExtensions,
                     )
                       ? ((contract as any).contractExtensions as Array<{
                           docDate?: string;
@@ -2250,8 +2365,8 @@ export default async function ContractPage({
                             .slice()
                             .sort((a, b) =>
                               String(a.extendedUntil || "").localeCompare(
-                                String(b.extendedUntil || "")
-                              )
+                                String(b.extendedUntil || ""),
+                              ),
                             )
                             .map((r, i) => (
                               <div key={i} className="flex items-center gap-2">
@@ -2301,7 +2416,7 @@ export default async function ContractPage({
                         <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/contracts/written-contract?writtenContractId=${encodeURIComponent(
-                              latestWrittenContract.id
+                              latestWrittenContract.id,
                             )}`}
                             className="font-semibold hover:underline"
                           >
@@ -2472,7 +2587,7 @@ export default async function ContractPage({
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400 font-medium">
                               {(currentRentAmount(contract) as number).toFixed(
-                                2
+                                2,
                               )}{" "}
                               EUR
                             </span>
@@ -2633,19 +2748,19 @@ export default async function ContractPage({
                       .map(
                         (p, i) =>
                           `${i === 0 ? "M" : "L"} ${x(
-                            new Date(p.date).getTime()
-                          ).toFixed(2)} ${y(p.value).toFixed(2)}`
+                            new Date(p.date).getTime(),
+                          ).toFixed(2)} ${y(p.value).toFixed(2)}`,
                       )
                       .join(" ");
                     const area = `${line} L ${x(maxX).toFixed(2)} ${y(
-                      minY
+                      minY,
                     ).toFixed(2)} L ${x(minX).toFixed(2)} ${y(minY).toFixed(
-                      2
+                      2,
                     )} Z`;
                     const ticksY = 4;
                     const yTicks = Array.from(
                       { length: ticksY + 1 },
-                      (_, i) => minY + (i * (maxY - minY)) / ticksY
+                      (_, i) => minY + (i * (maxY - minY)) / ticksY,
                     );
                     return (
                       <div
@@ -2741,11 +2856,11 @@ export default async function ContractPage({
                             )
                               .filter(
                                 (it) =>
-                                  it && typeof it.newRentAmount === "number"
+                                  it && typeof it.newRentAmount === "number",
                               )
                               .map((it) => ({
                                 eff: String(
-                                  it.actualDate || it.forecastDate || ""
+                                  it.actualDate || it.forecastDate || "",
                                 ).slice(0, 10),
                                 v: Number(it.newRentAmount),
                                 done: Boolean(it.done),
@@ -2834,12 +2949,12 @@ export default async function ContractPage({
                               typeof d !== "number"
                                 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                                 : d < 5
-                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-1 ring-rose-400/30 animate-pulse"
-                                : d < 15
-                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400"
-                                : d < 60
-                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+                                  ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-1 ring-rose-400/30 animate-pulse"
+                                  : d < 15
+                                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-400"
+                                    : d < 60
+                                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
                             return (
                               <span
                                 className={`rounded px-2 py-0.5 text-[11px] ${cls}`}
@@ -2862,7 +2977,7 @@ export default async function ContractPage({
                               : 0;
                           const docLabel = (() => {
                             const match = indexingDatesArr.find(
-                              (d) => d.forecastDate === ix.date
+                              (d) => d.forecastDate === ix.date,
                             );
                             return match?.document;
                           })();
@@ -2871,7 +2986,7 @@ export default async function ContractPage({
                               key={ix.date + ix.appliedAt + ix.from + ix.to}
                               className="inline-flex flex-wrap items-center gap-2 rounded bg-foreground/5 px-2 py-1"
                               title={`Indexare aplicată (înregistrat ${fmt(
-                                ix.appliedAt
+                                ix.appliedAt,
                               )})`}
                             >
                               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -2887,8 +3002,8 @@ export default async function ContractPage({
                                   diffPct > 0
                                     ? "text-emerald-600 dark:text-emerald-400"
                                     : diffPct < 0
-                                    ? "text-red-600 dark:text-red-400"
-                                    : "text-foreground/40"
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-foreground/40"
                                 }
                               >
                                 ({diffPct > 0 ? "+" : diffPct < 0 ? "" : "±"}
@@ -2962,7 +3077,7 @@ export default async function ContractPage({
             }
             contractEnd={normalizeIsoDate(contractEnd) || ""}
             defaultIndexingContractNumber={String(
-              latestWrittenContract?.documentNumber || ""
+              latestWrittenContract?.documentNumber || "",
             ).trim()}
             defaultIndexingContractSignedAt={
               normalizeIsoDate(latestWrittenContract?.documentDate) ||
@@ -3048,7 +3163,7 @@ export default async function ContractPage({
                             />
                           </div>
                         </div>
-                      )
+                      ),
                     )}
                   </div>
                   <div className="pt-1">
@@ -3125,8 +3240,8 @@ export default async function ContractPage({
                         .slice()
                         .sort((a, b) =>
                           String(a.extendedUntil || "").localeCompare(
-                            String(b.extendedUntil || "")
-                          )
+                            String(b.extendedUntil || ""),
+                          ),
                         )
                         .map((r, i) => {
                           const docDate = String(r.docDate || "");
@@ -3327,7 +3442,7 @@ export default async function ContractPage({
               </form>
               {Array.isArray((contract as any).indexingDates) &&
               ((contract as any).indexingDates as any[]).filter(
-                (x: any) => !x.done
+                (x: any) => !x.done,
               ).length === 0 ? (
                 <div className="text-white/70 text-xs italic">
                   Nicio indexare viitoare programată.
@@ -3337,7 +3452,7 @@ export default async function ContractPage({
                   const upcoming = (
                     Array.isArray((contract as any).indexingDates)
                       ? ((contract as any).indexingDates as any[]).filter(
-                          (it: any) => !it.done
+                          (it: any) => !it.done,
                         )
                       : []
                   ) as {
@@ -3352,12 +3467,12 @@ export default async function ContractPage({
                     .slice()
                     .sort((a, b) =>
                       String(a.forecastDate).localeCompare(
-                        String(b.forecastDate)
-                      )
+                        String(b.forecastDate),
+                      ),
                     );
                   const nextIt =
                     sorted.find(
-                      (x) => String(x.forecastDate) >= todayISOForLists
+                      (x) => String(x.forecastDate) >= todayISOForLists,
                     ) || sorted[0];
                   const it = nextIt;
                   return (
@@ -3469,7 +3584,7 @@ export default async function ContractPage({
                   done?: boolean;
                 }[] = Array.isArray((contract as any).indexingDates)
                   ? ((contract as any).indexingDates as any[]).filter(
-                      (it: any) => it && it.done
+                      (it: any) => it && it.done,
                     )
                   : [];
                 if (validated.length === 0) return null;
@@ -3483,8 +3598,8 @@ export default async function ContractPage({
                         .slice()
                         .sort((a, b) =>
                           String(b.actualDate || b.forecastDate).localeCompare(
-                            String(a.actualDate || a.forecastDate)
-                          )
+                            String(a.actualDate || a.forecastDate),
+                          ),
                         )
                         .map((it) => (
                           <li
@@ -3644,18 +3759,18 @@ export default async function ContractPage({
                         typeof meta.newRentEUR === "number"
                           ? meta.newRentEUR
                           : typeof rentEUR === "number" &&
-                            typeof deltaAmountEUR === "number"
-                          ? Math.ceil(rentEUR + deltaAmountEUR)
-                          : typeof rentEUR === "number" &&
-                            typeof deltaPercent === "number"
-                          ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
-                          : undefined;
+                              typeof deltaAmountEUR === "number"
+                            ? Math.ceil(rentEUR + deltaAmountEUR)
+                            : typeof rentEUR === "number" &&
+                                typeof deltaPercent === "number"
+                              ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
+                              : undefined;
                       const source = meta.source as string | undefined;
                       const note =
                         typeof meta.note === "string" ? meta.note : "";
 
                       const defaultEmailSubject = `Notificare indexare chirie – ${String(
-                        (contract as any).name || contract.id
+                        (contract as any).name || contract.id,
                       )}`;
                       const defaultEmailMessage = `Bună ziua,\n\nVă transmitem notificarea de indexare a chiriei conform contractului.\n\nDetaliile sunt incluse mai jos. Vă rugăm să confirmați primirea acestui mesaj.`;
                       return (
@@ -3714,7 +3829,7 @@ export default async function ContractPage({
                                     Chirie după indexare
                                     {validFrom
                                       ? ` (începând cu ${fmt(
-                                          String(validFrom).slice(0, 10)
+                                          String(validFrom).slice(0, 10),
                                         )})`
                                       : ""}
                                     : {newRentEUR} EUR
@@ -3979,7 +4094,7 @@ export default async function ContractPage({
                                   (d as any).amountRON > 0
                                 )
                                   parts.push(
-                                    `${(d as any).amountRON.toFixed(2)} RON`
+                                    `${(d as any).amountRON.toFixed(2)} RON`,
                                   );
                                 const amountStr =
                                   parts.length > 0 ? parts.join(" · ") : "";
@@ -4090,7 +4205,7 @@ export default async function ContractPage({
                                     type="checkbox"
                                     name="returned"
                                     defaultChecked={Boolean(
-                                      (d as any).returned
+                                      (d as any).returned,
                                     )}
                                   />{" "}
                                   Returnat
@@ -4250,7 +4365,7 @@ export default async function ContractPage({
                 ).reduce(
                   (sum, r) =>
                     sum + (typeof r.amountEUR === "number" ? r.amountEUR : 0),
-                  0
+                  0,
                 );
                 const monthlyEq = totalEUR / 12;
                 const rate =
@@ -4432,11 +4547,11 @@ export default async function ContractPage({
                   const issuedDate = new Date(
                     currentYear,
                     inv.month - 1,
-                    inv.day
+                    inv.day,
                   );
                   const issuedIso = issuedDate.toISOString().slice(0, 10);
                   const existingInvoice = invoices.find(
-                    (it) => it.issuedAt === issuedIso
+                    (it) => it.issuedAt === issuedIso,
                   );
                   return (
                     <div
@@ -4628,13 +4743,18 @@ export default async function ContractPage({
                   : "border-foreground/20 hover:bg-foreground/5"
               }`}
               disabled={Boolean(
-                dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+                dueAt && invoices.some((inv) => inv.issuedAt === dueAt),
               )}
             >
               Emite factura
             </button>
+            <CustomInvoiceModal
+              contractId={contract.id}
+              defaultIssuedAt={dueAt ?? todayISOForLists}
+              issueAction={issueInvoice}
+            />
             {Boolean(
-              dueAt && invoices.some((inv) => inv.issuedAt === dueAt)
+              dueAt && invoices.some((inv) => inv.issuedAt === dueAt),
             ) && (
               <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px]">
                 deja emisă pentru luna curentă{dueAt ? ` (${dueAt})` : ""}
@@ -4652,7 +4772,7 @@ export default async function ContractPage({
             ) : (
               invoices.map((inv) => {
                 const confirmMessage = `Sigur dorești să ștergi factura emisă la ${fmt(
-                  inv.issuedAt
+                  inv.issuedAt,
                 )}${inv.number ? ` (nr. ${inv.number})` : ""}?`;
                 return (
                   <div
@@ -4676,6 +4796,16 @@ export default async function ContractPage({
                           {inv.exchangeRateRON.toFixed(4)} · TVA{" "}
                           {inv.tvaPercent}%
                         </div>
+                        {String((inv as any).periodFrom || "") &&
+                        String((inv as any).periodTo || "") ? (
+                          <div className="text-foreground/60">
+                            Perioadă: {(inv as any).periodFrom} -{" "}
+                            {(inv as any).periodTo}
+                            {String((inv as any).kind || "") === "custom_period"
+                              ? " · personalizată"
+                              : ""}
+                          </div>
+                        ) : null}
                       </div>
                       <InvoiceViewer
                         pdfUrl={inv.pdfUrl}
