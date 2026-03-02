@@ -14,7 +14,11 @@ async function saveMonth(formData: FormData) {
   const index = Number(indexRaw.replace(",", "."));
   if (!month || !/^[0-9]{4}-[0-9]{2}$/.test(month)) return;
   if (!Number.isFinite(index) || index <= 0) return;
-  await upsertHicpFallback(month, index);
+  try {
+    await upsertHicpFallback(month, index);
+  } catch (error) {
+    console.error("Failed to save inflation fallback month:", error);
+  }
   revalidatePath("/admin/inflation");
 }
 
@@ -22,7 +26,11 @@ async function deleteMonth(formData: FormData) {
   "use server";
   const month = String(formData.get("month") || "").trim();
   if (!month) return;
-  await deleteHicpFallback(month);
+  try {
+    await deleteHicpFallback(month);
+  } catch (error) {
+    console.error("Failed to delete inflation fallback month:", error);
+  }
   revalidatePath("/admin/inflation");
 }
 
@@ -44,8 +52,10 @@ export default async function InflationAdminPage() {
         <h1 className="text-2xl font-bold">Inflație (fallback)</h1>
         <p className="text-foreground/70 mt-1 text-sm">
           Completează manual indicele HICP (2015=100) per lună. Aceste valori
-          sunt folosite ca fallback dacă nu se poate accesa API-ul ECB. Fișier:{" "}
-          <code>.data/hicp-fallback.json</code>.
+          sunt folosite ca fallback dacă nu se poate accesa API-ul ECB. În
+          producție (cu MongoDB) se salvează în colecția
+          <code> inflation_fallback </code>, iar local în fișierul
+          <code> .data/hicp-fallback.json</code>.
         </p>
       </div>
 
