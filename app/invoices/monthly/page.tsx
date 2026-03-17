@@ -133,13 +133,61 @@ function calendarDateInTimezone(tz: string) {
   };
 }
 
+function parseYearMonth(
+  input: unknown,
+): { year: number; month: number } | null {
+  if (typeof input !== "string") return null;
+  const m = input.trim().match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return null;
+  if (year < 1900 || year > 3000) return null;
+  if (month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+function toYearMonth(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 export default async function MonthlyInvoicesPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[]>>;
 }) {
-  const { year, month } = calendarDateInTimezone(BILLING_TIMEZONE);
+  const currentPeriod = calendarDateInTimezone(BILLING_TIMEZONE);
   const resolvedParams = searchParams ? await searchParams : undefined;
+  const billingMonthRaw = resolvedParams?.billingMonth;
+  const requestedBillingMonth =
+    typeof billingMonthRaw === "string"
+      ? billingMonthRaw
+      : Array.isArray(billingMonthRaw)
+        ? billingMonthRaw[0]
+        : undefined;
+  const parsedBillingMonth = parseYearMonth(requestedBillingMonth);
+  const year = parsedBillingMonth?.year ?? currentPeriod.year;
+  const month = parsedBillingMonth?.month ?? currentPeriod.month;
+  const selectedBillingMonth = toYearMonth(year, month);
+  const isCurrentBillingMonth =
+    year === currentPeriod.year && month === currentPeriod.month;
+  const periodDate = new Date(year, month - 1, 1);
+  const periodLabel = periodDate.toLocaleDateString("ro-RO", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const prevMonthDate = new Date(year, month - 2, 1);
+  const nextMonthDate = new Date(year, month, 1);
+  const prevBillingMonth = toYearMonth(
+    prevMonthDate.getFullYear(),
+    prevMonthDate.getMonth() + 1,
+  );
+  const nextBillingMonth = toYearMonth(
+    nextMonthDate.getFullYear(),
+    nextMonthDate.getMonth() + 1,
+  );
+
   const rateParamRaw = resolvedParams?.rateDate;
   const requestedRateDate =
     typeof rateParamRaw === "string"
@@ -169,6 +217,20 @@ export default async function MonthlyInvoicesPage({
   const rateEffectiveDate = rateSelection?.date;
   const rateSource = rateSelection?.source ?? "bnr";
   const isOverrideActive = Boolean(validRateDate);
+  const paramsForMonth = (billingMonth: string) => {
+    const sp = new URLSearchParams();
+    sp.set("billingMonth", billingMonth);
+    if (validRateDate) sp.set("rateDate", validRateDate);
+    return `/invoices/monthly?${sp.toString()}`;
+  };
+
+  const resetToCurrentHref = (() => {
+    const sp = new URLSearchParams();
+    if (validRateDate) sp.set("rateDate", validRateDate);
+    const qs = sp.toString();
+    return qs ? `/invoices/monthly?${qs}` : "/invoices/monthly";
+  })();
+
   const contracts: ContractType[] = await fetchContracts();
 
   // Invoices issued this month (for duplication prevention only)
@@ -195,6 +257,21 @@ export default async function MonthlyInvoicesPage({
       }
     }
   }
+
+  const findIssuedInvoiceForCandidates = (
+    contractId: string,
+    issuedAt: string,
+    candidates: Array<string | undefined>,
+  ): Invoice | null => {
+    for (const token of candidates) {
+      if (!isNonEmptyString(token)) continue;
+      const key = makeIssuedKey(contractId, issuedAt, token);
+      const hit = issuedInvoiceMap.get(key);
+      if (hit) return hit;
+    }
+    const baseKey = makeIssuedKey(contractId, issuedAt, "");
+    return issuedInvoiceMap.get(baseKey) ?? null;
+  };
 
   // Build list of due invoices (contract occurrences expected this month & not yet issued)
   const due: DueItem[] = [];
@@ -298,12 +375,35 @@ export default async function MonthlyInvoicesPage({
             existingInvoices,
             issuedAt,
             kind: "standard",
-            partnerKey: [partner.id, partner.name, c.partnerId, c.partner].filter(
+            partnerKey: [
+              partner.id,
+              partner.name,
+              c.partnerId,
+              c.partner,
+            ].filter(
               (value): value is string =>
                 typeof value === "string" && value.trim().length > 0,
             ),
           });
-          if (!basePreview) continue;
+          if (!basePreview) {
+            const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
+              partner.id,
+              partner.name,
+              c.partnerId,
+              c.partner,
+            ]);
+            if (!existingInv) continue;
+            due.push({
+              contract: c,
+              issuedAt,
+              amountEUR: existingInv.amountEUR,
+              partnerId: partner.id ?? undefined,
+              partnerName: partner.name,
+              sharePercent: partner.sharePercent,
+              ...rateProps,
+            });
+            continue;
+          }
           const partAmount = basePreview.computedAmountEUR * share;
 
           due.push({
@@ -332,7 +432,22 @@ export default async function MonthlyInvoicesPage({
               typeof value === "string" && value.trim().length > 0,
           ),
         });
-        if (!preview) continue;
+        if (!preview) {
+          const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
+            c.partnerId,
+            c.partner,
+          ]);
+          if (!existingInv) continue;
+          due.push({
+            contract: c,
+            issuedAt,
+            amountEUR: existingInv.amountEUR,
+            isPartial: false,
+            ...extra,
+            ...rateProps,
+          });
+          continue;
+        }
         due.push({
           contract: c,
           issuedAt,
@@ -405,6 +520,56 @@ export default async function MonthlyInvoicesPage({
     dueCountsByBase.set(baseKey, (dueCountsByBase.get(baseKey) ?? 0) + 1);
   }
 
+  // Compute forecasted income totals for the summary banner.
+  const checkDueItemIssued = (d: DueItem): boolean => {
+    const candidates: string[] = [];
+    if (isNonEmptyString(d.partnerId)) candidates.push(d.partnerId);
+    if (isNonEmptyString(d.partnerName)) candidates.push(d.partnerName);
+    if (isNonEmptyString(d.contract.partnerId))
+      candidates.push(d.contract.partnerId);
+    if (isNonEmptyString(d.contract.partner))
+      candidates.push(d.contract.partner);
+    for (const token of candidates) {
+      if (issuedByKey.has(makeIssuedKey(d.contract.id, d.issuedAt, token)))
+        return true;
+    }
+    const baseKey = makeIssuedKey(d.contract.id, d.issuedAt, "");
+    const dueBaseCount = dueCountsByBase.get(baseKey) ?? 0;
+    return (
+      issuedByKey.has(baseKey) && (!candidates.length || dueBaseCount === 1)
+    );
+  };
+
+  let forecastTotalEUR = 0;
+  let forecastIssuedEUR = 0;
+  let forecastIssuedCount = 0;
+  let forecastPendingCount = 0;
+  for (const d of due) {
+    const amt = typeof d.amountEUR === "number" ? d.amountEUR : 0;
+    const corrPct =
+      typeof d.contract.correctionPercent === "number"
+        ? d.contract.correctionPercent
+        : 0;
+    const tvaPct =
+      typeof d.contract.tvaPercent === "number" ? d.contract.tvaPercent : 0;
+    const correctedAmt = amt * (1 + corrPct / 100);
+    // For forecast we use corrected EUR as base
+    if (checkDueItemIssued(d)) {
+      forecastIssuedEUR += correctedAmt;
+      forecastIssuedCount++;
+    } else {
+      forecastPendingCount++;
+    }
+    forecastTotalEUR += correctedAmt;
+    void tvaPct; // included in RON calc below
+  }
+  const forecastPendingEUR = forecastTotalEUR - forecastIssuedEUR;
+  // RON estimate uses current rateOverride; per-contract TVA varies so we show net only
+  const forecastTotalRON =
+    typeof rateOverride === "number"
+      ? forecastTotalEUR * rateOverride
+      : undefined;
+
   async function issueDue(formData: FormData) {
     "use server";
     const contractIdRaw = formData.get("contractId");
@@ -456,7 +621,12 @@ export default async function MonthlyInvoicesPage({
 
     try {
       const existingInvoices = await listInvoicesForContract(c.id);
-      const partnerKey = [partnerId, partnerName, c.partnerId, c.partner].filter(
+      const partnerKey = [
+        partnerId,
+        partnerName,
+        c.partnerId,
+        c.partner,
+      ].filter(
         (value): value is string =>
           typeof value === "string" && value.trim().length > 0,
       );
@@ -771,13 +941,22 @@ export default async function MonthlyInvoicesPage({
     <main className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         <h1 className="text-fluid-4xl font-semibold tracking-tight text-foreground mb-8">
-          Facturi de emis luna aceasta
+          Facturi de emis - {periodLabel}
         </h1>
         <section className="mb-8 rounded-xl border border-foreground/10 bg-background/70 p-5">
           <form
             method="get"
             className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
           >
+            <label className="flex flex-col gap-2 text-sm font-medium text-foreground/80">
+              Luna facturare
+              <input
+                type="month"
+                name="billingMonth"
+                defaultValue={selectedBillingMonth}
+                className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+              />
+            </label>
             <label className="flex flex-col gap-2 text-sm font-medium text-foreground/80">
               Data pentru curs EUR/RON (BNR)
               <input
@@ -792,18 +971,32 @@ export default async function MonthlyInvoicesPage({
                 type="submit"
                 className="rounded-md border border-foreground/20 px-3 py-2 text-sm font-medium hover:bg-foreground/5"
               >
-                Aplică cursul
+                Aplică filtrele
               </button>
-              {validRateDate ? (
+              {!isCurrentBillingMonth || validRateDate ? (
                 <Link
-                  href="/invoices/monthly"
+                  href={resetToCurrentHref}
                   className="text-sm text-foreground/60 hover:text-foreground"
                 >
-                  Revino la data curentă
+                  Revino la luna curentă
                 </Link>
               ) : null}
             </div>
           </form>
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            <Link
+              href={paramsForMonth(prevBillingMonth)}
+              className="rounded-md border border-foreground/20 px-3 py-1.5 hover:bg-foreground/5"
+            >
+              Luna anterioară
+            </Link>
+            <Link
+              href={paramsForMonth(nextBillingMonth)}
+              className="rounded-md border border-foreground/20 px-3 py-1.5 hover:bg-foreground/5"
+            >
+              Luna următoare
+            </Link>
+          </div>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground/70">
             <span>
               {isOverrideActive ? "Curs aplicat" : "Curs disponibil"}:{" "}
@@ -839,11 +1032,52 @@ export default async function MonthlyInvoicesPage({
             </div>
           ) : null}
         </section>
+
+        {due.length > 0 ? (
+          <div className="mb-6 rounded-xl border border-foreground/10 bg-background/70 p-5">
+            <p className="text-xs font-medium text-foreground/50 uppercase tracking-wider mb-3">
+              Venit prognozat &mdash; {periodLabel}
+            </p>
+            <div className="flex flex-wrap items-end gap-6">
+              <div>
+                <div className="text-3xl font-semibold text-foreground tabular-nums">
+                  {fmtEUR(forecastTotalEUR)}
+                </div>
+                {typeof forecastTotalRON === "number" ? (
+                  <div className="mt-0.5 text-sm text-foreground/60">
+                    ≈ {fmtRON(forecastTotalRON)}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex gap-5 text-sm">
+                <div>
+                  <div className="text-foreground/50 mb-0.5">Emisă</div>
+                  <div className="font-medium tabular-nums">
+                    {fmtEUR(forecastIssuedEUR)}
+                    <span className="ml-1 text-foreground/50">
+                      ({forecastIssuedCount})
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-foreground/50 mb-0.5">În așteptare</div>
+                  <div className="font-medium tabular-nums">
+                    {fmtEUR(forecastPendingEUR)}
+                    <span className="ml-1 text-foreground/50">
+                      ({forecastPendingCount})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {(() => {
           if (due.length === 0) {
             return (
               <div className="rounded-xl border border-foreground/10 bg-background/70 p-8 text-center text-foreground/60">
-                Nicio factură programată pentru luna curentă.
+                Nicio factură programată pentru {periodLabel}.
               </div>
             );
           }

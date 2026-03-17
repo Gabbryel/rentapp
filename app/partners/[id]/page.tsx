@@ -19,9 +19,13 @@ export default async function PartnerPage({
   if (!partner) return notFound();
 
   // Try to list related contracts by partnerId or fallback to name
-  let relatedContracts: Awaited<ReturnType<typeof fetchContractsByPartnerId>> = [];
+  let relatedContracts: Awaited<ReturnType<typeof fetchContractsByPartnerId>> =
+    [];
   try {
-    relatedContracts = await fetchContractsByPartnerId(partner.id, partner.name);
+    relatedContracts = await fetchContractsByPartnerId(
+      partner.id,
+      partner.name,
+    );
   } catch {}
 
   // Load partner documents
@@ -56,8 +60,8 @@ export default async function PartnerPage({
     new Set(
       relatedContracts
         .map((c) => (c.assetId ? String(c.assetId) : null))
-        .filter((v): v is string => Boolean(v))
-    )
+        .filter((v): v is string => Boolean(v)),
+    ),
   );
   const assets = (
     await Promise.all(assetIds.map((aid) => getAssetById(aid)))
@@ -98,7 +102,7 @@ export default async function PartnerPage({
       if (c.rentType === "yearly") {
         const sumYear = (((c as any).irregularInvoices ?? []) as any[]).reduce(
           (s, r) => s + (r.amountEUR || 0),
-          0
+          0,
         );
         monthlyEur = sumYear > 0 ? sumYear / 12 : 0;
       } else {
@@ -116,7 +120,7 @@ export default async function PartnerPage({
       }
       return acc;
     },
-    { eur: 0, ronBase: 0, ronCorrected: 0 }
+    { eur: 0, ronBase: 0, ronCorrected: 0 },
   );
 
   const yearlyTotals = relatedContracts.reduce(
@@ -143,7 +147,7 @@ export default async function PartnerPage({
       }
       return acc;
     },
-    { eur: 0, ronBase: 0, ronCorrected: 0 }
+    { eur: 0, ronBase: 0, ronCorrected: 0 },
   );
 
   return (
@@ -243,7 +247,7 @@ export default async function PartnerPage({
                     phone?: string | null;
                     email?: string | null;
                   },
-                  idx: number
+                  idx: number,
                 ) => (
                   <li
                     key={idx}
@@ -279,7 +283,7 @@ export default async function PartnerPage({
                       </div>
                     </div>
                   </li>
-                )
+                ),
               )}
             </ul>
           ) : (
