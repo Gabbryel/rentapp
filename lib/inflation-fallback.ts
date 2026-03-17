@@ -50,7 +50,10 @@ export async function readHicpFallback(): Promise<Record<string, number>> {
       const db = await getDb();
       const docs = await db
         .collection<HicpFallbackDoc>("inflation_fallback")
-        .find({ key: FALLBACK_KEY }, { projection: { _id: 0 } })
+        .find(
+          { $or: [{ key: FALLBACK_KEY }, { key: { $exists: false } }] },
+          { projection: { _id: 0 } },
+        )
         .toArray();
       const entries = docs
         .filter((d) => isMonthKey(String(d.month || "")))
@@ -98,7 +101,12 @@ export async function upsertHicpFallback(month: string, index: number): Promise<
   if (useMongoStorage()) {
     const db = await getDb();
     await db.collection<HicpFallbackDoc>("inflation_fallback").updateOne(
-      { key: FALLBACK_KEY, month: normalizedMonth },
+      {
+        $or: [
+          { key: FALLBACK_KEY, month: normalizedMonth },
+          { key: { $exists: false }, month: normalizedMonth },
+        ],
+      },
       {
         $set: {
           key: FALLBACK_KEY,
@@ -125,7 +133,12 @@ export async function deleteHicpFallback(month: string): Promise<Record<string, 
     const db = await getDb();
     await db
       .collection<HicpFallbackDoc>("inflation_fallback")
-      .deleteOne({ key: FALLBACK_KEY, month: normalizedMonth });
+      .deleteOne({
+        $or: [
+          { key: FALLBACK_KEY, month: normalizedMonth },
+          { key: { $exists: false }, month: normalizedMonth },
+        ],
+      });
     return readHicpFallback();
   }
 

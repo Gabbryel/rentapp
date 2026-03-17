@@ -1990,10 +1990,30 @@ export default async function ContractPage({
     ? "border border-emerald-500/30 bg-emerald-500/15 text-emerald-700"
     : "border border-amber-500/30 bg-amber-500/15 text-amber-800";
 
-  const contractEnd = resolveEndDateWithWritten(
-    effectiveEndDate(contract),
+  const contractNaturalEnd = resolveEndDateWithWritten(
+    (() => {
+      const arr = Array.isArray((contract as any).contractExtensions)
+        ? (
+            (contract as any).contractExtensions as Array<{
+              extendedUntil?: string;
+            }>
+          )
+            .map((r) => String(r.extendedUntil || ""))
+            .filter(Boolean)
+            .sort()
+        : [];
+      const latest = arr.length > 0 ? arr[arr.length - 1] : undefined;
+      return latest || contract.endDate;
+    })(),
     latestWrittenContract?.contractEndDate ?? null,
   );
+
+  const terminatedAt =
+    normalizeIsoDate((contract as any).terminationDate) || "";
+  const contractEnd =
+    terminatedAt && terminatedAt < contractNaturalEnd
+      ? terminatedAt
+      : contractNaturalEnd;
 
   const today = new Date();
   const isExpired = new Date(contractEnd) < today;
@@ -2265,12 +2285,14 @@ export default async function ContractPage({
           </Link>
           <span
             className={`shrink-0 text-[10px] uppercase tracking-wide rounded-full px-2 py-1 ring-1 ${
-              isExpired
-                ? "ring-red-500/20 text-red-600 dark:text-red-400"
-                : "ring-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+              terminatedAt
+                ? "ring-rose-500/30 text-rose-600 dark:text-rose-400"
+                : isExpired
+                  ? "ring-red-500/20 text-red-600 dark:text-red-400"
+                  : "ring-emerald-500/20 text-emerald-600 dark:text-emerald-400"
             }`}
           >
-            {isExpired ? "Expirat" : "Activ"}
+            {terminatedAt ? "Incetat" : isExpired ? "Expirat" : "Activ"}
           </span>
         </div>
       </header>
@@ -2344,6 +2366,28 @@ export default async function ContractPage({
                     <span className="block text-foreground/60">Expiră</span>
                     <span className="font-medium">{fmt(contractEnd)}</span>
                   </div>
+                  {terminatedAt ? (
+                    <div className="col-span-2">
+                      <span className="block text-foreground/60">
+                        Încetare înainte de termen
+                      </span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="rounded bg-rose-500/10 px-2 py-0.5 text-rose-700 dark:text-rose-400">
+                          {fmt(terminatedAt)}
+                        </span>
+                        <span className="rounded bg-rose-500/10 px-2 py-0.5 text-rose-700 dark:text-rose-400">
+                          {(contract as any).terminationReason === "fault"
+                            ? "Din culpa unei părți"
+                            : "Acordul părților"}
+                        </span>
+                        {(contract as any).terminationNotes ? (
+                          <span className="rounded bg-foreground/5 px-2 py-0.5 text-foreground/70">
+                            {String((contract as any).terminationNotes)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                   {(() => {
                     const arr = Array.isArray(
                       (contract as any).contractExtensions,
@@ -3075,7 +3119,22 @@ export default async function ContractPage({
               normalizeIsoDate(latestWrittenContract?.contractSignedAt) ||
               ""
             }
+            contractStart={normalizeIsoDate(contract.startDate) || ""}
             contractEnd={normalizeIsoDate(contractEnd) || ""}
+            contractNaturalEnd={normalizeIsoDate(contractNaturalEnd) || ""}
+            terminationDate={terminatedAt || undefined}
+            terminationReason={
+              (contract as any).terminationReason === "fault"
+                ? "fault"
+                : (contract as any).terminationReason === "agreement"
+                  ? "agreement"
+                  : undefined
+            }
+            terminationNotes={
+              typeof (contract as any).terminationNotes === "string"
+                ? (contract as any).terminationNotes
+                : undefined
+            }
             defaultIndexingContractNumber={String(
               latestWrittenContract?.documentNumber || "",
             ).trim()}

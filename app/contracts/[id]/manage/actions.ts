@@ -161,6 +161,15 @@ export async function addExtensionAction(formData: FormData) {
   const existing = await fetchContractById(contractId);
   if (!existing) return;
 
+  if ((existing as any).terminationDate) {
+    publishToast(
+      "Contractul este încetat înainte de termen. Revocă încetarea înainte să adaugi prelungiri.",
+      "error"
+    );
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+
   const writtenContracts = await listWrittenContractsByContractId(contractId);
   const latestWrittenEnd = latestWrittenContractEnd(writtenContracts);
   const norm = (s: string) => String(s).slice(0, 10);
@@ -244,6 +253,94 @@ export async function addExtensionAction(formData: FormData) {
     meta: newEntry,
   });
 
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+export async function terminateContractAction(formData: FormData) {
+  const contractId = String(formData.get("contractId") || "").trim();
+  const terminationDate = String(formData.get("terminationDate") || "").trim();
+  const terminationReason = String(formData.get("terminationReason") || "").trim();
+  const terminationNotes = String(formData.get("terminationNotes") || "").trim();
+
+  if (!contractId) return;
+
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(terminationDate)) {
+    publishToast("Data încetării trebuie să fie în format YYYY-MM-DD.", "error");
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+
+  if (terminationReason !== "agreement" && terminationReason !== "fault") {
+    publishToast("Selectează un motiv valid pentru încetare.", "error");
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+
+  const startDate = String(existing.startDate).slice(0, 10);
+  const effectiveEnd = String(effectiveEndDate(existing)).slice(0, 10);
+
+  if (terminationDate < startDate) {
+    publishToast("Data încetării nu poate fi înainte de data de început.", "error");
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+
+  if (terminationDate >= effectiveEnd) {
+    publishToast(
+      "Încetarea înainte de termen trebuie să fie strict înainte de data expirării curente.",
+      "error"
+    );
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+
+  await upsertContract({
+    ...(existing as any),
+    terminationDate,
+    terminationReason,
+    terminationNotes: terminationNotes || undefined,
+  } as any);
+
+  await logAction({
+    action: "contract.terminate",
+    targetType: "contract",
+    targetId: contractId,
+    meta: {
+      terminationDate,
+      terminationReason,
+      terminationNotes: terminationNotes || undefined,
+    },
+  });
+
+  publishToast("Contractul a fost încetat înainte de termen.", "success");
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+export async function reopenContractAction(formData: FormData) {
+  const contractId = String(formData.get("contractId") || "").trim();
+  if (!contractId) return;
+
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+
+  const patch: any = { ...(existing as any) };
+  delete patch.terminationDate;
+  delete patch.terminationReason;
+  delete patch.terminationNotes;
+
+  await upsertContract(patch);
+
+  await logAction({
+    action: "contract.terminate.revoke",
+    targetType: "contract",
+    targetId: contractId,
+  });
+
+  publishToast("Încetarea înainte de termen a fost revocată.", "success");
   revalidatePath(`/contracts/${contractId}`);
 }
 

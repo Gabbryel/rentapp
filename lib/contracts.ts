@@ -502,6 +502,16 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     signedAt: toYmd(r.signedAt)!,
     startDate: toYmd(r.startDate)!,
     endDate: toYmd(r.endDate)!,
+    terminationDate: toYmd((r as any).terminationDate),
+    terminationReason: ((): "agreement" | "fault" | undefined => {
+      const v = (r as any).terminationReason;
+      return v === "agreement" || v === "fault" ? v : undefined;
+    })(),
+    terminationNotes:
+      typeof (r as any).terminationNotes === "string" &&
+      (r as any).terminationNotes.trim()
+        ? (r as any).terminationNotes.trim()
+        : undefined,
     // Normalize contractExtensions
     contractExtensions: ((): { docDate: string; document: string; extendedUntil: string }[] | undefined => {
       const arr = Array.isArray((r as any).contractExtensions)
@@ -792,7 +802,13 @@ export function effectiveEndDate(c: ContractType): string {
     .filter(Boolean)
     .sort();
   const latest = dates.length > 0 ? dates[dates.length - 1] : undefined;
-  return latest ?? c.endDate;
+  const naturalEnd = latest ?? c.endDate;
+  const terminationDate =
+    typeof (c as any).terminationDate === "string"
+      ? String((c as any).terminationDate).slice(0, 10)
+      : "";
+  if (terminationDate && terminationDate < naturalEnd) return terminationDate;
+  return naturalEnd;
 }
 
 // Compute future indexing dates within contract bounds

@@ -77,6 +77,26 @@ runner.test('Unsorted extensions still yield latest date', () => {
   runner.expect(effectiveEndDate(c)).toBe('2026-05-31');
 });
 
+runner.test('Termination date overrides natural end date when earlier', () => {
+  const c = base({
+    contractExtensions: [
+      { docDate: '2025-06-01', document: 'Addendum 1', extendedUntil: '2026-03-31' },
+    ],
+    terminationDate: '2025-10-15',
+    terminationReason: 'agreement',
+  });
+  runner.expect(effectiveEndDate(c)).toBe('2025-10-15');
+});
+
+runner.test('Termination date after natural end is ignored by effectiveEndDate', () => {
+  const c = {
+    ...base({ endDate: '2025-12-31' }),
+    terminationDate: '2026-01-10',
+    terminationReason: 'fault',
+  } as any;
+  runner.expect(effectiveEndDate(c)).toBe('2025-12-31');
+});
+
 runner.test('Schema rejects extension earlier than original endDate', () => {
   let threw = false;
   try {

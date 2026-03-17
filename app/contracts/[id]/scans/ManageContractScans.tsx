@@ -20,6 +20,8 @@ import {
   updateCorrectionPercentAction,
   addExtensionAction,
   deleteExtensionAction,
+  terminateContractAction,
+  reopenContractAction,
 } from "../manage/actions";
 
 function fmtDate(dateIso?: string) {
@@ -34,7 +36,7 @@ function fmtDate(dateIso?: string) {
 
 function generateDefaultNotificationContent(
   meta: Record<string, unknown>,
-  contractName?: string
+  contractName?: string,
 ): string {
   const fromMonth = String(meta.fromMonth || meta.from || "?");
   const toMonth = String(meta.toMonth || meta.to || "?");
@@ -83,8 +85,8 @@ function generateDefaultNotificationContent(
     typeof meta.newRentEUR === "number"
       ? (meta.newRentEUR as number)
       : typeof rentEUR === "number" && typeof deltaPercent === "number"
-      ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
-      : undefined;
+        ? Math.ceil(rentEUR * (1 + deltaPercent / 100))
+        : undefined;
 
   const validFromText = effectiveValidFromIso
     ? fmtDate(effectiveValidFromIso)
@@ -167,7 +169,12 @@ type Props = {
     extendedUntil?: string;
   }>;
   contractSignedAt?: string;
+  contractStart?: string;
   contractEnd?: string;
+  contractNaturalEnd?: string;
+  terminationDate?: string;
+  terminationReason?: "agreement" | "fault";
+  terminationNotes?: string;
   indexingInflation?: {
     percent: number;
     fromMonth: string;
@@ -225,7 +232,12 @@ export default function ManageContractScans({
   deposits,
   contractExtensions,
   contractSignedAt,
+  contractStart,
   contractEnd,
+  contractNaturalEnd,
+  terminationDate,
+  terminationReason,
+  terminationNotes,
   indexingInflation,
   currentRent,
   defaultIndexingContractNumber,
@@ -243,11 +255,11 @@ export default function ManageContractScans({
   contractName,
 }: Props) {
   const [editingNoticeId, setEditingNoticeId] = React.useState<string | null>(
-    null
+    null,
   );
   const [editedContent, setEditedContent] = React.useState("");
   const [deletingNoticeId, setDeletingNoticeId] = React.useState<string | null>(
-    null
+    null,
   );
   const [viewingScan, setViewingScan] = React.useState<{
     url: string;
@@ -255,19 +267,19 @@ export default function ManageContractScans({
   } | null>(null);
   const [addState, addAction] = useActionState<ScanActionState, FormData>(
     addScanAction,
-    { ok: false }
+    { ok: false },
   );
   const [, updateAction] = useActionState<ScanActionState, FormData>(
     updateScanTitleAction,
-    { ok: false }
+    { ok: false },
   );
   const [, removeAction] = useActionState<ScanActionState, FormData>(
     deleteScanAction,
-    { ok: false }
+    { ok: false },
   );
   const [vatState, updateVatAction] = useActionState<ScanActionState, FormData>(
     updateVatPercentAction,
-    { ok: false }
+    { ok: false },
   );
   const [indexingState, issueIndexingAction] = useActionState<
     IndexingNoticeState,
@@ -275,7 +287,7 @@ export default function ManageContractScans({
   >(issueIndexingNoticeAction, { ok: false });
   const [msg, setMsg] = React.useState<string | null>(null);
   const [viewingNoticeId, setViewingNoticeId] = React.useState<string | null>(
-    null
+    null,
   );
   const printRef = useRef<{ triggerPrint: () => void }>(null);
 
@@ -485,7 +497,7 @@ export default function ManageContractScans({
                                   setViewingNoticeId(
                                     viewingNoticeId === noticeId
                                       ? null
-                                      : noticeId
+                                      : noticeId,
                                   )
                                 }
                                 className="text-xs text-blue-300 underline-offset-2 hover:underline"
@@ -504,7 +516,7 @@ export default function ManageContractScans({
                                         ? meta.editedContent
                                         : generateDefaultNotificationContent(
                                             meta,
-                                            contractName
+                                            contractName,
                                           );
                                     setEditedContent(existingContent);
                                     setEditingNoticeId(noticeId);
@@ -520,7 +532,7 @@ export default function ManageContractScans({
                                   setViewingNoticeId(noticeId);
                                   setTimeout(
                                     () => printRef.current?.triggerPrint(),
-                                    100
+                                    100,
                                   );
                                 }}
                                 className="text-xs text-green-300 underline-offset-2 hover:underline"
@@ -604,7 +616,7 @@ export default function ManageContractScans({
                                               <span className="text-[10px] text-white/40 shrink-0">
                                                 {send.sentAt
                                                   ? new Date(
-                                                      send.sentAt
+                                                      send.sentAt,
                                                     ).toLocaleString("ro-RO", {
                                                       year: "numeric",
                                                       month: "2-digit",
@@ -639,7 +651,7 @@ export default function ManageContractScans({
                                                   <span>
                                                     +
                                                     {send.deltaPercent.toFixed(
-                                                      2
+                                                      2,
                                                     )}
                                                     %
                                                   </span>
@@ -700,7 +712,7 @@ export default function ManageContractScans({
                                                         </span>
                                                         <span className="font-mono">
                                                           {send.accepted.join(
-                                                            ", "
+                                                            ", ",
                                                           )}
                                                         </span>
                                                       </div>
@@ -714,7 +726,7 @@ export default function ManageContractScans({
                                                         </span>
                                                         <span className="font-mono">
                                                           {send.rejected.join(
-                                                            ", "
+                                                            ", ",
                                                           )}
                                                         </span>
                                                       </div>
@@ -734,7 +746,7 @@ export default function ManageContractScans({
                                                         ).map(
                                                           (
                                                             failure: string,
-                                                            idx: number
+                                                            idx: number,
                                                           ) => (
                                                             <div
                                                               key={idx}
@@ -742,7 +754,7 @@ export default function ManageContractScans({
                                                             >
                                                               {failure}
                                                             </div>
-                                                          )
+                                                          ),
                                                         )}
                                                       </div>
                                                     )}
@@ -778,7 +790,7 @@ export default function ManageContractScans({
                                                 setTimeout(
                                                   () =>
                                                     printRef.current?.triggerPrint(),
-                                                  100
+                                                  100,
                                                 );
                                               }}
                                               className="rounded px-2 py-1 text-[10px] text-green-300 hover:bg-green-500/10"
@@ -789,7 +801,7 @@ export default function ManageContractScans({
                                           </div>
                                         </div>
                                       </div>
-                                    )
+                                    ),
                                   )}
                                 </div>
                               </details>
@@ -829,7 +841,7 @@ export default function ManageContractScans({
                                 <form
                                   action={async (formData) => {
                                     await saveEditedNotificationAction(
-                                      formData
+                                      formData,
                                     );
                                     setEditingNoticeId(null);
                                   }}
@@ -1096,14 +1108,14 @@ export default function ManageContractScans({
                                 (d as any).amountEUR > 0
                               )
                                 parts.push(
-                                  `${(d as any).amountEUR.toFixed(2)} EUR`
+                                  `${(d as any).amountEUR.toFixed(2)} EUR`,
                                 );
                               if (
                                 typeof (d as any).amountRON === "number" &&
                                 (d as any).amountRON > 0
                               )
                                 parts.push(
-                                  `${(d as any).amountRON.toFixed(2)} RON`
+                                  `${(d as any).amountRON.toFixed(2)} RON`,
                                 );
                               const amountStr =
                                 parts.length > 0 ? parts.join(" · ") : "";
@@ -1198,7 +1210,7 @@ export default function ManageContractScans({
                                   type="checkbox"
                                   name="isDeposited"
                                   defaultChecked={Boolean(
-                                    (d as any).isDeposited
+                                    (d as any).isDeposited,
                                   )}
                                 />
                                 Depus
@@ -1417,10 +1429,10 @@ export default function ManageContractScans({
                               {s.fileSize < 1024
                                 ? `${s.fileSize} B`
                                 : s.fileSize < 1024 * 1024
-                                ? `${(s.fileSize / 1024).toFixed(1)} KB`
-                                : `${(s.fileSize / (1024 * 1024)).toFixed(
-                                    2
-                                  )} MB`}
+                                  ? `${(s.fileSize / 1024).toFixed(1)} KB`
+                                  : `${(s.fileSize / (1024 * 1024)).toFixed(
+                                      2,
+                                    )} MB`}
                             </div>
                           )}
                         </div>
@@ -1457,7 +1469,7 @@ export default function ManageContractScans({
                             type="button"
                             onClick={() => {
                               const form = document.getElementById(
-                                `edit-scan-form-${idx}`
+                                `edit-scan-form-${idx}`,
                               ) as HTMLFormElement;
                               if (form) form.classList.toggle("hidden");
                             }}
@@ -1588,8 +1600,8 @@ export default function ManageContractScans({
                       .slice()
                       .sort((a, b) =>
                         String(a.extendedUntil || "").localeCompare(
-                          String(b.extendedUntil || "")
-                        )
+                          String(b.extendedUntil || ""),
+                        ),
                       )
                       .map((r, i) => {
                         const docDate = String(r.docDate || "");
@@ -1703,6 +1715,98 @@ export default function ManageContractScans({
                 </form>
               </div>
             </Section>
+
+            <Section title="Incetare inainte de termen">
+              {terminationDate ? (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
+                  <div className="font-semibold">
+                    Contract incetat la: {terminationDate}
+                  </div>
+                  <div className="mt-1 text-amber-200/90">
+                    Motiv:{" "}
+                    {terminationReason === "fault"
+                      ? "Din culpa unei parti"
+                      : "Acordul partilor"}
+                  </div>
+                  {terminationNotes ? (
+                    <div className="mt-1 text-amber-200/80">
+                      Detalii: {terminationNotes}
+                    </div>
+                  ) : null}
+                  <form action={reopenContractAction} className="mt-3">
+                    <input type="hidden" name="contractId" value={id} />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-amber-300/40 px-3 py-1.5 text-xs font-semibold hover:bg-amber-500/20"
+                    >
+                      Revoca incetarea
+                    </button>
+                  </form>
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-md border border-white/12 bg-white/[0.03] p-3">
+                <div className="text-[11px] uppercase tracking-wide text-white/60 mb-2">
+                  {terminationDate
+                    ? "Actualizeaza incetarea"
+                    : "Inregistreaza incetare"}
+                </div>
+                <form
+                  action={terminateContractAction}
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end text-sm"
+                >
+                  <input type="hidden" name="contractId" value={id} />
+                  <div>
+                    <label className="block text-white/60 mb-1">
+                      Data incetarii
+                    </label>
+                    <input
+                      name="terminationDate"
+                      type="date"
+                      min={contractStart || contractSignedAt || undefined}
+                      max={contractNaturalEnd || contractEnd || undefined}
+                      defaultValue={terminationDate || ""}
+                      className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-white/60 mb-1">
+                      Motiv incetare
+                    </label>
+                    <select
+                      name="terminationReason"
+                      defaultValue={terminationReason || "agreement"}
+                      className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                      required
+                    >
+                      <option value="agreement">Acordul partilor</option>
+                      <option value="fault">
+                        Din culpa uneia dintre parti
+                      </option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-white/60 mb-1">
+                      Detalii (optional)
+                    </label>
+                    <textarea
+                      name="terminationNotes"
+                      rows={2}
+                      defaultValue={terminationNotes || ""}
+                      placeholder="Ex: notificare scrisa, articol contractual aplicat"
+                      className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-rose-300/40 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/15"
+                  >
+                    Salveaza incetarea
+                  </button>
+                </form>
+              </div>
+            </Section>
           </div>
         </>
       )}
@@ -1792,7 +1896,7 @@ export default function ManageContractScans({
                   type="button"
                   onClick={() => {
                     const iframe = document.getElementById(
-                      "scan-viewer-iframe"
+                      "scan-viewer-iframe",
                     ) as HTMLIFrameElement;
                     if (iframe?.requestFullscreen) {
                       iframe.requestFullscreen();

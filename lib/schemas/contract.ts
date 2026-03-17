@@ -74,6 +74,14 @@ export const ContractSchema = z
     signedAt: ISODate,
     startDate: ISODate,
     endDate: ISODate,
+    terminationDate: ISODate.optional(),
+    terminationReason: z.enum(["agreement", "fault"]).optional(),
+    terminationNotes: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
     // Contract extensions: each row captures the addendum document, its date, and the new expiry date
     contractExtensions: z
       .array(
@@ -198,6 +206,62 @@ export const ContractSchema = z
         path: ["endDate"],
         message: "endDate trebuie să fie după sau egal cu startDate",
       });
+    }
+
+    const naturalEnd = (() => {
+      const list = Array.isArray((val as any).contractExtensions)
+        ? ((val as any).contractExtensions as {
+            docDate: string;
+            document: string;
+            extendedUntil: string;
+          }[])
+        : [];
+      const latest = list
+        .map((r) => r.extendedUntil)
+        .filter(Boolean)
+        .sort()
+        .slice(-1)[0];
+      return new Date(latest || val.endDate);
+    })();
+
+    const terminationDate = (val as any).terminationDate as string | undefined;
+    const terminationReason = (val as any).terminationReason as
+      | "agreement"
+      | "fault"
+      | undefined;
+
+    if (terminationDate && !terminationReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["terminationReason"],
+        message: "Selectează motivul încetării contractului.",
+      });
+    }
+
+    if (!terminationDate && terminationReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["terminationDate"],
+        message: "Completează data încetării contractului.",
+      });
+    }
+
+    if (terminationDate) {
+      const t = new Date(terminationDate);
+      if (t < b) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["terminationDate"],
+          message: "terminationDate trebuie să fie după sau egal cu startDate",
+        });
+      }
+      if (t >= naturalEnd) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["terminationDate"],
+          message: "terminationDate trebuie să fie înainte de data expirării curente",
+        });
+      }
     }
 
     // Validate contractExtensions entries relative to start/end
