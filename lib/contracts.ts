@@ -701,6 +701,34 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
   } as Partial<ContractType>;
 }
 
+function sameText(a: unknown, b: unknown): boolean {
+  const aa = typeof a === "string" ? a.trim().toLowerCase() : "";
+  const bb = typeof b === "string" ? b.trim().toLowerCase() : "";
+  return Boolean(aa) && Boolean(bb) && aa === bb;
+}
+
+function contractMatchesPartner(c: ContractType, partnerId: string, partnerName?: string): boolean {
+  const pid = String(partnerId || "").trim();
+  const pName = String(partnerName || "").trim();
+
+  if (pid) {
+    if (typeof c.partnerId === "string" && c.partnerId === pid) return true;
+    const ps = Array.isArray((c as any).partners)
+      ? ((c as any).partners as Array<{ id?: string; name?: string }>)
+      : [];
+    if (ps.some((p) => p && typeof p.id === "string" && p.id === pid)) return true;
+  }
+
+  if (!pName) return false;
+
+  if (sameText(c.partner, pName)) return true;
+
+  const ps = Array.isArray((c as any).partners)
+    ? ((c as any).partners as Array<{ id?: string; name?: string }>)
+    : [];
+  return ps.some((p) => p && sameText(p.name, pName));
+}
+
 export async function fetchContracts(): Promise<ContractType[]> {
   if (process.env.MONGODB_URI) {
     try {
@@ -790,6 +818,51 @@ export async function fetchContractsByAssetId(assetId: string, injectedDb?: any)
     if (local.length > 0) return local.filter((c) => c.assetId === assetId);
   } catch {}
   return MOCK_CONTRACTS.filter((c) => (c as any).assetId === assetId);
+}
+
+export async function fetchContractsByPartnerId(
+  partnerId: string,
+  partnerName?: string,
+  injectedDb?: any
+): Promise<ContractType[]> {
+  const pid = String(partnerId || "").trim();
+  const pName = String(partnerName || "").trim();
+  if (!pid && !pName) return [];
+
+  if (injectedDb || process.env.MONGODB_URI) {
+    try {
+      const db = injectedDb ?? (await getDb());
+      const clauses: Record<string, unknown>[] = [];
+      if (pid) {
+        clauses.push({ partnerId: pid });
+        clauses.push({ "partners.id": pid });
+      }
+      if (pName) {
+        clauses.push({ partner: pName });
+        clauses.push({ "partners.name": pName });
+      }
+      const docs = await db
+        .collection("contracts")
+        .find(clauses.length > 0 ? { $or: clauses } : {}, { projection: { _id: 0 } })
+        .toArray();
+      const valid: ContractType[] = [];
+      for (const raw of docs) {
+        const parsed = ContractSchema.safeParse(normalizeRaw(raw));
+        if (!parsed.success) continue;
+        if (contractMatchesPartner(parsed.data, pid, pName)) valid.push(parsed.data);
+      }
+      return valid;
+    } catch (err) {
+      console.warn("Mongo indisponibil (fetchContractsByPartnerId), fallback local.", err);
+    }
+  }
+
+  try {
+    const local = await readJson<ContractType[]>("contracts.json", []);
+    if (local.length > 0) return local.filter((c) => contractMatchesPartner(c, pid, pName));
+  } catch {}
+
+  return MOCK_CONTRACTS.filter((c) => contractMatchesPartner(c, pid, pName));
 }
 
 // Effective end date: latest extendedUntil from contractExtensions, otherwise endDate

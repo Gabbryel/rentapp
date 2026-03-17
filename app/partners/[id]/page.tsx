@@ -5,7 +5,7 @@ import { fetchPartnerById } from "@/lib/partners";
 import { listPartnerDocs } from "@/lib/partner-docs";
 import DocsList from "@/app/components/docs-list";
 import { getAssetById } from "@/lib/assets";
-import { fetchContracts } from "@/lib/contracts";
+import { fetchContractsByPartnerId } from "@/lib/contracts";
 import CardsGrid from "@/app/components/ui/cards-grid";
 import Card from "@/app/components/ui/card";
 
@@ -19,24 +19,9 @@ export default async function PartnerPage({
   if (!partner) return notFound();
 
   // Try to list related contracts by partnerId or fallback to name
-  let relatedContracts: Awaited<ReturnType<typeof fetchContracts>> = [];
+  let relatedContracts: Awaited<ReturnType<typeof fetchContractsByPartnerId>> = [];
   try {
-    const all = await fetchContracts();
-    relatedContracts = all.filter((c) => {
-      const ps = (c as any).partners as
-        | Array<{ id?: string; name: string }>
-        | undefined;
-      if (ps && ps.length > 0) {
-        if (ps.some((p) => p.id && p.id === partner.id)) return true;
-        if (!ps.some((p) => p.id)) {
-          return ps.some((p) => p.name === partner.name);
-        }
-      }
-      return (
-        (c.partnerId && c.partnerId === partner.id) ||
-        (!c.partnerId && c.partner === partner.name)
-      );
-    });
+    relatedContracts = await fetchContractsByPartnerId(partner.id, partner.name);
   } catch {}
 
   // Load partner documents
