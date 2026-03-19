@@ -17,6 +17,9 @@ export default function GlobalError({
         <pre className="mt-3 overflow-auto rounded-md bg-foreground/5 p-3 text-xs text-foreground/70">
           {error?.message}
         </pre>
+        {error?.digest && (
+          <p className="mt-2 text-xs text-foreground/60">Digest: {error.digest}</p>
+        )}
         <button
           className="mt-4 rounded-md border border-foreground/20 px-3 py-1.5 text-sm font-semibold hover:bg-foreground/5"
           onClick={() => reset()}

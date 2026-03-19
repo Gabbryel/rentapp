@@ -79,8 +79,17 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const homepageWarnings: string[] = [];
+
   // Fetch owners and get selected owner from search params
-  const owners = await fetchOwners();
+  let owners: Awaited<ReturnType<typeof fetchOwners>> = [];
+  try {
+    owners = await fetchOwners();
+  } catch (error) {
+    console.error("Failed to fetch owners for homepage:", error);
+    homepageWarnings.push("Nu am putut incarca lista de proprietari.");
+  }
+
   const sp = await searchParams;
   const selectedOwnerId =
     (typeof sp.ownerId === "string"
@@ -94,7 +103,14 @@ export default async function HomePage({
     owners.find((o) => o.id === selectedOwnerId) ?? owners[0];
 
   // Fetch all contracts and filter by selected owner
-  const allContracts = await fetchContracts();
+  let allContracts: Awaited<ReturnType<typeof fetchContracts>> = [];
+  try {
+    allContracts = await fetchContracts();
+  } catch (error) {
+    console.error("Failed to fetch contracts for homepage:", error);
+    homepageWarnings.push("Nu am putut incarca contractele.");
+  }
+
   const contracts = allContracts.filter((c: any) => {
     const okById = c.ownerId && String(c.ownerId) === selectedOwnerId;
     const okByName = String(c.owner || "") === selectedOwner?.name;
@@ -160,7 +176,15 @@ export default async function HomePage({
     d.setMonth(d.getMonth() - i);
     const m = d.getMonth() + 1;
     const y = d.getFullYear();
-    const allInvs = await listInvoicesForMonth(y, m);
+    let allInvs: Awaited<ReturnType<typeof listInvoicesForMonth>> = [];
+    try {
+      allInvs = await listInvoicesForMonth(y, m);
+    } catch (error) {
+      console.error(`Failed to fetch invoices for ${y}-${m}:`, error);
+      if (!homepageWarnings.includes("Nu am putut incarca toate facturile.")) {
+        homepageWarnings.push("Nu am putut incarca toate facturile.");
+      }
+    }
     // Filter invoices by selected owner
     const invs = allInvs.filter((inv) => {
       const okById = inv.ownerId && String(inv.ownerId) === selectedOwnerId;
@@ -430,6 +454,12 @@ export default async function HomePage({
   return (
     <main className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-[1600px]">
+        {homepageWarnings.length > 0 && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+            {homepageWarnings.join(" ")}
+          </div>
+        )}
+
         {/* Hero Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
