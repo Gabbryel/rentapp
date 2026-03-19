@@ -12,6 +12,173 @@ import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
 const INVOICE_MONGO_CONFIGURED = !!process.env.MONGODB_URI;
 const ALLOW_INVOICE_LOCAL_FALLBACK = process.env.NODE_ENV === "development";
 
+function normalizeInvoiceForRead(raw: unknown): Record<string, unknown> {
+  const src = ((raw ?? {}) as Record<string, unknown>);
+  const out: Record<string, unknown> = { ...src };
+
+  const toText = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+  const toNumber = (v: unknown): number | undefined => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim().length > 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
+  };
+  const nullToUndefined = (key: string) => {
+    if (out[key] === null) out[key] = undefined;
+  };
+
+  // Legacy rows may have null optional fields.
+  [
+    "number",
+    "note",
+    "pdfUrl",
+    "kind",
+    "billedAt",
+    "periodFrom",
+    "periodTo",
+    "amountSource",
+    "autoAmountEUR",
+    "manualOverrideEUR",
+    "exchangeRateDate",
+    "issuedByEmail",
+    "previewToken",
+    "ownerId",
+  ].forEach(nullToUndefined);
+
+  // Partner identity fallback for pre-partnerId rows.
+  const partnerId = toText(out.partnerId);
+  const partner = toText(out.partner);
+  if (!partnerId && partner) out.partnerId = partner;
+  if (!partner && partnerId) out.partner = partnerId;
+
+  // Owner fallback for legacy docs.
+  const owner = toText(out.owner);
+  if (!owner) {
+    const ownerFromId = toText(out.ownerId);
+    out.owner = ownerFromId || "Unknown owner";
+  }
+
+  // Contract label fallback for legacy docs.
+  const contractName = toText(out.contractName);
+  if (!contractName) {
+    const contractId = toText(out.contractId) || "unknown";
+    out.contractName = `Contract ${contractId}`;
+  }
+
+  // Numeric defaults/fallbacks for legacy null numeric fields.
+  let amountEUR = toNumber(out.amountEUR);
+  let correctionPercent = toNumber(out.correctionPercent) ?? 0;
+  let correctedAmountEUR = toNumber(out.correctedAmountEUR);
+
+  if (typeof amountEUR !== "number" && typeof correctedAmountEUR === "number") {
+    amountEUR = correctedAmountEUR;
+    correctionPercent = 0;
+  }
+  if (typeof correctedAmountEUR !== "number" && typeof amountEUR === "number") {
+    correctedAmountEUR = amountEUR * (1 + correctionPercent / 100);
+  }
+  if (
+    typeof amountEUR === "number" &&
+    typeof correctedAmountEUR === "number" &&
+    amountEUR > 0 &&
+    toNumber(out.correctionPercent) == null
+  ) {
+    correctionPercent = ((correctedAmountEUR / amountEUR) - 1) * 100;
+  }
+
+  let exchangeRateRON = toNumber(out.exchangeRateRON);
+  let netRON = toNumber(out.netRON);
+  if (typeof netRON !== "number") {
+    const total = toNumber(out.totalRON);
+    const vat = toNumber(out.vatRON);
+    if (typeof total === "number" && typeof vat === "number") {
+      netRON = total - vat;
+    }
+  }
+  if (
+    typeof exchangeRateRON !== "number" &&
+    typeof netRON === "number" &&
+    typeof correctedAmountEUR === "number" &&
+    correctedAmountEUR > 0
+  ) {
+    exchangeRateRON = netRON / correctedAmountEUR;
+  }
+  if (
+    typeof netRON !== "number" &&
+    typeof correctedAmountEUR === "number" &&
+    typeof exchangeRateRON === "number"
+  ) {
+    netRON = correctedAmountEUR * exchangeRateRON;
+  }
+
+  const tvaPercent = toNumber(out.tvaPercent) ?? 0;
+  const vatRON =
+    toNumber(out.vatRON) ??
+    (typeof netRON === "number" ? netRON * (tvaPercent / 100) : 0);
+
+  const totalRON =
+    toNumber(out.totalRON) ??
+    (typeof netRON === "number" ? netRON + vatRON : undefined);
+
+  out.dueDays = Number.isInteger(toNumber(out.dueDays))
+    ? (toNumber(out.dueDays) as number)
+    : 0;
+  out.correctionPercent = correctionPercent;
+  out.tvaPercent = Number.isInteger(tvaPercent) ? tvaPercent : Math.round(tvaPercent);
+  out.vatRON = vatRON;
+
+  if (typeof amountEUR === "number") out.amountEUR = amountEUR;
+  if (typeof correctedAmountEUR === "number") out.correctedAmountEUR = correctedAmountEUR;
+  if (typeof exchangeRateRON === "number") out.exchangeRateRON = exchangeRateRON;
+  if (typeof netRON === "number") out.netRON = netRON;
+  if (typeof totalRON === "number") out.totalRON = totalRON;
+
+  return out;
+}
+
+function parseInvoiceOrNull(raw: unknown): Invoice | null {
+  const normalized = normalizeInvoiceForRead(raw);
+  const parsed = InvoiceSchema.safeParse(normalized);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseInvoicesSkippingInvalid(
+  docs: unknown[],
+  source: string,
+): Invoice[] {
+  const valid: Invoice[] = [];
+  let invalidCount = 0;
+
+  for (const doc of docs) {
+    const normalized = normalizeInvoiceForRead(doc);
+    const parsed = InvoiceSchema.safeParse(normalized);
+    if (parsed.success) {
+      valid.push(parsed.data);
+      continue;
+    }
+    invalidCount += 1;
+    const raw = (doc ?? {}) as Record<string, unknown>;
+    console.warn("Skipping invalid invoice document", {
+      source,
+      id: raw.id,
+      issuedAt: raw.issuedAt,
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path,
+        message: issue.message,
+      })),
+    });
+  }
+
+  if (invalidCount > 0) {
+    console.warn(`Skipped ${invalidCount} invalid invoice document(s) from ${source}`);
+  }
+
+  return valid;
+}
+
 /**
  * Find invoice by ID
  */
@@ -34,13 +201,13 @@ async function findInvoiceByIdMongo(id: string): Promise<Invoice | null> {
   const doc = await db
     .collection<Invoice>("invoices")
     .findOne({ id }, { projection: { _id: 0 } });
-  return doc ? InvoiceSchema.parse(doc) : null;
+  return doc ? parseInvoiceOrNull(doc) : null;
 }
 
 async function findInvoiceByIdLocal(id: string): Promise<Invoice | null> {
   const all = await readJson<Invoice[]>("invoices.json", []);
   const found = all.find((x) => x.id === id);
-  return found ? InvoiceSchema.parse(found) : null;
+  return found ? parseInvoiceOrNull(found) : null;
 }
 
 /**
@@ -71,7 +238,7 @@ async function findInvoiceByContractAndDateMongo(
   const doc = await db
     .collection<Invoice>("invoices")
     .findOne({ contractId, issuedAt }, { projection: { _id: 0 } });
-  return doc ? InvoiceSchema.parse(doc) : null;
+  return doc ? parseInvoiceOrNull(doc) : null;
 }
 
 async function findInvoiceByContractAndDateLocal(
@@ -80,7 +247,7 @@ async function findInvoiceByContractAndDateLocal(
 ): Promise<Invoice | null> {
   const all = await readJson<Invoice[]>("invoices.json", []);
   const found = all.find((x) => x.contractId === contractId && x.issuedAt === issuedAt);
-  return found ? InvoiceSchema.parse(found) : null;
+  return found ? parseInvoiceOrNull(found) : null;
 }
 
 /**
@@ -121,7 +288,7 @@ async function findInvoiceByContractPartnerAndDateMongo(
       },
       { projection: { _id: 0 } }
     );
-  return doc ? InvoiceSchema.parse(doc) : null;
+  return doc ? parseInvoiceOrNull(doc) : null;
 }
 
 async function findInvoiceByContractPartnerAndDateLocal(
@@ -137,7 +304,7 @@ async function findInvoiceByContractPartnerAndDateLocal(
       x.issuedAt === issuedAt &&
       (x.partnerId === partnerKey || x.partner === partnerKey)
   );
-  return found ? InvoiceSchema.parse(found) : null;
+  return found ? parseInvoiceOrNull(found) : null;
 }
 
 /**
@@ -164,7 +331,7 @@ async function listInvoicesForContractMongo(contractId: string): Promise<Invoice
     .find({ contractId }, { projection: { _id: 0 } })
     .sort({ issuedAt: -1 })
     .toArray();
-  return docs.map((d) => InvoiceSchema.parse(d));
+  return parseInvoicesSkippingInvalid(docs, `listInvoicesForContractMongo:${contractId}`);
 }
 
 async function listInvoicesForContractLocal(contractId: string): Promise<Invoice[]> {
@@ -205,7 +372,10 @@ async function listInvoicesForMonthMongo(start: string, endExclusive: string): P
     .find({ issuedAt: { $gte: start, $lt: endExclusive } }, { projection: { _id: 0 } })
     .sort({ issuedAt: 1 })
     .toArray();
-  return docs.map((d) => InvoiceSchema.parse(d));
+  return parseInvoicesSkippingInvalid(
+    docs,
+    `listInvoicesForMonthMongo:${start}->${endExclusive}`,
+  );
 }
 
 async function listInvoicesForMonthLocal(start: string, endExclusive: string): Promise<Invoice[]> {
@@ -258,7 +428,10 @@ async function fetchInvoicesForYearMongo(start: string, endExclusive: string): P
     .find({ issuedAt: { $gte: start, $lt: endExclusive } }, { projection: { _id: 0 } })
     .sort({ issuedAt: 1 })
     .toArray();
-  return docs.map((d) => InvoiceSchema.parse(d));
+  return parseInvoicesSkippingInvalid(
+    docs,
+    `fetchInvoicesForYearMongo:${start}->${endExclusive}`,
+  );
 }
 
 async function fetchInvoicesForYearLocal(start: string, endExclusive: string): Promise<Invoice[]> {
