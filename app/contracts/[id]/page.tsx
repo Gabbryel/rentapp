@@ -1731,7 +1731,9 @@ async function deleteInvoice(formData: FormData) {
   "use server";
   const invoiceId = formData.get("invoiceId") as string;
   if (!invoiceId) return;
-  await deleteInvoiceById(invoiceId);
+  const contractId = (formData.get("contractId") as string) || undefined;
+  const partnerId = (formData.get("partnerId") as string) || undefined;
+  await deleteInvoiceById(invoiceId, contractId, partnerId);
   await logAction({
     action: "invoice.delete",
     targetType: "invoice",
@@ -4833,11 +4835,12 @@ export default async function ContractPage({
                 const confirmMessage = `Sigur dorești să ștergi factura emisă la ${fmt(
                   inv.issuedAt,
                 )}${inv.number ? ` (nr. ${inv.number})` : ""}?`;
+                const invKey = `${inv.id}-${inv.partnerId ?? inv.partner ?? ""}`;
                 return (
                   <div
-                    key={inv.id}
+                    key={invKey}
                     className="rounded-md bg-foreground/5 p-3 flex flex-col gap-2"
-                    id={`invoice-${inv.id}`}
+                    id={`invoice-${invKey}`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm">
@@ -4893,6 +4896,8 @@ export default async function ContractPage({
                       </form>
                       <form action={deleteInvoice} className="ml-auto">
                         <input type="hidden" name="invoiceId" value={inv.id} />
+                        <input type="hidden" name="contractId" value={inv.contractId} />
+                        <input type="hidden" name="partnerId" value={inv.partnerId ?? ""} />
                         <ConfirmSubmit
                           className="rounded-md border border-red-300 text-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-50/10"
                           title="Șterge factura"

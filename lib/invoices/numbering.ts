@@ -63,7 +63,11 @@ export async function allocateInvoiceNumber(
 async function allocateMongo(id: string, year: number, nowIso: string): Promise<string> {
   const db = await getDb();
   
-  // Atomically get the current value and increment
+  // Atomically get the current value and increment.
+  // Important: do NOT include nextNumber in $setOnInsert because $inc also
+  // touches nextNumber on the same operation — MongoDB rejects conflicting
+  // update operators on the same path. $inc already initialises missing fields
+  // to 0 before incrementing, so the first allocation correctly returns 1.
   const result = await db.collection<InvoiceSettings>("invoice_settings").findOneAndUpdate(
     { id },
     {
@@ -72,7 +76,6 @@ async function allocateMongo(id: string, year: number, nowIso: string): Promise<
         series: "MS",
         padWidth: 5,
         includeYear: true,
-        nextNumber: 1, // Will be used on first insert
       },
       $inc: { nextNumber: 1 },
       $set: { updatedAt: nowIso },

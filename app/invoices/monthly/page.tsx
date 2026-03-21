@@ -106,6 +106,22 @@ const makeIssuedKey = (
   )}`;
 };
 
+const getDueItemPartnerTokenCandidates = (d: DueItem): string[] => {
+  // If the due row is already scoped to a specific partner, avoid falling back
+  // to contract-level partner fields, which can belong to a different partner.
+  if (isNonEmptyString(d.partnerId) || isNonEmptyString(d.partnerName)) {
+    const tokens: string[] = [];
+    if (isNonEmptyString(d.partnerId)) tokens.push(d.partnerId);
+    if (isNonEmptyString(d.partnerName)) tokens.push(d.partnerName);
+    return tokens;
+  }
+
+  const tokens: string[] = [];
+  if (isNonEmptyString(d.contract.partnerId)) tokens.push(d.contract.partnerId);
+  if (isNonEmptyString(d.contract.partner)) tokens.push(d.contract.partner);
+  return tokens;
+};
+
 function calendarDateInTimezone(tz: string) {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -375,12 +391,7 @@ export default async function MonthlyInvoicesPage({
             existingInvoices,
             issuedAt,
             kind: "standard",
-            partnerKey: [
-              partner.id,
-              partner.name,
-              c.partnerId,
-              c.partner,
-            ].filter(
+            partnerKey: [partner.id, partner.name].filter(
               (value): value is string =>
                 typeof value === "string" && value.trim().length > 0,
             ),
@@ -389,8 +400,6 @@ export default async function MonthlyInvoicesPage({
             const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
               partner.id,
               partner.name,
-              c.partnerId,
-              c.partner,
             ]);
             if (!existingInv) continue;
             due.push({
@@ -522,13 +531,7 @@ export default async function MonthlyInvoicesPage({
 
   // Compute forecasted income totals for the summary banner.
   const checkDueItemIssued = (d: DueItem): boolean => {
-    const candidates: string[] = [];
-    if (isNonEmptyString(d.partnerId)) candidates.push(d.partnerId);
-    if (isNonEmptyString(d.partnerName)) candidates.push(d.partnerName);
-    if (isNonEmptyString(d.contract.partnerId))
-      candidates.push(d.contract.partnerId);
-    if (isNonEmptyString(d.contract.partner))
-      candidates.push(d.contract.partner);
+    const candidates = getDueItemPartnerTokenCandidates(d);
     for (const token of candidates) {
       if (issuedByKey.has(makeIssuedKey(d.contract.id, d.issuedAt, token)))
         return true;
@@ -621,15 +624,18 @@ export default async function MonthlyInvoicesPage({
 
     try {
       const existingInvoices = await listInvoicesForContract(c.id);
-      const partnerKey = [
-        partnerId,
-        partnerName,
-        c.partnerId,
-        c.partner,
-      ].filter(
-        (value): value is string =>
-          typeof value === "string" && value.trim().length > 0,
-      );
+      // When the row is scoped to a specific partner (multi-partner contract),
+      // use ONLY that partner's tokens so we don't cross-match another partner's
+      // existing invoice and falsely conclude the period is already covered.
+      const partnerKey = (partnerId || partnerName)
+        ? [partnerId, partnerName].filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          )
+        : [c.partnerId, c.partner].filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          );
 
       const basePreview = await prepareInvoicePreview({
         contract: c,
@@ -715,7 +721,7 @@ export default async function MonthlyInvoicesPage({
         (it) => it.contractId === contractId && it.issuedAt === issuedAt,
       );
       for (const inv of all) {
-        await deleteInvoiceById(inv.id);
+        await deleteInvoiceById(inv.id, inv.contractId, inv.partnerId);
       }
       try {
         invalidateYearInvoicesCache();
@@ -1133,19 +1139,8 @@ export default async function MonthlyInvoicesPage({
                     });
                   })
                   .map((d) => {
-                    const partnerTokenCandidates: string[] = [];
-                    if (isNonEmptyString(d.partnerId)) {
-                      partnerTokenCandidates.push(d.partnerId);
-                    }
-                    if (isNonEmptyString(d.partnerName)) {
-                      partnerTokenCandidates.push(d.partnerName);
-                    }
-                    if (isNonEmptyString(d.contract.partnerId)) {
-                      partnerTokenCandidates.push(d.contract.partnerId);
-                    }
-                    if (isNonEmptyString(d.contract.partner)) {
-                      partnerTokenCandidates.push(d.contract.partner);
-                    }
+                    const partnerTokenCandidates =
+                      getDueItemPartnerTokenCandidates(d);
                     const hasSpecificToken = partnerTokenCandidates.length > 0;
                     let matchingKey: string | null = null;
                     for (const candidate of partnerTokenCandidates) {

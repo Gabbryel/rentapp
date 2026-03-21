@@ -326,15 +326,21 @@ async function updateInvoicePdfLocal(invoiceId: string, pdfUrl: string): Promise
 }
 
 /**
- * Delete an invoice by ID
+ * Delete an invoice by ID.
+ * Pass contractId + partnerId when available to ensure the correct document is
+ * removed even when historical duplicates share the same invoice number (id).
  */
-export async function deleteInvoice(invoiceId: string): Promise<boolean> {
+export async function deleteInvoice(
+  invoiceId: string,
+  contractId?: string,
+  partnerId?: string,
+): Promise<boolean> {
   if (!INVOICE_MONGO_CONFIGURED) {
     return deleteInvoiceLocal(invoiceId);
   }
 
   try {
-    return await deleteInvoiceMongo(invoiceId);
+    return await deleteInvoiceMongo(invoiceId, contractId, partnerId);
   } catch (error) {
     if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
     console.warn("MongoDB delete failed, falling back to local:", error);
@@ -346,9 +352,19 @@ export async function deleteInvoice(invoiceId: string): Promise<boolean> {
   }
 }
 
-async function deleteInvoiceMongo(invoiceId: string): Promise<boolean> {
+async function deleteInvoiceMongo(
+  invoiceId: string,
+  contractId?: string,
+  partnerId?: string,
+): Promise<boolean> {
   const db = await getDb();
-  const result = await db.collection<Invoice>("invoices").deleteOne({ id: invoiceId });
+  // Build a precise filter: always include id, and add contractId/partnerId when
+  // available so we target the exact document rather than the first match when
+  // multiple documents share the same invoice number due to historical duplicates.
+  const filter: Record<string, string> = { id: invoiceId };
+  if (contractId) filter.contractId = contractId;
+  if (partnerId) filter.partnerId = partnerId;
+  const result = await db.collection<Invoice>("invoices").deleteOne(filter);
   return result.deletedCount > 0;
 }
 

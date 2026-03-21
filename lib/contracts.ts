@@ -1017,6 +1017,8 @@ export async function upsertContract(contract: ContractType) {
   const latestApplied = applied.length > 0 ? (applied[applied.length - 1] as any) : undefined;
   const forcedRentAmount = latestApplied?.newRentAmount as number | undefined;
   const toSave: ContractType = { ...(contract as any), indexingDates: merged } as any;
+    // Strip MongoDB's _id to prevent "immutable field" errors on $set
+    delete (toSave as any)._id;
     await db
       .collection<ContractType>("contracts")
       .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
@@ -1243,7 +1245,8 @@ export async function updateInvoiceNumber(id: string, number: string): Promise<b
   const db = await getDb();
   const nowIso = new Date().toISOString();
   // We need to change the primary id to match the number; emulate rename by upsert
-  const doc = await db.collection<Invoice>("invoices").findOne({ id });
+  // Exclude _id from projection so it is never spread into the $set document
+  const doc = await db.collection<Invoice>("invoices").findOne({ id }, { projection: { _id: 0 } });
   if (!doc) return false;
   const newDoc = { ...(doc as any), id: number, number, updatedAt: nowIso };
   await db.collection<Invoice>("invoices").deleteOne({ id });
@@ -1253,8 +1256,12 @@ export async function updateInvoiceNumber(id: string, number: string): Promise<b
 }
 
 // Delegate to new invoice system
-export async function deleteInvoiceById(id: string): Promise<boolean> {
-  return deleteInvoiceNew(id);
+export async function deleteInvoiceById(
+  id: string,
+  contractId?: string,
+  partnerId?: string,
+): Promise<boolean> {
+  return deleteInvoiceNew(id, contractId, partnerId);
 }
 
 
