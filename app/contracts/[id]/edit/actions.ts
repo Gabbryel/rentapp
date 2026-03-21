@@ -9,6 +9,7 @@ import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
 import { notifyContractUpdated } from "@/lib/notify";
 import { getDailyEurRon } from "@/lib/exchange";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { effectiveEndDate, computeFutureIndexingDates } from "@/lib/contracts";
 
 export type EditFormValues = {
@@ -420,6 +421,8 @@ export async function updateContractAction(
         });
       } catch {}
 
+    revalidatePath("/");
+    revalidatePath("/contracts");
     redirect(`/contracts/${id}`);
   } catch (e: unknown) {
     // Allow Next.js redirect to bubble up to the router

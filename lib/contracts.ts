@@ -499,6 +499,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return mapped;
     })(),
     owner: (r.owner as string) ?? "Markov Services s.r.l.",
+    ownerId: typeof (r as any).ownerId === "string" && (r as any).ownerId.trim() ? (r as any).ownerId.trim() : undefined,
     signedAt: toYmd(r.signedAt)!,
     startDate: toYmd(r.startDate)!,
     endDate: toYmd(r.endDate)!,

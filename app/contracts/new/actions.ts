@@ -8,6 +8,7 @@ import { notifyContractCreated } from "@/lib/notify";
 import type { ZodIssue } from "zod";
 import { saveScanFile } from "@/lib/storage";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { effectiveEndDate } from "@/lib/contracts";
 
 export type FormState = {
@@ -387,6 +388,9 @@ export async function createContractAction(
       text: `Contract nou: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate} • Scanuri: ${scansCount}${sched} • Detalii: ${summary}`,
     });
   } catch {}
+  // Invalidate dashboard and contracts list so they reflect the new contract
+  revalidatePath("/");
+  revalidatePath("/contracts");
   // On success, redirect to details
     redirect(`/contracts/${parsed.data.id}`);
   } catch (e: unknown) {
