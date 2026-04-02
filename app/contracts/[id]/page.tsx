@@ -4896,8 +4896,16 @@ export default async function ContractPage({
                       </form>
                       <form action={deleteInvoice} className="ml-auto">
                         <input type="hidden" name="invoiceId" value={inv.id} />
-                        <input type="hidden" name="contractId" value={inv.contractId} />
-                        <input type="hidden" name="partnerId" value={inv.partnerId ?? ""} />
+                        <input
+                          type="hidden"
+                          name="contractId"
+                          value={inv.contractId}
+                        />
+                        <input
+                          type="hidden"
+                          name="partnerId"
+                          value={inv.partnerId ?? ""}
+                        />
                         <ConfirmSubmit
                           className="rounded-md border border-red-300 text-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-50/10"
                           title="Șterge factura"

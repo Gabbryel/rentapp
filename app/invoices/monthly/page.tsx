@@ -1,3 +1,4 @@
+"use server";
 import {
   fetchContracts,
   effectiveEndDate,
@@ -574,7 +575,6 @@ export default async function MonthlyInvoicesPage({
       : undefined;
 
   async function issueDue(formData: FormData) {
-    "use server";
     const contractIdRaw = formData.get("contractId");
     const issuedAtRaw = formData.get("issuedAt");
     const partnerIdRaw = formData.get("partnerId");
@@ -627,15 +627,16 @@ export default async function MonthlyInvoicesPage({
       // When the row is scoped to a specific partner (multi-partner contract),
       // use ONLY that partner's tokens so we don't cross-match another partner's
       // existing invoice and falsely conclude the period is already covered.
-      const partnerKey = (partnerId || partnerName)
-        ? [partnerId, partnerName].filter(
-            (value): value is string =>
-              typeof value === "string" && value.trim().length > 0,
-          )
-        : [c.partnerId, c.partner].filter(
-            (value): value is string =>
-              typeof value === "string" && value.trim().length > 0,
-          );
+      const partnerKey =
+        partnerId || partnerName
+          ? [partnerId, partnerName].filter(
+              (value): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            )
+          : [c.partnerId, c.partner].filter(
+              (value): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            );
 
       const basePreview = await prepareInvoicePreview({
         contract: c,
@@ -710,7 +711,6 @@ export default async function MonthlyInvoicesPage({
   }
 
   async function deleteIssued(formData: FormData) {
-    "use server";
     try {
       const contractId = String(formData.get("contractId"));
       const issuedAt = String(formData.get("issuedAt"));
@@ -731,7 +731,6 @@ export default async function MonthlyInvoicesPage({
   }
 
   async function addMemento(formData: FormData) {
-    "use server";
     try {
       const contractId = String(formData.get("contractId"));
       const type = String(formData.get("type"));
@@ -810,7 +809,6 @@ export default async function MonthlyInvoicesPage({
   }
 
   async function deleteMemento(formData: FormData) {
-    "use server";
     try {
       const contractId = String(formData.get("contractId"));
       const index = Number(formData.get("index"));
@@ -859,7 +857,6 @@ export default async function MonthlyInvoicesPage({
   }
 
   async function editMemento(formData: FormData) {
-    "use server";
     try {
       const contractId = String(formData.get("contractId"));
       const index = Number(formData.get("index"));

@@ -119,6 +119,7 @@ type EditorState = {
   rentAmountText: string;
   tvaPercent: string;
   tvaType: string;
+  exchangeRatePercent: string;
   invoiceIssueDay: string;
   monthlyInvoiceDay: string;
   invoiceMonthMode: string;
@@ -195,6 +196,7 @@ const EDITOR_STATE_KEYS = [
   "rentAmountText",
   "tvaPercent",
   "tvaType",
+  "exchangeRatePercent",
   "invoiceIssueDay",
   "monthlyInvoiceDay",
   "invoiceMonthMode",
@@ -265,7 +267,11 @@ function formatSurfaceMp(value: number): string {
 }
 
 function normalizeHtml(value: string): string {
-  return value.replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/<br\s*\/?>/gi, "<br>")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const MONTH_NAMES_RO = [
@@ -370,6 +376,13 @@ function resolveTvaTypeDisplay(value?: string | null): TvaDisplay {
     return { display: "{tvaType}", isPlaceholder: true };
   }
   return { display: trimmed, isPlaceholder: false };
+}
+
+function resolveExchangeRatePercentSnippet(value?: string | null): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return "";
+  const withSymbol = /%$/.test(trimmed) ? trimmed : `${trimmed}%`;
+  return ` + <strong>${escapeHtml(withSymbol)}</strong>`;
 }
 
 function normalizeUtilityPaymentTerm(value?: string): string {
@@ -858,6 +871,10 @@ function createTemplateBody(state: EditorState): string {
         )}%</strong>`
       : "";
 
+  const exchangeRatePercentSnippet = resolveExchangeRatePercentSnippet(
+    state.exchangeRatePercent,
+  );
+
   const guaranteeDueDateValue = (() => {
     const trimmed = (state.guaranteeDueDate ?? "").trim();
     if (trimmed) {
@@ -973,7 +990,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>Cap. V Chiria. Modalitatea de plată a chiriei. Prețul prestațiilor efectuate de locator.</p>`,
   );
   lines.push(
-    `<p>Art. 5.1. LOCATARUL va plăti Locatorului o chirie lunară în valoare de ${rentAmountValue} de euro + ${tvaPercentValue} ${tvaTypeValue} (sau oricare alt regim de T.V.A. va fi aplicabil LOCATARULUI în viitor), în lei la cursul B.N.R., denumită în continuare „chiria”${correctionPercentSnippet}. Chiria se va factura pe data de ${invoiceIssueDayValue} ale lunii pentru luna ${invoiceMonthModeValue}, iar plata trebuie efectuată de către LOCATAR în următoarele ${resolvedPaymentDueDaysValue} zile calendaristice în contul bancar al Locatorului: ${bankDetailsValue}</p>`,
+    `<p>Art. 5.1. LOCATARUL va plăti Locatorului o chirie lunară în valoare de ${rentAmountValue} de euro + ${tvaPercentValue} ${tvaTypeValue} (sau oricare alt regim de T.V.A. va fi aplicabil LOCATARULUI în viitor), în lei la cursul B.N.R.${exchangeRatePercentSnippet}, denumită în continuare „chiria”${correctionPercentSnippet}. Chiria se va factura pe data de ${invoiceIssueDayValue} ale lunii pentru luna ${invoiceMonthModeValue}, iar plata trebuie efectuată de către LOCATAR în următoarele ${resolvedPaymentDueDaysValue} zile calendaristice în contul bancar al Locatorului: ${bankDetailsValue}</p>`,
   );
   lines.push(`<p>Factura se va transmite ${invoiceSendChannelsValue}.</p>`);
   lines.push(
@@ -1167,9 +1184,9 @@ function createTemplateBody(state: EditorState): string {
     `<p>Prezentul CONTRACT s-a încheiat la ${signatureLocationValue}, astăzi ${contractSignedAtValue} în două exemplare, câte unul pentru fiecare parte contractantă.</p>`,
   );
 
-  lines.push(`<p>${ownerName} - LOCATOR<br /> prin ${ownerAdministrators}</p>`);
+  lines.push(`<p>${ownerName} - LOCATOR<br> prin ${ownerAdministrators}</p>`);
   lines.push(
-    `<p>${partnerName} - LOCATAR<br /> prin ${partnerRepresentatives}</p>`,
+    `<p>${partnerName} - LOCATAR<br> prin ${partnerRepresentatives}</p>`,
   );
 
   return lines.join("\n");
@@ -1198,7 +1215,7 @@ function buildPrintableDocument(state: EditorState): string {
   const notesHtml = notes
     ? `<div class="document-notes"><h3>Note interne</h3><p>${escapeHtml(
         notes,
-      ).replace(/\n+/g, "<br />")}</p></div>`
+      ).replace(/\n+/g, "<br>")}</p></div>`
     : "";
 
   const formatHeaderField = (value?: string | null) => {
@@ -1842,6 +1859,7 @@ function deriveBaseState(
     rentAmountText,
     tvaPercent,
     tvaType,
+    exchangeRatePercent: document?.exchangeRatePercent ?? "",
     invoiceIssueDay: invoiceIssueDayValueRaw,
     monthlyInvoiceDay,
     invoiceMonthMode,
@@ -1965,10 +1983,14 @@ export default function WrittenContractForm({
   );
   const initialBodyDirty = useMemo(() => {
     if (!initialDocument?.body) return false;
+    // If bodyMode is explicitly stored, trust it (no fragile HTML comparison needed)
+    if (initialDocument.bodyMode === "auto") return false;
+    if (initialDocument.bodyMode === "manual") return true;
+    // Legacy documents: fall back to HTML comparison
     return (
       normalizeHtml(initialDocument.body) !== normalizeHtml(generatedTemplate)
     );
-  }, [initialDocument?.body, generatedTemplate]);
+  }, [initialDocument?.body, initialDocument?.bodyMode, generatedTemplate]);
   const initialState = useMemo<EditorState>(() => {
     if (initialBodyDirty) return baseState;
     return { ...baseState, body: generatedTemplate };
@@ -2020,9 +2042,15 @@ export default function WrittenContractForm({
   }, [initialDocument?.id]);
 
   useEffect(() => {
-    const matchesTemplate =
-      !initialDocument?.body ||
-      normalizeHtml(initialDocument.body) === normalizeHtml(generatedTemplate);
+    const matchesTemplate = (() => {
+      if (!initialDocument?.body) return true;
+      if (initialDocument.bodyMode === "auto") return true;
+      if (initialDocument.bodyMode === "manual") return false;
+      // Legacy: HTML comparison fallback
+      return (
+        normalizeHtml(initialDocument.body) === normalizeHtml(generatedTemplate)
+      );
+    })();
     setState(
       matchesTemplate ? { ...baseState, body: generatedTemplate } : baseState,
     );
@@ -2032,7 +2060,7 @@ export default function WrittenContractForm({
     lastAppliedOwnerRef.current = baseState.ownerId ?? null;
     lastAppliedPartnerRef.current = baseState.partnerId ?? null;
     lastAppliedAssetRef.current = baseState.assetId ?? null;
-  }, [baseState, generatedTemplate, initialDocument?.body]);
+  }, [baseState, generatedTemplate, initialDocument?.body, initialDocument?.bodyMode]);
 
   useEffect(() => {
     bodyDirtyRef.current = bodyDirty;
@@ -2333,6 +2361,7 @@ export default function WrittenContractForm({
       rentAmountText: state.rentAmountText,
       tvaPercent: state.tvaPercent,
       tvaType: state.tvaType,
+      exchangeRatePercent: state.exchangeRatePercent,
       invoiceIssueDay: state.invoiceIssueDay,
       monthlyInvoiceDay: state.monthlyInvoiceDay,
       invoiceMonthMode: state.invoiceMonthMode,
@@ -2363,10 +2392,11 @@ export default function WrittenContractForm({
       forceMajeureNoticeDays: state.forceMajeureNoticeDays,
       signatureLocation: state.signatureLocation,
       body: state.body,
+      bodyMode: bodyDirty ? "manual" : "auto",
       notes: state.notes,
       correctionPercent: state.correctionPercent,
     }),
-    [state],
+    [state, bodyDirty],
   );
 
   const payloadJson = useMemo(() => JSON.stringify(payload), [payload]);
@@ -3041,6 +3071,17 @@ export default function WrittenContractForm({
                   className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
                 />
               </div>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-foreground/60">
+                Majorare curs B.N.R. (%)
+              </label>
+              <input
+                value={state.exchangeRatePercent}
+                onChange={onFieldChange("exchangeRatePercent")}
+                placeholder="ex: 1"
+                className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
