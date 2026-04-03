@@ -289,7 +289,7 @@ const MONTH_NAMES_RO = [
   "decembrie",
 ];
 
-const DEFAULT_GUARANTEE_FORMS = "CEC, transfer bancar";
+const DEFAULT_GUARANTEE_FORMS = "CEC sau transfer bancar";
 const DEFAULT_GUARANTEE_MULTIPLIER = "3";
 const DEFAULT_GUARANTEE_BO_MULTIPLIER = "6";
 const DEFAULT_LATE_PAYMENT_NOTIFICATION_FEE = "300";
@@ -1007,7 +1007,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>2. Cheltuielile cu utilitățile se vor factura de îndată ce Locatorul primește facturile de la furnizori. Locatorul îl va înștiința telefonic pe LOCATAR de primirea facturilor și îi va transmite în cel mai scurt timp prin sistemul SmartBill sau e-mail și/sau mesaj electronic (message, whatsapp) facturile cu sumele pe care LOCATARUL trebuie să le achite în termen de ${resolvedPaymentDueDaysValue} zile de la data emiterii.</p>`,
   );
   lines.push(
-    `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATOR nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de ${invoiceIssueDayValue} a fiecărei luni.</p>`,
+    `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATORUL nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de 20 a fiecărei luni.</p>`,
   );
   lines.push(
     `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, începând cu pria zi următoare scadenței, Locatarul poate fi notificat de Locator, după cum va considera rezonabil, prin email sau prin executor judecătoresc, ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare, ce va fi facturată ca atare de către Locator și constituie obligație de plată a Locatarului.
@@ -1144,8 +1144,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 7.2. Locatarul poate solicita încetarea prezentului contract în cazul în care Locatorul nu își execută obligația de predare a Spaţiului.</p>`,
   );
   lines.push(
-    `<p>Art. 7.3. Locatorul poate considera prezentul contract reziliat de plin drept fără nicio notificare prealabilă și/sau punere în întârziere și/sau intervenția instanțelor judecătorești sau a altei autorități în cazul în care Locatarul nu își execută oricare dintre obligațiile asumate prin prezentul CONTRACT. În caz de reziliere, Locatarul este ținut să achite o penalitate în valoare de ${abandonmentPenaltyValue}. Penalitatea este exigibilă imediat, fără intervenția instanțelor de judecată ori proceduri prealabile. Art. 5.5. și 5.8. sunt aplicabilw în mod corespunzător.
-    </p>`,
+    `<p>Art. 7.3. Locatorul poate considera prezentul contract reziliat de plin drept fără nicio notificare prealabilă și/sau punere în întârziere și/sau intervenția instanțelor judecătorești sau a altei autorități în cazul în care Locatarul nu își execută oricare dintre obligațiile asumate prin prezentul CONTRACT. În caz de reziliere, Locatarul este ținut să achite o penalitate conform art. 5.8, dar nu mai puțin de 5000 euro. Penalitatea este exigibilă imediat, fără intervenția instanțelor de judecată ori proceduri prealabile. Art. 5.5. și 5.8. sunt aplicabile în mod corespunzător.</p>`,
   );
   lines.push(
     `<p>Art. 7.4. Locatorul poate denunța unilateral contractul oricând pe durata de valabilitate a acestuia fără a fi obligat să motiveze hotărârea, fără a fi obligat la despăgubiri către locatar fără nicio altă formalitate și/sau punere în întârziere și/sau intervenția instanțelor judecătorești și/sau a altor autorități. Locatorul este obligat să notifice Locatarului intenția sa cu 60 zile înainte de termenul la care Locatarul trebuie să elibereze Spațiul.</p>`,
@@ -1174,7 +1173,7 @@ function createTemplateBody(state: EditorState): string {
     `<p>Art. 8.7. Litigiile care se pot naște între părți cu privire la executarea prezentului contract vor fi soluționate pe cale amiabilă, iar în cazul în care acest lucru nu este posibil instanța competentă este cea de pe raza sectorului 2 al municipiului București.</p>`,
   );
   lines.push(
-    `<p>Art. 8.8. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin scrisoare recomandată cu confirmare de primire (atât notificările cât și confirmarea de primire trebuie semnate de reprezentanții părților și să poarte ștampila societății) sau prin executor judecătoresc.</p>`,
+    `<p>Art. 8.8. Orice notificare comunicată cu privire la acest contract va fi transmisă în limba română prin mijloacele stabilite la articolul 5.1. din acest contract, respectiv prin e-mail sau mesagerie pe numerele de telefon comunicate de părți sau prin orice aplicație care asigură transmiterea documentelor, fiind incident acordul de comunicare prin astfel de mijloace stabilit prin art 8.9 de mai jos.</p>`,
   );
   lines.push(
     `<p>Art. 8.9. Pentru evitarea oricărui dubiu, Părțile recunosc si convin ca încheierea prezentului Contract ori a actelor adiționale la acesta se consideră efectuată prin semnătura reprezentanților lor legal autorizați în original ori pe email (recunoscând ca semnăturile scanate sau electronice sunt considerate suficiente) și va angaja Părțile și vor produce efecte juridice depline (inclusiv sub aspect procedural), Părțile renunțând la orice drept de a contesta acest tratament.</p>`,
@@ -3176,9 +3175,9 @@ export default function WrittenContractForm({
                 Termen constituire garanție
               </label>
               <input
+                type="date"
                 value={state.guaranteeDueDate}
                 onChange={onFieldChange("guaranteeDueDate")}
-                placeholder="01.02.2026"
                 className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               />
             </div>
