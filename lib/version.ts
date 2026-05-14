@@ -23,10 +23,11 @@ export const getAppVersion = cache(async (): Promise<AppVersion> => {
   const base: AppVersion = { version: pkg.version };
   const extra = readEnvVersion();
   const builtAt =
+    process.env.BUILD_GIT_DATE ||
     process.env.BUILD_TIMESTAMP ||
     process.env.VERCEL_DEPLOYMENT_TIME ||
     process.env.VERCEL_DEPLOYED_AT ||
     process.env.DEPLOYMENT_TIMESTAMP ||
-    new Date().toISOString();
+    undefined;
   return { ...base, ...extra, builtAt };
 });

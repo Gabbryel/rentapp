@@ -53,17 +53,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const version = await getAppVersion();
-  const builtAtIso = version.builtAt ?? new Date().toISOString();
-  let builtAtReadable = builtAtIso;
-  try {
-    const date = new Date(builtAtIso);
-    if (!Number.isNaN(date.getTime())) {
-      builtAtReadable = new Intl.DateTimeFormat("ro-RO", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(date);
-    }
-  } catch {}
+  let builtAtReadable: string | null = null;
+  if (version.builtAt) {
+    try {
+      const date = new Date(version.builtAt);
+      if (!Number.isNaN(date.getTime())) {
+        builtAtReadable = new Intl.DateTimeFormat("ro-RO", {
+          dateStyle: "medium",
+        }).format(date);
+      }
+    } catch {}
+  }
 
   const badgeLabelParts = [
     `v${version.version}`,
