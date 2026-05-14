@@ -16,6 +16,7 @@ import { computeNextMonthProration } from "@/lib/advance-billing";
 import { getDailyEurRon, getEurRonForDate } from "@/lib/exchange";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
 import type { Invoice } from "@/lib/schemas/invoice";
+import { markInvoicePaid } from "@/lib/invoices";
 import { publishToast } from "@/lib/sse";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -793,6 +794,16 @@ export default async function MonthlyInvoicesPage({
         invalidateYearInvoicesCache();
       } catch {}
     } catch {}
+    revalidatePath("/invoices/monthly");
+  }
+
+  async function togglePaid(formData: FormData) {
+    "use server";
+    const invoiceId = String(formData.get("invoiceId") || "");
+    if (!invoiceId) return;
+    const clear = formData.get("clear") === "1";
+    const paidAt = clear ? null : new Date().toISOString().slice(0, 10);
+    await markInvoicePaid(invoiceId, paidAt);
     revalidatePath("/invoices/monthly");
   }
 
@@ -1617,14 +1628,26 @@ export default async function MonthlyInvoicesPage({
                                 </ActionButton>
                               </form>
                             )}
-                            {already && (inv as any)?.paidAt ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
-                                ✓ Plătit {(inv as any).paidAt}
-                              </span>
-                            ) : already ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 border border-foreground/15 px-2 py-0.5 text-[11px] text-foreground/50">
-                                Neplătit
-                              </span>
+                            {already && inv ? (
+                              <form action={togglePaid} className="inline-flex">
+                                <input type="hidden" name="invoiceId" value={inv.id} />
+                                {(inv as any).paidAt && (
+                                  <input type="hidden" name="clear" value="1" />
+                                )}
+                                <button
+                                  type="submit"
+                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                    (inv as any).paidAt
+                                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25"
+                                      : "bg-foreground/5 border-foreground/15 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/70"
+                                  }`}
+                                  title={(inv as any).paidAt ? "Anulează marcajul de plătit" : "Marchează ca plătit"}
+                                >
+                                  {(inv as any).paidAt
+                                    ? `✓ Plătit ${(inv as any).paidAt}`
+                                    : "Neplătit"}
+                                </button>
+                              </form>
                             ) : null}
                             {already && inv?.pdfUrl ? (
                               <PdfModal
