@@ -46,6 +46,7 @@ function normalizeInvoiceForRead(raw: unknown): Record<string, unknown> {
     "issuedByEmail",
     "previewToken",
     "ownerId",
+    "paidAt",
   ].forEach(nullToUndefined);
 
   // Partner identity fallback for pre-partnerId rows.

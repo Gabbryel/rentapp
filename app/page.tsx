@@ -393,21 +393,35 @@ export default async function HomePage({
     };
   });
 
-  // Indexing upcoming
-  const indexingUpcoming = activeContracts.filter((c) => {
+  // Indexing upcoming — per-contract entries with forecastDate within 60 days
+  const indexingUpcoming: Array<{
+    id: string;
+    name: string;
+    forecastDate: string;
+    daysUntil: number;
+  }> = [];
+  for (const c of activeContracts) {
     const dates = ((c as any).indexingDates || []) as Array<{
       forecastDate: string;
       done?: boolean;
     }>;
-    return dates.some((d) => {
-      if (d.done) return false;
-      const diffDays = Math.floor(
+    for (const d of dates) {
+      if (d.done) continue;
+      const daysUntil = Math.floor(
         (new Date(d.forecastDate).getTime() - new Date().getTime()) /
           (1000 * 60 * 60 * 24),
       );
-      return diffDays >= 0 && diffDays <= 60;
-    });
-  }).length;
+      if (daysUntil >= 0 && daysUntil <= 60) {
+        indexingUpcoming.push({
+          id: c.id,
+          name: c.name,
+          forecastDate: d.forecastDate,
+          daysUntil,
+        });
+      }
+    }
+  }
+  indexingUpcoming.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
 
   // Prepare chart data for mini sparklines
   const chartMaxRevenue = Math.max(...monthlyData.map((m) => m.revenueEUR), 1);
@@ -559,7 +573,7 @@ export default async function HomePage({
                   Indexări Viitoare
                 </h3>
                 <div className="text-3xl font-bold mt-2">
-                  {indexingUpcoming}
+                  {indexingUpcoming.length}
                 </div>
               </div>
               <div className="rounded-full bg-orange-500/20 p-3">
@@ -1347,6 +1361,62 @@ export default async function HomePage({
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Indexing Alert Widget */}
+        {indexingUpcoming.length > 0 && (
+          <div className="rounded-2xl border border-orange-500/20 bg-orange-50/50 dark:bg-orange-950/20 p-6 shadow-lg mb-6">
+            <div className="flex items-start gap-4">
+              <div className="rounded-full bg-orange-500/20 p-3 mt-1">
+                <svg
+                  className="h-6 w-6 text-orange-600 dark:text-orange-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-100 mb-2">
+                  Indexări în următoarele 60 de zile
+                </h3>
+                <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
+                  Contractele de mai jos au date de indexare neaplicate programate
+                  în curând
+                </p>
+                <div className="flex flex-col gap-2">
+                  {indexingUpcoming.map((entry, idx) => (
+                    <div
+                      key={`${entry.id}-${entry.forecastDate}-${idx}`}
+                      className="flex items-center justify-between gap-4 rounded-lg bg-background/50 border border-orange-500/20 px-4 py-2"
+                    >
+                      <Link
+                        href={`/contracts/${entry.id}`}
+                        className="text-sm font-medium text-orange-900 dark:text-orange-100 hover:underline truncate"
+                        title={entry.name}
+                      >
+                        → {entry.name}
+                      </Link>
+                      <span className="shrink-0 text-xs text-orange-700 dark:text-orange-300">
+                        {entry.forecastDate}
+                        {entry.daysUntil === 0
+                          ? " · azi"
+                          : entry.daysUntil === 1
+                            ? " · mâine"
+                            : ` · ${entry.daysUntil} zile`}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

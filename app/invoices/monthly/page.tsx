@@ -1617,6 +1617,15 @@ export default async function MonthlyInvoicesPage({
                                 </ActionButton>
                               </form>
                             )}
+                            {already && (inv as any)?.paidAt ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
+                                ✓ Plătit {(inv as any).paidAt}
+                              </span>
+                            ) : already ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 border border-foreground/15 px-2 py-0.5 text-[11px] text-foreground/50">
+                                Neplătit
+                              </span>
+                            ) : null}
                             {already && inv?.pdfUrl ? (
                               <PdfModal
                                 url={inv.pdfUrl}

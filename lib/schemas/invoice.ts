@@ -39,6 +39,8 @@ export const InvoiceSchema = z
     exchangeRateDate: ISODate.optional(),
     issuedByEmail: z.string().email().optional(),
     previewToken: z.string().optional(),
+    // Payment tracking
+    paidAt: ISODate.optional(),
     // Timestamps
     createdAt: ISODate,
     updatedAt: ISODate,

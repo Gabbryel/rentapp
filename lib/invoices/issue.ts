@@ -377,3 +377,63 @@ async function deleteInvoiceLocal(invoiceId: string): Promise<boolean> {
   }
   return false;
 }
+
+/**
+ * Set or clear the paidAt date on an invoice.
+ * Pass null to mark as unpaid (clears the field).
+ */
+export async function markInvoicePaid(
+  invoiceId: string,
+  paidAt: string | null,
+): Promise<boolean> {
+  if (!INVOICE_MONGO_CONFIGURED) {
+    return markInvoicePaidLocal(invoiceId, paidAt);
+  }
+  try {
+    return await markInvoicePaidMongo(invoiceId, paidAt);
+  } catch (error) {
+    if (!ALLOW_INVOICE_LOCAL_FALLBACK) throw error;
+    return markInvoicePaidLocal(invoiceId, paidAt);
+  }
+}
+
+async function markInvoicePaidMongo(
+  invoiceId: string,
+  paidAt: string | null,
+): Promise<boolean> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  const col = db.collection<Invoice>("invoices");
+  let result;
+  if (paidAt) {
+    result = await col.updateOne(
+      { id: invoiceId },
+      { $set: { paidAt, updatedAt: now } },
+    );
+  } else {
+    result = await col.updateOne(
+      { id: invoiceId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { $unset: { paidAt: "" as any }, $set: { updatedAt: now } },
+    );
+  }
+  return result.matchedCount > 0;
+}
+
+async function markInvoicePaidLocal(
+  invoiceId: string,
+  paidAt: string | null,
+): Promise<boolean> {
+  const all = await readJson<Invoice[]>("invoices.json", []);
+  const idx = all.findIndex((x) => x.id === invoiceId);
+  if (idx < 0) return false;
+  const now = new Date().toISOString();
+  if (paidAt) {
+    all[idx] = { ...all[idx], paidAt, updatedAt: now } as Invoice;
+  } else {
+    const { paidAt: _removed, ...rest } = all[idx] as Invoice & { paidAt?: string };
+    all[idx] = { ...rest, updatedAt: now } as Invoice;
+  }
+  await writeJson("invoices.json", all);
+  return true;
+}

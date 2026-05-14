@@ -43,6 +43,7 @@ import {
   deleteInvoiceById,
   updateInvoiceNumber,
 } from "@/lib/contracts";
+import { markInvoicePaid } from "@/lib/invoices";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import {
   createDeposit,
@@ -1741,7 +1742,21 @@ async function deleteInvoice(formData: FormData) {
   revalidatePath("/contracts");
 }
 
-// (funcția addExtension definită mai jos)
+async function markPaidAction(formData: FormData) {
+  "use server";
+  const invoiceId = formData.get("invoiceId") as string;
+  if (!invoiceId) return;
+  const clear = formData.get("clear") === "1";
+  const paidAt = clear ? null : new Date().toISOString().slice(0, 10);
+  await markInvoicePaid(invoiceId, paidAt);
+  await logAction({
+    action: clear ? "invoice.unpaid" : "invoice.paid",
+    targetType: "invoice",
+    targetId: invoiceId,
+    meta: clear ? {} : { paidAt },
+  });
+  revalidatePath("/contracts");
+}
 
 async function editInvoiceNumber(formData: FormData) {
   "use server";
@@ -4862,13 +4877,24 @@ export default async function ContractPage({
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm">
-                        <div className="font-medium">
-                          {inv.issuedAt} · Total{" "}
-                          {new Intl.NumberFormat("ro-RO", {
-                            style: "currency",
-                            currency: "RON",
-                          }).format(inv.totalRON)}{" "}
-                          · Nr {inv.number ?? "—"}
+                        <div className="font-medium flex items-center gap-2 flex-wrap">
+                          <span>
+                            {inv.issuedAt} · Total{" "}
+                            {new Intl.NumberFormat("ro-RO", {
+                              style: "currency",
+                              currency: "RON",
+                            }).format(inv.totalRON)}{" "}
+                            · Nr {inv.number ?? "—"}
+                          </span>
+                          {(inv as any).paidAt ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                              ✓ Plătit {fmt((inv as any).paidAt)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 border border-foreground/15 px-2 py-0.5 text-xs text-foreground/50">
+                              Neplătit
+                            </span>
+                          )}
                         </div>
                         <div className="text-foreground/60">
                           EUR {inv.amountEUR.toFixed(2)} → corecție{" "}
@@ -4893,7 +4919,7 @@ export default async function ContractPage({
                         title={`Factura ${inv.number || inv.id}`}
                       />
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <form
                         action={editInvoiceNumber}
                         className="flex items-center gap-2"
@@ -4910,6 +4936,22 @@ export default async function ContractPage({
                           className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-semibold hover:bg-foreground/5"
                         >
                           Salvează
+                        </button>
+                      </form>
+                      <form action={markPaidAction}>
+                        <input type="hidden" name="invoiceId" value={inv.id} />
+                        {(inv as any).paidAt && (
+                          <input type="hidden" name="clear" value="1" />
+                        )}
+                        <button
+                          type="submit"
+                          className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                            (inv as any).paidAt
+                              ? "border-foreground/20 hover:bg-foreground/5"
+                              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                          }`}
+                        >
+                          {(inv as any).paidAt ? "Anulează plata" : "Marchează plătit"}
                         </button>
                       </form>
                       <form action={deleteInvoice} className="ml-auto">

@@ -6,7 +6,7 @@
  */
 
 // Issuance
-export { issueInvoice, deleteInvoice } from "./issue";
+export { issueInvoice, deleteInvoice, markInvoicePaid } from "./issue";
 
 // Queries
 export {
