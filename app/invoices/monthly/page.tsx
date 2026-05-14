@@ -26,6 +26,7 @@ import ConfirmSubmit from "@/app/components/confirm-submit";
 import PdfModal from "@/app/components/pdf-modal";
 import MementoForm from "@/app/components/memento-form";
 import MementoEditButton from "@/app/components/memento-edit-button";
+import PaidToggleButton from "@/app/components/paid-toggle-button";
 import { prepareInvoicePreview } from "@/lib/invoice-custom-period";
 
 export const dynamic = "force-dynamic";
@@ -1634,19 +1635,10 @@ export default async function MonthlyInvoicesPage({
                                 {(inv as any).paidAt && (
                                   <input type="hidden" name="clear" value="1" />
                                 )}
-                                <button
-                                  type="submit"
-                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                                    (inv as any).paidAt
-                                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25"
-                                      : "bg-foreground/5 border-foreground/15 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/70"
-                                  }`}
-                                  title={(inv as any).paidAt ? "Anulează marcajul de plătit" : "Marchează ca plătit"}
-                                >
-                                  {(inv as any).paidAt
-                                    ? `✓ Plătit ${(inv as any).paidAt}`
-                                    : "Neplătit"}
-                                </button>
+                                <PaidToggleButton
+                                  isPaid={Boolean((inv as any).paidAt)}
+                                  paidAt={(inv as any).paidAt}
+                                />
                               </form>
                             ) : null}
                             {already && inv?.pdfUrl ? (

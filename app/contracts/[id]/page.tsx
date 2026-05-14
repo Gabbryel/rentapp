@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import ManageContractScans from "./scans/ManageContractScans";
 import InvoiceViewer from "@/app/components/invoice-viewer";
+import PaidToggleButton from "@/app/components/paid-toggle-button";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import ActionButton from "@/app/components/action-button";
 import IndexingNoticePrint from "./IndexingNoticePrint";
@@ -4886,15 +4887,6 @@ export default async function ContractPage({
                             }).format(inv.totalRON)}{" "}
                             · Nr {inv.number ?? "—"}
                           </span>
-                          {(inv as any).paidAt ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
-                              ✓ Plătit {fmt((inv as any).paidAt)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 border border-foreground/15 px-2 py-0.5 text-xs text-foreground/50">
-                              Neplătit
-                            </span>
-                          )}
                         </div>
                         <div className="text-foreground/60">
                           EUR {inv.amountEUR.toFixed(2)} → corecție{" "}
@@ -4938,21 +4930,15 @@ export default async function ContractPage({
                           Salvează
                         </button>
                       </form>
-                      <form action={markPaidAction}>
+                      <form action={markPaidAction} className="inline-flex">
                         <input type="hidden" name="invoiceId" value={inv.id} />
                         {(inv as any).paidAt && (
                           <input type="hidden" name="clear" value="1" />
                         )}
-                        <button
-                          type="submit"
-                          className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                            (inv as any).paidAt
-                              ? "border-foreground/20 hover:bg-foreground/5"
-                              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
-                          }`}
-                        >
-                          {(inv as any).paidAt ? "Anulează plata" : "Marchează plătit"}
-                        </button>
+                        <PaidToggleButton
+                          isPaid={Boolean((inv as any).paidAt)}
+                          paidAt={(inv as any).paidAt}
+                        />
                       </form>
                       <form action={deleteInvoice} className="ml-auto">
                         <input type="hidden" name="invoiceId" value={inv.id} />
