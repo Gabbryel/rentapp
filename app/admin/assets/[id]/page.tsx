@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { getAssetById } from "@/lib/assets";
 import { notFound } from "next/navigation";
-import AssetScans from "@/app/components/asset-scans";
 import DeleteAssetClient from "./delete/DeleteAssetClient";
 import { fetchContractsByAssetId } from "@/lib/contracts";
 import type { Contract as ContractType } from "@/lib/schemas/contract";
-import { editAssetScanAction, deleteAssetScanAction } from "./actions";
 
 export default async function AssetDetailPage({
   params,

@@ -4,7 +4,7 @@
  */
 
 // Test suite for invoiceMonthMode functionality
-// Run with: npm test or npx jest invoice-month-mode.test.ts
+import { describe, test, expect } from 'vitest';
 import type { Contract } from '../lib/schemas/contract';
 
 // Mock data setup

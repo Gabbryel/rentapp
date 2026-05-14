@@ -84,7 +84,7 @@ export default function InflationVerify({
           {status.localPercent.toFixed(6)}%{" · AI: "}
           {status.aiPercent != null ? status.aiPercent.toFixed(6) : "—"}
           {status.reason ? (
-            <span className="text-foreground/50"> · {status.reason}</span>
+            <span className="text-foreground/60"> · {status.reason}</span>
           ) : null}
         </span>
       ) : status.type === "error" ? (

@@ -91,7 +91,7 @@ export default async function AdminMessagesPage() {
               <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
                 {m.text}
               </div>
-              <div className="mt-1 text-[11px] text-foreground/50">
+              <div className="mt-1 text-[11px] text-foreground/60">
                 {new Date(m.createdAt).toLocaleString("ro-RO")}
                 {m.createdBy ? ` • ${m.createdBy}` : ""}
               </div>

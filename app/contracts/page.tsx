@@ -261,7 +261,7 @@ export default async function ContractsPage({
                       ? "Chirie anuală"
                       : "Chirie lunară"}
                   </span>
-                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
                     {fmtEUR(eur)}
                   </span>
                 </div>
@@ -403,7 +403,7 @@ export default async function ContractsPage({
                         ? `Chirie din ${fmt(validFrom)}`
                         : "Chirie viitoare"}
                     </span>
-                    <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                    <span className="text-xl font-bold text-orange-600 dark:text-orange-300">
                       {fmtEUR(newRentEUR)}
                     </span>
                   </div>
@@ -426,7 +426,7 @@ export default async function ContractsPage({
             </div>
             {typeof c.paymentDueDays === "number" && (
               <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-foreground/50">Termen plată</span>
+                <span className="text-xs text-foreground/60">Termen plată</span>
                 <span className="text-sm text-foreground/70">
                   {c.paymentDueDays} zile
                 </span>
@@ -464,7 +464,7 @@ export default async function ContractsPage({
             </div>
             {typeof c.paymentDueDays === "number" && (
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-foreground/10">
-                <span className="text-xs text-foreground/50">Termen plată</span>
+                <span className="text-xs text-foreground/60">Termen plată</span>
                 <span className="text-sm text-foreground/70">
                   {c.paymentDueDays} zile
                 </span>
@@ -529,7 +529,7 @@ export default async function ContractsPage({
           typeof c.tvaPercent === "number") && (
           <div className="flex flex-wrap gap-2 pt-3 border-t border-foreground/10">
             {typeof c.correctionPercent === "number" && (
-              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
                 Corecție {c.correctionPercent}%
               </span>
             )}
@@ -709,7 +709,7 @@ export default async function ContractsPage({
             {expired.length > 0 && (
               <div
                 id="contracts-expired-separator"
-                className="col-span-full mt-10 mb-3 text-xs uppercase tracking-wide text-foreground/50 flex items-center gap-2"
+                className="col-span-full mt-10 mb-3 text-xs uppercase tracking-wide text-foreground/60 flex items-center gap-2"
               >
                 <span className="h-px flex-1 bg-foreground/15" />
                 Expirate

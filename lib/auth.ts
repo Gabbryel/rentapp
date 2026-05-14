@@ -1,15 +1,25 @@
 import { cookies } from "next/headers";
 import { randomBytes, createHash } from "crypto";
+import bcryptjs from "bcryptjs";
 import { getDb } from "@/lib/mongodb";
 import { RegisterSchema, type User, UserSchema } from "@/lib/schemas/user";
 
 type Session = { token: string; email: string; createdAt: Date; lastActiveAt?: Date };
 const TWO_WEEKS_SECONDS = 14 * 24 * 60 * 60; // 14 days
+const BCRYPT_COST = 12;
 
-// Very simple password hashing using sha256+salt for demo purposes.
-// For production, use bcrypt/argon2. Here we avoid extra deps.
-function hashPassword(password: string, salt: string) {
-  return createHash("sha256").update(password + ":" + salt).digest("hex");
+function isLegacySha256Hash(stored: string): boolean {
+  return !stored.startsWith("$2");
+}
+
+function verifySha256(password: string, stored: string): boolean {
+  const parts = stored.split(":");
+  if (parts.length < 2) return false;
+  // Format: hex64:hex32 — last segment is the salt
+  const salt = parts[parts.length - 1];
+  const hash = parts.slice(0, -1).join(":");
+  const calc = createHash("sha256").update(password + ":" + salt).digest("hex");
+  return hash === calc;
 }
 
 export async function registerUser(email: string, password: string): Promise<User> {
@@ -20,8 +30,7 @@ export async function registerUser(email: string, password: string): Promise<Use
   const db = await getDb();
   const existing = await db.collection<User>("users").findOne({ email: parsed.email });
   if (existing) throw new Error("Utilizatorul există deja");
-  const salt = randomBytes(16).toString("hex");
-  const passwordHash = hashPassword(parsed.password, salt) + ":" + salt;
+  const passwordHash = await bcryptjs.hash(parsed.password, BCRYPT_COST);
   const user: User = UserSchema.parse({ email: parsed.email, passwordHash, createdAt: new Date(), isAdmin: false, isVerified: false });
   await db.collection<User>("users").insertOne(user);
   return user;
@@ -32,12 +41,29 @@ export async function authenticate(email: string, password: string): Promise<Use
   const db = await getDb();
   const user = await db.collection<User>("users").findOne({ email });
   if (!user) return null;
-  const [hash, salt] = (user.passwordHash || ":").split(":");
-  const calc = createHash("sha256").update(password + ":" + salt).digest("hex");
-  if (hash !== calc) return null;
+
+  const stored = user.passwordHash || "";
+  let valid = false;
+
+  if (isLegacySha256Hash(stored)) {
+    valid = verifySha256(password, stored);
+    if (valid) {
+      // Migrate to bcrypt on successful login — zero-downtime rolling upgrade
+      const newHash = await bcryptjs.hash(password, BCRYPT_COST);
+      try {
+        await db.collection<User>("users").updateOne({ email }, { $set: { passwordHash: newHash } });
+      } catch {}
+    }
+  } else {
+    valid = await bcryptjs.compare(password, stored);
+  }
+
+  if (!valid) return null;
+
   // Enforce verification: treat missing flag as verified for legacy accounts
   const isVerified = user.isVerified === undefined ? true : !!user.isVerified;
   if (!isVerified) return null;
+
   // Update lastLoginAt
   try {
     await db.collection<User>("users").updateOne({ email }, { $set: { lastLoginAt: new Date() } });

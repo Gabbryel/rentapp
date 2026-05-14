@@ -5,6 +5,7 @@ import type { WrittenContract } from "@/lib/schemas/written-contract";
 import { DeleteWrittenContractButton } from "./delete-button";
 import { WrittenContractPreviewButton } from "./preview-button";
 import { ToggleSignedButton } from "./toggle-signed-button";
+import { GenerateContractButton } from "./generate-contract-button";
 
 export const dynamic = "force-dynamic";
 
@@ -90,18 +91,6 @@ function formatDateTime(iso?: string | null): string {
   }
 }
 
-function getSignedMeta(signed: boolean): StatusMeta {
-  return signed
-    ? {
-        label: "Semnat",
-        badgeClass:
-          "border border-emerald-500/30 bg-emerald-500/15 text-emerald-700",
-      }
-    : {
-        label: "Nesemnat",
-        badgeClass: "border border-amber-500/30 bg-amber-500/15 text-amber-800",
-      };
-}
 
 function formatPeriod(document: WrittenContract): string {
   const hasStart = Boolean(document.contractStartDate);
@@ -230,7 +219,6 @@ export default async function AdminWrittenContractsPage() {
           <div className="mt-8 space-y-4 sm:hidden">
             {enriched.map(({ document, status }) => {
               const meta = STATUS_META[status];
-              const signedMeta = getSignedMeta(document.signed);
               const period = formatPeriod(document);
               return (
                 <div
@@ -289,7 +277,6 @@ export default async function AdminWrittenContractsPage() {
                       <dd className="text-right text-foreground/80">
                         <ToggleSignedButton
                           id={document.id}
-                          title={document.title}
                           currentSigned={document.signed}
                         />
                       </dd>
@@ -323,7 +310,13 @@ export default async function AdminWrittenContractsPage() {
                       >
                         Contract
                       </Link>
-                    ) : null}
+                    ) : (
+                      <GenerateContractButton
+                        id={document.id}
+                        title={document.title}
+                        buttonClassName="inline-flex items-center justify-center rounded border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                    )}
                     <DeleteWrittenContractButton
                       id={document.id}
                       title={document.title}
@@ -353,7 +346,6 @@ export default async function AdminWrittenContractsPage() {
                 <tbody>
                   {enriched.map(({ document, status }) => {
                     const meta = STATUS_META[status];
-                    const signedMeta = getSignedMeta(document.signed);
                     const period = formatPeriod(document);
                     return (
                       <tr
@@ -374,7 +366,7 @@ export default async function AdminWrittenContractsPage() {
                               {document.documentNumber}
                             </div>
                           ) : null}
-                          <div className="text-xs text-foreground/50 mt-1">
+                          <div className="text-xs text-foreground/60 mt-1">
                             {formatDateTime(document.updatedAt)}
                           </div>
                         </td>
@@ -398,7 +390,6 @@ export default async function AdminWrittenContractsPage() {
                             </span>
                             <ToggleSignedButton
                               id={document.id}
-                              title={document.title}
                               currentSigned={document.signed}
                             />
                           </div>
@@ -434,7 +425,12 @@ export default async function AdminWrittenContractsPage() {
                               >
                                 📄
                               </Link>
-                            ) : null}
+                            ) : (
+                              <GenerateContractButton
+                                id={document.id}
+                                title={document.title}
+                              />
+                            )}
                             <DeleteWrittenContractButton
                               id={document.id}
                               title={document.title}

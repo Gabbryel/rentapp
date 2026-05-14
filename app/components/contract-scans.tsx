@@ -30,14 +30,14 @@ export default function ContractScans({
   const [deletingIdx, setDeletingIdx] = React.useState<number | null>(null);
   if (!scans || scans.length === 0) {
     return (
-      <div className="mb-8 rounded-md border border-sky-300/40 bg-sky-50/60 dark:bg-sky-900/20 p-4 text-[#F5F1DC]">
+      <div className="mb-8 rounded-md border border-sky-300/40 bg-sky-50/60 dark:bg-sky-900/20 p-4 text-foreground">
         <div className="text-sm mb-2">Documente (scan-uri)</div>
         <div className="text-sm">Niciun fișier</div>
       </div>
     );
   }
   return (
-    <div className="mb-8 rounded-md border border-sky-300/40 bg-sky-50/60 dark:bg-sky-900/20 p-4 text-[#F5F1DC]">
+    <div className="mb-8 rounded-md border border-sky-300/40 bg-sky-50/60 dark:bg-sky-900/20 p-4 text-foreground">
       <div className="text-sm mb-3">Documente (scan-uri)</div>
       <div className="grid grid-cols-1 gap-2">
         {scans.map((s, idx) => (
@@ -51,7 +51,7 @@ export default function ContractScans({
                   {s.title || `Scan ${idx + 1}`}
                 </div>
                 <div
-                  className="truncate text-xs text-[#F5F1DC]/80"
+                  className="truncate text-xs text-foreground/60"
                   title={s.url}
                 >
                   {s.url}

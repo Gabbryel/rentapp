@@ -519,7 +519,7 @@ export default function StatsCards({
           }
         `}</style>
         {syncing && stats ? (
-          <div className="absolute -top-6 right-0 text-[11px] text-foreground/50 italic">
+          <div className="absolute -top-6 right-0 text-[11px] text-foreground/60 italic">
             (syncing…)
           </div>
         ) : null}
@@ -552,10 +552,10 @@ export default function StatsCards({
                   {c.netRON && (
                     <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
                       <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="text-foreground/50">Net:</span>
+                        <span className="text-foreground/60">Net:</span>
                         <span>{c.netRON}</span>
                         {c.netEUR && (
-                          <span className="text-xs text-foreground/50">
+                          <span className="text-xs text-foreground/60">
                             {c.netEUR}
                           </span>
                         )}
@@ -563,24 +563,24 @@ export default function StatsCards({
                       {stats && (
                         <>
                           <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-foreground/50">
+                            <span className="text-foreground/60">
                               Issued gross:
                             </span>
                             <span className={valClass("actualAnnualRON")}>
                               {fmtRON(stats.actualAnnualRON)}
                             </span>
-                            <span className="text-xs text-foreground/50">
+                            <span className="text-xs text-foreground/60">
                               {fmtEUR(stats.actualAnnualEUR)}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="text-foreground/50">
+                            <span className="text-foreground/60">
                               Issued net:
                             </span>
                             <span className={valClass("actualAnnualNetRON")}>
                               {fmtRON(stats.actualAnnualNetRON)}
                             </span>
-                            <span className="text-xs text-foreground/50">
+                            <span className="text-xs text-foreground/60">
                               {fmtEUR(stats.actualAnnualEUR)}
                             </span>
                           </div>
@@ -615,7 +615,7 @@ export default function StatsCards({
                   {c.netRON && (
                     <div className="mt-2 space-y-1 text-[13px] text-foreground/70">
                       <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="text-foreground/50">Net:</span>
+                        <span className="text-foreground/60">Net:</span>
                         <span className={valClass("actualMonthNetRON")}>
                           {c.netRON}
                         </span>
@@ -627,7 +627,7 @@ export default function StatsCards({
                       </div>
                       {c.vatRON && (
                         <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-foreground/50">VAT:</span>
+                          <span className="text-foreground/60">VAT:</span>
                           <span className={valClass("vatMonthRON")}>
                             {c.vatRON}
                           </span>
@@ -644,7 +644,7 @@ export default function StatsCards({
                             style={{ width: `${c.progress}%` }}
                           />
                         </div>
-                        <div className="text-[11px] text-foreground/50 mt-1">
+                        <div className="text-[11px] text-foreground/60 mt-1">
                           {c.progress}% gross realizat
                         </div>
                       </div>
@@ -656,7 +656,7 @@ export default function StatsCards({
                               style={{ width: `${c.progressNet}%` }}
                             />
                           </div>
-                          <div className="text-[11px] text-foreground/50 mt-1">
+                          <div className="text-[11px] text-foreground/60 mt-1">
                             {c.progressNet}% net realizat
                           </div>
                         </div>

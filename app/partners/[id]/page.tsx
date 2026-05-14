@@ -302,7 +302,7 @@ export default async function PartnerPage({
               <div className="mt-2 space-y-1">
                 <div>
                   <span className="text-foreground/60">EUR:</span>{" "}
-                  <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                  <span className="font-semibold text-indigo-700 dark:text-indigo-300">
                     {fmtEUR(monthlyEqTotals.eur)}
                   </span>
                 </div>
@@ -329,7 +329,7 @@ export default async function PartnerPage({
               <div className="mt-2 space-y-1">
                 <div>
                   <span className="text-foreground/60">EUR:</span>{" "}
-                  <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                  <span className="font-semibold text-indigo-700 dark:text-indigo-300">
                     {fmtEUR(yearlyTotals.eur)}
                   </span>
                 </div>

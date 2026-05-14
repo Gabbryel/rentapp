@@ -5,11 +5,10 @@ import { toggleSignedStatusAction } from "./actions";
 
 type Props = {
   id: string;
-  title: string;
   currentSigned: boolean;
 };
 
-export function ToggleSignedButton({ id, title, currentSigned }: Props) {
+export function ToggleSignedButton({ id, currentSigned }: Props) {
   const [signed, setSigned] = useState(currentSigned);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

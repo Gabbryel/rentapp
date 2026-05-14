@@ -174,7 +174,7 @@ export default async function IndexingSchedulePage() {
                     if (daysIdx === null)
                       return {
                         text: "Nicio indexare",
-                        color: "text-foreground/40",
+                        color: "text-foreground/60",
                       };
                     if (daysIdx < 0)
                       return {
@@ -204,7 +204,7 @@ export default async function IndexingSchedulePage() {
 
                   const endStatus = (() => {
                     if (daysEnd === null)
-                      return { text: "—", color: "text-foreground/40" };
+                      return { text: "—", color: "text-foreground/60" };
                     if (daysEnd < 0)
                       return { text: "Expirat", color: "text-red-500" };
                     if (daysEnd === 0)
@@ -284,7 +284,7 @@ export default async function IndexingSchedulePage() {
                             Programat
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-xs font-medium text-foreground/50">
+                          <span className="inline-flex items-center rounded-full bg-foreground/5 px-2 py-1 text-xs font-medium text-foreground/60">
                             Fără indexare
                           </span>
                         )}

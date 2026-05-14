@@ -125,7 +125,7 @@ export default async function AdminOwnersPage() {
                       {o.bankAccount}
                     </div>
                   ) : (
-                    <div className="text-xs text-foreground/50">—</div>
+                    <div className="text-xs text-foreground/60">—</div>
                   )}
                 </td>
                 <td className="px-3 py-2 sm:px-4 sm:py-3 min-w-[14rem]">
@@ -147,7 +147,7 @@ export default async function AdminOwnersPage() {
                       </div>
                     ) : null}
                     {!o.emails?.length && !o.phoneNumbers?.length ? (
-                      <div className="text-xs text-foreground/50">—</div>
+                      <div className="text-xs text-foreground/60">—</div>
                     ) : null}
                   </div>
                 </td>

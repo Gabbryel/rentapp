@@ -171,16 +171,24 @@ export default async function HomePage({
     invoiceCount: number;
   }> = [];
 
-  for (let i = 11; i >= 0; i--) {
+  const monthPairs = Array.from({ length: 12 }, (_, i) => {
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const m = d.getMonth() + 1;
-    const y = d.getFullYear();
+    d.setMonth(d.getMonth() - (11 - i));
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  });
+
+  const invoiceResults = await Promise.allSettled(
+    monthPairs.map(({ year, month }) => listInvoicesForMonth(year, month)),
+  );
+
+  for (let i = 0; i < 12; i++) {
+    const { month: m, year: y } = monthPairs[i];
+    const result = invoiceResults[i];
     let allInvs: Awaited<ReturnType<typeof listInvoicesForMonth>> = [];
-    try {
-      allInvs = await listInvoicesForMonth(y, m);
-    } catch (error) {
-      console.error(`Failed to fetch invoices for ${y}-${m}:`, error);
+    if (result.status === "fulfilled") {
+      allInvs = result.value;
+    } else {
+      console.error(`Failed to fetch invoices for ${y}-${m}:`, result.reason);
       if (!homepageWarnings.includes("Nu am putut incarca toate facturile.")) {
         homepageWarnings.push("Nu am putut incarca toate facturile.");
       }
@@ -272,9 +280,6 @@ export default async function HomePage({
         monthsWithData.length
       : 0;
 
-  // Forecasted next month (simple average-based)
-  const forecastNextMonth = Math.round(avgMonthlyRevenue);
-
   // Contract types breakdown
   const monthlyContracts = activeContracts.filter(
     (c) => c.rentType === "monthly",
@@ -294,15 +299,6 @@ export default async function HomePage({
   const uniqueAssets = new Set(
     activeContracts.map((c) => c.assetId).filter(Boolean),
   ).size;
-
-  // Total revenue for the selected owner
-  const totalRevenue = activeContracts.reduce((sum, c) => {
-    const amount = rentAmountAtDate(c, today);
-    if (typeof amount === "number") {
-      return sum + (c.rentType === "monthly" ? amount : amount / 12);
-    }
-    return sum;
-  }, 0);
 
   // Average rent
   const avgRentEUR = expectedMonthlyEUR / Math.max(monthlyContracts, 1);
@@ -413,31 +409,6 @@ export default async function HomePage({
     });
   }).length;
 
-  // Contract health metrics
-  const contractsWithUpcomingIndexing = activeContracts.filter((c) => {
-    const dates = ((c as any).indexingDates || []) as Array<{
-      forecastDate: string;
-      done?: boolean;
-    }>;
-    return dates.some((d) => !d.done);
-  }).length;
-
-  // Contract duration stats
-  const contractAges = activeContracts.map((c) => {
-    const start = new Date(c.startDate);
-    const now = new Date();
-    const diffDays = Math.floor(
-      (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    return diffDays;
-  });
-  const avgContractAge =
-    contractAges.length > 0
-      ? Math.round(
-          contractAges.reduce((sum, age) => sum + age, 0) / contractAges.length,
-        )
-      : 0;
-
   // Prepare chart data for mini sparklines
   const chartMaxRevenue = Math.max(...monthlyData.map((m) => m.revenueEUR), 1);
   const chartData = monthlyData.map((m, idx) => ({
@@ -538,7 +509,7 @@ export default async function HomePage({
                 {uniqueAssets === 1 ? "proprietate" : "proprietăți"}
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               {uniquePartners} {uniquePartners === 1 ? "partener" : "parteneri"}
             </div>
           </div>
@@ -575,7 +546,7 @@ export default async function HomePage({
                 per contract lunar
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               {monthlyContracts} contracte lunare
             </div>
           </div>
@@ -612,7 +583,7 @@ export default async function HomePage({
                 în următoarele 60 zile
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               actualizări chirii
             </div>
           </div>
@@ -630,7 +601,7 @@ export default async function HomePage({
               </div>
               <div className="rounded-full bg-amber-500/20 p-3">
                 <svg
-                  className="h-6 w-6 text-amber-600 dark:text-amber-400"
+                  className="h-6 w-6 text-amber-700 dark:text-amber-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -650,7 +621,7 @@ export default async function HomePage({
                 <span>{expiring60.length} în 60 zile</span>
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               {expiring90.length} în 90 zile
             </div>
           </div>
@@ -693,7 +664,7 @@ export default async function HomePage({
                 {yearlyContracts} anuale
               </span>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               {uniquePartners} parteneri • {uniqueAssets} proprietăți
             </div>
           </div>
@@ -742,7 +713,7 @@ export default async function HomePage({
                 {formatPercent(Math.abs(revenueGrowth))}
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               RON: {formatCurrency(monthlyRevenueRON, "RON")} (fără TVA) •{" "}
               {formatCurrency(monthlyRevenueRONwithVAT, "RON")} (cu TVA)
             </div>
@@ -781,7 +752,7 @@ export default async function HomePage({
                 {formatCurrency(Math.round(avgMonthlyRevenue), "EUR")}
               </div>
             </div>
-            <div className="mt-2 text-xs text-foreground/50">
+            <div className="mt-2 text-xs text-foreground/60">
               RON: {formatCurrency(ytdRevenueRON, "RON")} (fără TVA) •{" "}
               {formatCurrency(ytdRevenueRONwithVAT, "RON")} (cu TVA)
             </div>
@@ -865,7 +836,7 @@ export default async function HomePage({
               {chartData.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex-1 text-[10px] text-foreground/50 text-center whitespace-nowrap"
+                  className="flex-1 text-[10px] text-foreground/60 text-center whitespace-nowrap"
                 >
                   {getMonthName(monthlyData[idx].month)}
                 </div>
@@ -993,7 +964,7 @@ export default async function HomePage({
                   </div>
                 ))}
                 {pieSegments.length > 6 && (
-                  <div className="text-xs text-foreground/50 text-center pt-1">
+                  <div className="text-xs text-foreground/60 text-center pt-1">
                     +{pieSegments.length - 6} mai mulți
                   </div>
                 )}
@@ -1074,7 +1045,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">
+                  <span className="text-xs text-foreground/60">
                     RON fără TVA
                   </span>
                   <span className="text-sm font-medium text-foreground/80">
@@ -1082,7 +1053,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-3">
-                  <span className="text-xs text-foreground/50">RON cu TVA</span>
+                  <span className="text-xs text-foreground/60">RON cu TVA</span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(monthlyRevenueRONwithVAT, "RON")}
                   </span>
@@ -1096,7 +1067,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">
+                  <span className="text-xs text-foreground/60">
                     RON fără TVA
                   </span>
                   <span className="text-sm font-medium text-foreground/80">
@@ -1104,7 +1075,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-3">
-                  <span className="text-xs text-foreground/50">RON cu TVA</span>
+                  <span className="text-xs text-foreground/60">RON cu TVA</span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(expectedMonthlyRONwithVAT, "RON")}
                   </span>
@@ -1135,7 +1106,7 @@ export default async function HomePage({
                         ✓ Obiectiv atins
                       </span>
                     ) : (
-                      <span className="text-amber-600 dark:text-amber-400">
+                      <span className="text-amber-700 dark:text-amber-400">
                         Rămân{" "}
                         {formatCurrency(
                           expectedMonthlyEUR - monthlyRevenueEUR,
@@ -1158,7 +1129,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-xs text-foreground/50">
+                  <span className="text-xs text-foreground/60">
                     RON fără TVA
                   </span>
                   <span className="text-sm font-medium text-foreground/80">
@@ -1166,7 +1137,7 @@ export default async function HomePage({
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-xs text-foreground/50">RON cu TVA</span>
+                  <span className="text-xs text-foreground/60">RON cu TVA</span>
                   <span className="text-sm font-medium text-foreground/80">
                     {formatCurrency(ytdRevenueRONwithVAT, "RON")}
                   </span>
@@ -1212,7 +1183,7 @@ export default async function HomePage({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm text-foreground/60">RON</span>
-                      <span className="text-xs text-foreground/40">
+                      <span className="text-xs text-foreground/60">
                         fără TVA
                       </span>
                     </div>
@@ -1229,7 +1200,7 @@ export default async function HomePage({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm text-foreground/60">RON</span>
-                      <span className="text-xs text-foreground/40">cu TVA</span>
+                      <span className="text-xs text-foreground/60">cu TVA</span>
                     </div>
                   </div>
                   <span className="text-2xl font-bold">
@@ -1244,7 +1215,7 @@ export default async function HomePage({
                     <span className="text-sm text-foreground/60">
                       Curs BNR (EUR/RON)
                     </span>
-                    <span className="text-xs text-foreground/50">
+                    <span className="text-xs text-foreground/60">
                       {exchangeRate?.date || "N/A"}
                     </span>
                   </div>
@@ -1271,7 +1242,7 @@ export default async function HomePage({
                     {formatCurrency(monthlyRevenueRONwithVAT, "RON")}
                   </span>
                 </div>
-                <div className="text-xs text-foreground/50 mt-1">
+                <div className="text-xs text-foreground/60 mt-1">
                   * Totalurile RON includ facturile EUR convertite la cursul de
                   la data emiterii
                 </div>
@@ -1288,7 +1259,7 @@ export default async function HomePage({
             <div className="flex items-start gap-4">
               <div className="rounded-full bg-amber-500/20 p-3 mt-1">
                 <svg
-                  className="h-6 w-6 text-amber-600 dark:text-amber-400"
+                  className="h-6 w-6 text-amber-700 dark:text-amber-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1315,15 +1286,21 @@ export default async function HomePage({
                       <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
                         {expiring30.length}
                       </div>
-                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1 mb-3">
                         în următoarele 30 zile
                       </div>
-                      <Link
-                        href="/contracts"
-                        className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                      >
-                        Vezi contracte →
-                      </Link>
+                      <div className="flex flex-col gap-1">
+                        {expiring30.map((c) => (
+                          <Link
+                            key={c.id}
+                            href={`/contracts/${c.id}`}
+                            className="text-xs text-amber-800 dark:text-amber-200 hover:underline truncate"
+                            title={c.name}
+                          >
+                            → {c.name}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {expiring60.length > 0 && (
@@ -1331,8 +1308,20 @@ export default async function HomePage({
                       <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
                         {expiring60.length}
                       </div>
-                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1 mb-3">
                         în 30-60 zile
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {expiring60.map((c) => (
+                          <Link
+                            key={c.id}
+                            href={`/contracts/${c.id}`}
+                            className="text-xs text-amber-800 dark:text-amber-200 hover:underline truncate"
+                            title={c.name}
+                          >
+                            → {c.name}
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1341,8 +1330,20 @@ export default async function HomePage({
                       <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
                         {expiring90.length}
                       </div>
-                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      <div className="text-sm text-amber-700 dark:text-amber-300 mt-1 mb-3">
                         în 60-90 zile
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {expiring90.map((c) => (
+                          <Link
+                            key={c.id}
+                            href={`/contracts/${c.id}`}
+                            className="text-xs text-amber-800 dark:text-amber-200 hover:underline truncate"
+                            title={c.name}
+                          >
+                            → {c.name}
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1414,7 +1415,7 @@ export default async function HomePage({
           >
             <div className="rounded-lg bg-amber-500/10 group-hover:bg-amber-500/20 p-3 w-fit mx-auto mb-3 transition-colors">
               <svg
-                className="h-7 w-7 text-amber-600 dark:text-amber-400"
+                className="h-7 w-7 text-amber-700 dark:text-amber-400"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1427,7 +1428,7 @@ export default async function HomePage({
                 />
               </svg>
             </div>
-            <div className="font-semibold text-center group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+            <div className="font-semibold text-center group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
               Indexări
             </div>
             <p className="text-xs text-foreground/60 text-center mt-1">

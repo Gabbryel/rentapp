@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { escapeHtml } from "@/lib/utils/html";
 import {
   useActionState,
@@ -585,20 +584,8 @@ function calculateGuaranteeDueDate(startDate?: string): string {
 
 function createTemplateBody(state: EditorState): string {
   const ownerNameTemplate = makeTemplateValue(state.ownerName, "________");
-  const ownerEmailsTemplate = makeTemplateValue(
-    state.ownerContactEmails,
-    "________",
-  );
-  const ownerPhonesTemplate = makeTemplateValue(
-    state.ownerContactPhones,
-    "________",
-  );
   const ownerHeadOfficeTemplate = makeTemplateValue(
     state.ownerHeadOffice,
-    "________",
-  );
-  const ownerAddressTemplate = makeTemplateValue(
-    state.ownerAddress,
     "________",
   );
   const ownerRegistrationTemplate = makeTemplateValue(
@@ -701,10 +688,6 @@ function createTemplateBody(state: EditorState): string {
     state.guaranteeForms,
     "________",
   );
-  const guaranteeBoMultiplierTemplate = makeTemplateValue(
-    state.guaranteeBoMultiplier,
-    "________",
-  );
   const latePaymentNotificationFeeTemplate = makeTemplateValue(
     state.latePaymentNotificationFee,
     "________",
@@ -714,10 +697,6 @@ function createTemplateBody(state: EditorState): string {
     "________",
   );
   const storageFeeTemplate = makeTemplateValue(state.storageFee, "________");
-  const nonPaymentTerminationDaysTemplate = makeTemplateValue(
-    state.nonPaymentTerminationDays,
-    "________",
-  );
   const denunciationNoticeDaysTemplate = makeTemplateValue(
     state.denunciationNoticeDays,
     "________",
@@ -728,10 +707,6 @@ function createTemplateBody(state: EditorState): string {
   );
   const denunciationPenaltyMonthsTemplate = makeTemplateValue(
     state.denunciationPenaltyMonths,
-    "________",
-  );
-  const denunciationPenaltyFixedTemplate = makeTemplateValue(
-    state.denunciationPenaltyFixed,
     "________",
   );
   const abandonPenaltyTemplate = makeTemplateValue(
@@ -752,10 +727,7 @@ function createTemplateBody(state: EditorState): string {
   );
 
   const ownerName = boldTemplateValue(ownerNameTemplate);
-  const ownerEmails = boldTemplateValue(ownerEmailsTemplate);
-  const ownerPhones = boldTemplateValue(ownerPhonesTemplate);
   const ownerHeadOffice = boldTemplateValue(ownerHeadOfficeTemplate);
-  const ownerAddress = boldTemplateValue(ownerAddressTemplate);
   const ownerRegistration = boldTemplateValue(ownerRegistrationTemplate);
   const ownerTaxId = boldTemplateValue(ownerTaxIdTemplate);
   const ownerAdministrators = boldTemplateValue(ownerAdministratorsTemplate);
@@ -802,17 +774,11 @@ function createTemplateBody(state: EditorState): string {
     guaranteeMultiplierTemplate,
   );
   const guaranteeFormsValue = boldTemplateValue(guaranteeFormsTemplate);
-  const guaranteeBoMultiplierValue = boldTemplateValue(
-    guaranteeBoMultiplierTemplate,
-  );
   const latePaymentNotificationFeeValue = boldTemplateValue(
     latePaymentNotificationFeeTemplate,
   );
   const evacuationFeeValue = boldTemplateValue(evacuationFeeTemplate);
   const storageFeeValue = boldTemplateValue(storageFeeTemplate);
-  const nonPaymentTerminationDaysValue = boldTemplateValue(
-    nonPaymentTerminationDaysTemplate,
-  );
   const denunciationNoticeDaysValue = boldTemplateValue(
     denunciationNoticeDaysTemplate,
   );
@@ -821,9 +787,6 @@ function createTemplateBody(state: EditorState): string {
   );
   const denunciationPenaltyMonthsValue = boldTemplateValue(
     denunciationPenaltyMonthsTemplate,
-  );
-  const denunciationPenaltyFixedValue = boldTemplateValue(
-    denunciationPenaltyFixedTemplate,
   );
   const abandonmentPenaltyValue = boldTemplateValue(abandonPenaltyTemplate);
   const confidentialityPenaltyValue = boldTemplateValue(
@@ -1964,7 +1927,6 @@ export default function WrittenContractForm({
   partners,
   assets,
 }: Props) {
-  const router = useRouter();
   const baseState = useMemo(
     () =>
       deriveBaseState(
@@ -3373,7 +3335,7 @@ export default function WrittenContractForm({
                       <p className="mt-1 text-[11px] text-foreground/60">
                         {state.ownerRepresentative || "—"}
                         {state.ownerRepresentativeTitle ? (
-                          <span className="text-foreground/50">
+                          <span className="text-foreground/60">
                             {state.ownerRepresentative ? " · " : ""}
                             {state.ownerRepresentativeTitle}
                           </span>

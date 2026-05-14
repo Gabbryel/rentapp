@@ -174,7 +174,7 @@ export default async function OwnerPage({
                         </div>
                         <div className="text-right text-sm">
                           <div className="text-foreground/60">Chirie</div>
-                          <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                          <div className="font-medium text-indigo-700 dark:text-indigo-300">
                             {typeof eur === "number" ? fmtEUR(eur) : "—"}
                           </div>
                         </div>
@@ -228,7 +228,7 @@ export default async function OwnerPage({
                         </div>
                         <div className="text-right text-sm">
                           <div className="text-foreground/60">Chirie</div>
-                          <div className="font-medium text-indigo-700 dark:text-indigo-400">
+                          <div className="font-medium text-indigo-700 dark:text-indigo-300">
                             {typeof eur === "number" ? fmtEUR(eur) : "—"}
                           </div>
                         </div>

@@ -185,6 +185,17 @@ export default async function MonthlyInvoicesPage({
   const year = parsedBillingMonth?.year ?? currentPeriod.year;
   const month = parsedBillingMonth?.month ?? currentPeriod.month;
   const selectedBillingMonth = toYearMonth(year, month);
+  const ownerFilterRaw = resolvedParams?.owner;
+  const ownerFilter: string[] =
+    typeof ownerFilterRaw === "string"
+      ? ownerFilterRaw.trim()
+        ? [ownerFilterRaw.trim()]
+        : []
+      : Array.isArray(ownerFilterRaw)
+        ? ownerFilterRaw.flatMap((v) =>
+            typeof v === "string" && v.trim() ? [v.trim()] : [],
+          )
+        : [];
   const isCurrentBillingMonth =
     year === currentPeriod.year && month === currentPeriod.month;
   const periodDate = new Date(year, month - 1, 1);
@@ -237,12 +248,14 @@ export default async function MonthlyInvoicesPage({
     const sp = new URLSearchParams();
     sp.set("billingMonth", billingMonth);
     if (validRateDate) sp.set("rateDate", validRateDate);
+    for (const o of ownerFilter) sp.append("owner", o);
     return `/invoices/monthly?${sp.toString()}`;
   };
 
   const resetToCurrentHref = (() => {
     const sp = new URLSearchParams();
     if (validRateDate) sp.set("rateDate", validRateDate);
+    for (const o of ownerFilter) sp.append("owner", o);
     const qs = sp.toString();
     return qs ? `/invoices/monthly?${qs}` : "/invoices/monthly";
   })();
@@ -318,8 +331,20 @@ export default async function MonthlyInvoicesPage({
     if (!c.startDate) continue;
     const start = new Date(c.startDate);
     const end = new Date(effectiveEndDate(c));
-    // Skip if contract not active during this month window
-    if (end < monthStart || start > monthEnd) continue;
+    // For "next"-mode monthly contracts the relevant activity window is the *next* month
+    // (invoice issued in month M covers month M+1), so we check next-month overlap instead.
+    const isNextMode =
+      c.rentType === "monthly" && c.invoiceMonthMode === "next";
+    if (isNextMode) {
+      const nMonth = month === 12 ? 1 : month + 1;
+      const nYear = month === 12 ? year + 1 : year;
+      const nDays = new Date(nYear, nMonth, 0).getDate();
+      const nextStart = new Date(nYear, nMonth - 1, 1);
+      const nextEnd = new Date(nYear, nMonth - 1, nDays);
+      if (end < nextStart || start > nextEnd) continue;
+    } else {
+      if (end < monthStart || start > monthEnd) continue;
+    }
 
     if (c.rentType === "monthly") {
       // Determine if this contract uses advance (next month) billing
@@ -386,16 +411,31 @@ export default async function MonthlyInvoicesPage({
               : 0;
           if (share <= 0) continue;
 
-          const basePreview = await prepareInvoicePreview({
-            contract: c,
-            existingInvoices,
-            issuedAt,
-            kind: "standard",
-            partnerKey: [partner.id, partner.name].filter(
-              (value): value is string =>
-                typeof value === "string" && value.trim().length > 0,
-            ),
-          });
+          let basePreview;
+          try {
+            basePreview = await prepareInvoicePreview({
+              contract: c,
+              existingInvoices,
+              issuedAt,
+              kind: "standard",
+              partnerKey: [partner.id, partner.name].filter(
+                (value): value is string =>
+                  typeof value === "string" && value.trim().length > 0,
+              ),
+            });
+          } catch (err) {
+            console.error(`[monthly] prepareInvoicePreview error for contract ${c.id} partner ${partner.name}:`, err);
+            due.push({
+              contract: c,
+              issuedAt,
+              amountEUR: undefined,
+              partnerId: partner.id ?? undefined,
+              partnerName: partner.name,
+              sharePercent: partner.sharePercent,
+              ...rateProps,
+            });
+            continue;
+          }
           if (!basePreview) {
             const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
               partner.id,
@@ -431,16 +471,30 @@ export default async function MonthlyInvoicesPage({
         const extra: Pick<DueItem, "partnerId" | "partnerName"> = {};
         if (c.partnerId) extra.partnerId = c.partnerId;
         if (c.partner) extra.partnerName = c.partner;
-        const preview = await prepareInvoicePreview({
-          contract: c,
-          existingInvoices,
-          issuedAt,
-          kind: "standard",
-          partnerKey: [c.partnerId, c.partner].filter(
-            (value): value is string =>
-              typeof value === "string" && value.trim().length > 0,
-          ),
-        });
+        let preview;
+        try {
+          preview = await prepareInvoicePreview({
+            contract: c,
+            existingInvoices,
+            issuedAt,
+            kind: "standard",
+            partnerKey: [c.partnerId, c.partner].filter(
+              (value): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            ),
+          });
+        } catch (err) {
+          console.error(`[monthly] prepareInvoicePreview error for contract ${c.id}:`, err);
+          due.push({
+            contract: c,
+            issuedAt,
+            amountEUR: undefined,
+            isPartial: false,
+            ...extra,
+            ...rateProps,
+          });
+          continue;
+        }
         if (!preview) {
           const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
             c.partnerId,
@@ -529,6 +583,17 @@ export default async function MonthlyInvoicesPage({
     dueCountsByBase.set(baseKey, (dueCountsByBase.get(baseKey) ?? 0) + 1);
   }
 
+  // Collect distinct owners from ALL contracts, not just this month's due items
+  const allOwners = Array.from(
+    new Set(contracts.map((c) => c.owner || "—")),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Apply owner filter
+  const filteredDue =
+    ownerFilter.length > 0
+      ? due.filter((d) => ownerFilter.includes(d.contract.owner || "—"))
+      : due;
+
   // Compute forecasted income totals for the summary banner.
   const checkDueItemIssued = (d: DueItem): boolean => {
     const candidates = getDueItemPartnerTokenCandidates(d);
@@ -547,7 +612,7 @@ export default async function MonthlyInvoicesPage({
   let forecastIssuedEUR = 0;
   let forecastIssuedCount = 0;
   let forecastPendingCount = 0;
-  for (const d of due) {
+  for (const d of filteredDue) {
     const amt = typeof d.amountEUR === "number" ? d.amountEUR : 0;
     const corrPct =
       typeof d.contract.correctionPercent === "number"
@@ -973,6 +1038,28 @@ export default async function MonthlyInvoicesPage({
                 className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
               />
             </label>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-medium text-foreground/80">
+                Proprietari
+              </legend>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
+                {allOwners.map((o) => (
+                  <label
+                    key={o}
+                    className="flex items-center gap-1.5 text-sm cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      name="owner"
+                      value={o}
+                      defaultChecked={ownerFilter.includes(o)}
+                      className="rounded border-foreground/30"
+                    />
+                    {o}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div className="flex items-center gap-2">
               <button
                 type="submit"
@@ -1014,7 +1101,7 @@ export default async function MonthlyInvoicesPage({
             {rateEffectiveDate ? (
               <span>Valabil pentru {fmt(rateEffectiveDate)}</span>
             ) : null}
-            <span className="text-foreground/50">
+            <span className="text-foreground/60">
               Sursă:{" "}
               {{
                 bnr: "BNR (live)",
@@ -1027,7 +1114,7 @@ export default async function MonthlyInvoicesPage({
           {validRateDate &&
           rateEffectiveDate &&
           validRateDate !== rateEffectiveDate ? (
-            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
               Nu există un curs publicat pentru {fmt(validRateDate)}. S-a
               folosit valoarea din {fmt(rateEffectiveDate)}.
             </div>
@@ -1040,9 +1127,9 @@ export default async function MonthlyInvoicesPage({
           ) : null}
         </section>
 
-        {due.length > 0 ? (
+        {filteredDue.length > 0 ? (
           <div className="mb-6 rounded-xl border border-foreground/10 bg-background/70 p-5">
-            <p className="text-xs font-medium text-foreground/50 uppercase tracking-wider mb-3">
+            <p className="text-xs font-medium text-foreground/60 uppercase tracking-wider mb-3">
               Venit prognozat &mdash; {periodLabel}
             </p>
             <div className="flex flex-wrap items-end gap-6">
@@ -1058,19 +1145,19 @@ export default async function MonthlyInvoicesPage({
               </div>
               <div className="flex gap-5 text-sm">
                 <div>
-                  <div className="text-foreground/50 mb-0.5">Emisă</div>
+                  <div className="text-foreground/60 mb-0.5">Emisă</div>
                   <div className="font-medium tabular-nums">
                     {fmtEUR(forecastIssuedEUR)}
-                    <span className="ml-1 text-foreground/50">
+                    <span className="ml-1 text-foreground/60">
                       ({forecastIssuedCount})
                     </span>
                   </div>
                 </div>
                 <div>
-                  <div className="text-foreground/50 mb-0.5">În așteptare</div>
+                  <div className="text-foreground/60 mb-0.5">În așteptare</div>
                   <div className="font-medium tabular-nums">
                     {fmtEUR(forecastPendingEUR)}
-                    <span className="ml-1 text-foreground/50">
+                    <span className="ml-1 text-foreground/60">
                       ({forecastPendingCount})
                     </span>
                   </div>
@@ -1081,7 +1168,7 @@ export default async function MonthlyInvoicesPage({
         ) : null}
 
         {(() => {
-          if (due.length === 0) {
+          if (filteredDue.length === 0) {
             return (
               <div className="rounded-xl border border-foreground/10 bg-background/70 p-8 text-center text-foreground/60">
                 Nicio factură programată pentru {periodLabel}.
@@ -1089,7 +1176,7 @@ export default async function MonthlyInvoicesPage({
             );
           }
           const groups = new Map<string, typeof due>();
-          for (const item of due) {
+          for (const item of filteredDue) {
             const owner = item.contract.owner || "—";
             const arr = groups.get(owner) || [];
             arr.push(item);
@@ -1285,7 +1372,7 @@ export default async function MonthlyInvoicesPage({
                                   În avans
                                 </span>
                               ) : null}
-                              <span className="text-[11px] text-foreground/50">
+                              <span className="text-[11px] text-foreground/60">
                                 {fmt(d.issuedAt)}
                               </span>
                               {isPartialDue ? (
@@ -1294,12 +1381,12 @@ export default async function MonthlyInvoicesPage({
                                 </span>
                               ) : null}
                               {corrPct ? (
-                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
                                   +{corrPct}%
                                 </span>
                               ) : null}
                             </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground/50">
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground/60">
                               <span>
                                 Curs:{" "}
                                 {typeof rate === "number"
@@ -1333,7 +1420,7 @@ export default async function MonthlyInvoicesPage({
                                 Emisă
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[12px] font-medium text-amber-600 dark:text-amber-400">
+                              <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[12px] font-medium text-amber-700 dark:text-amber-400">
                                 În așteptare
                               </span>
                             )}
@@ -1545,7 +1632,7 @@ export default async function MonthlyInvoicesPage({
                         </div>
                         <div className="mt-4 grid gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 text-[15px]">
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               EUR {already ? "emis" : "inițial"}
                             </div>
                             <div className="font-medium text-black dark:text-white">
@@ -1596,7 +1683,7 @@ export default async function MonthlyInvoicesPage({
                                       >
                                         {p.name}
                                       </Link>
-                                      <span className="text-foreground/50">
+                                      <span className="text-foreground/60">
                                         •
                                       </span>
                                       <span>
@@ -1604,7 +1691,7 @@ export default async function MonthlyInvoicesPage({
                                       </span>
                                       {hasPct ? (
                                         <>
-                                          <span className="text-foreground/50">
+                                          <span className="text-foreground/60">
                                             •
                                           </span>
                                           <span>
@@ -1624,7 +1711,7 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           ) : null}
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               EUR{" "}
                               {already ? "emis (după corecție)" : "corectat"}
                               {corrPct ? ` (+${corrPct}%)` : ""}
@@ -1636,7 +1723,7 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           </div>
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               {already ? "Curs la emitere" : "Curs RON/EUR"}
                             </div>
                             <div className="font-medium text-foreground">
@@ -1644,7 +1731,7 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           </div>
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               Net RON
                             </div>
                             <div className="font-medium text-black dark:text-white">
@@ -1654,7 +1741,7 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           </div>
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               TVA {tvaPct ? `(${tvaPct}%)` : ""}
                             </div>
                             <div className="font-medium text-black dark:text-white">
@@ -1664,7 +1751,7 @@ export default async function MonthlyInvoicesPage({
                             </div>
                           </div>
                           <div className="space-y-0.5">
-                            <div className="text-foreground/50 text-[13px] uppercase tracking-wide">
+                            <div className="text-foreground/60 text-[13px] uppercase tracking-wide">
                               Total RON
                             </div>
                             <div className="font-semibold text-black dark:text-white">
@@ -1710,7 +1797,7 @@ export default async function MonthlyInvoicesPage({
                                         <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300 border border-amber-500/30">
                                           {getMementoTypeLabel(memento.type)}
                                         </span>
-                                        <span className="text-foreground/50">
+                                        <span className="text-foreground/60">
                                           valabil până la {fmt(memento.endDate)}
                                         </span>
                                       </div>
@@ -1748,7 +1835,7 @@ export default async function MonthlyInvoicesPage({
                                         />
                                         <button
                                           type="submit"
-                                          className="rounded-md p-1 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                          className="rounded-md p-1 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400"
                                           title="Șterge memento"
                                         >
                                           <svg

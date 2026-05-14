@@ -48,7 +48,7 @@ export default function MementoEditButton({
     <button
       type="button"
       onClick={() => setShowEdit(true)}
-      className="rounded-md p-1 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400"
+      className="rounded-md p-1 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400"
       title="Editează memento"
     >
       <svg

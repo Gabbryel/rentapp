@@ -11,6 +11,9 @@ async function ensureDir() {
 }
 
 export async function readJson<T = unknown>(fileName: string, fallback: T): Promise<T> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("[rentapp] Local JSON store cannot be used in production. Set MONGODB_URI.");
+  }
   try {
     await ensureDir();
     const filePath = path.join(dataDir, fileName);
@@ -25,6 +28,9 @@ export async function readJson<T = unknown>(fileName: string, fallback: T): Prom
 }
 
 export async function writeJson<T = unknown>(fileName: string, data: T): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("[rentapp] Local JSON store cannot be used in production. Set MONGODB_URI.");
+  }
   await ensureDir();
   const filePath = path.join(dataDir, fileName);
   try {

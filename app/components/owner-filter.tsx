@@ -59,7 +59,7 @@ export default function OwnerFilter({
             </option>
           ))}
         </select>
-        <div className="text-xs text-foreground/50">
+        <div className="text-xs text-foreground/60">
           {contractCount} {contractCount === 1 ? "contract" : "contracte"}
         </div>
       </div>

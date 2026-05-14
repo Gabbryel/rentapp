@@ -1,13 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Incremental typing suppression: this module performs extensive dynamic normalization.
-// We'll re-enable the rule after introducing stronger domain types for legacy raw records.
 import { ContractSchema, type Contract as ContractType } from "@/lib/schemas/contract";
 import { getDb } from "@/lib/mongodb";
+import type { Db } from "mongodb";
 import { readJson, writeJson } from "@/lib/local-store";
 // Invoices: using new modular system
 import { InvoiceSchema, type Invoice } from "@/lib/schemas/invoice";
 import type { Deposit } from "@/lib/schemas/deposit";
-import { saveBufferAsUpload } from "@/lib/storage";
 import { PDFDocument, rgb } from "pdf-lib";
 import { loadPdfFonts } from "@/lib/pdf-fonts";
 // Import from new invoice modules
@@ -15,12 +12,6 @@ import {
   issueInvoice,
   deleteInvoice as deleteInvoiceNew,
   findInvoiceById,
-  findInvoiceByContractAndDate,
-  findInvoiceByContractPartnerAndDate,
-  listInvoicesForContract,
-  listInvoicesForMonth,
-  fetchInvoicesForYear,
-  invalidateYearInvoicesCache,
 } from "@/lib/invoices";
 
 const RAW_MOCK_CONTRACTS = [
@@ -425,7 +416,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     return undefined;
   };
   // ignore legacy indexing fields in persistence
-  const amountEUR = numOrUndef((r as any).rentAmountEuro ?? (r as any).amountEUR);
+  const amountEUR = numOrUndef(r.rentAmountEuro ?? r.amountEUR);
   const exchangeRateRON = numOrUndef(r.exchangeRateRON);
   const tvaPercent =
     typeof r.tvaPercent === "number"
@@ -437,7 +428,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     typeof r.correctionPercent === "number"
       ? r.correctionPercent
       : (() => {
-          const v = r.correctionPercent as unknown;
+          const v = r.correctionPercent;
           if (typeof v === "string" && v.trim() !== "") {
             const n = Number(v.replace(",", "."));
             return Number.isFinite(n) ? n : undefined;
@@ -445,27 +436,25 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
           return undefined;
         })();
   const tvaType =
-    typeof (r as any).tvaType === "string" && (r as any).tvaType.trim()
-      ? (r as any).tvaType.trim()
+    typeof r.tvaType === "string" && (r.tvaType as string).trim()
+      ? (r.tvaType as string).trim()
       : undefined;
   return {
     id: typeof r.id === "string" ? r.id : (r.id as string | undefined),
     name: typeof r.name === "string" ? r.name : (r.name as string | undefined),
-    assetId: typeof (r as any).assetId === "string" ? (r as any).assetId : undefined,
-    asset: typeof (r as any).asset === "string" ? (r as any).asset : undefined,
+    assetId: typeof r.assetId === "string" ? r.assetId : undefined,
+    asset: typeof r.asset === "string" ? r.asset : undefined,
     partnerId: typeof r.partnerId === "string" ? r.partnerId : undefined,
     partner: typeof r.partner === "string" ? r.partner : (r.partner as string | undefined),
     // Normalize multiple partners; ensure primary partner appears first
     partners: ((): { id?: string; name: string; sharePercent?: number }[] | undefined => {
-      const arr = Array.isArray((r as any).partners)
-        ? ((r as any).partners as unknown[])
-        : [];
+      const arr = Array.isArray(r.partners) ? (r.partners as unknown[]) : [];
       const mapped = arr
         .map((it) => {
           const o = (it ?? {}) as Record<string, unknown>;
           const id = typeof o.id === "string" && o.id.trim() ? o.id.trim() : undefined;
           const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : undefined;
-          const spRaw = (o as any).sharePercent as unknown;
+          const spRaw = o.sharePercent;
           let share: number | undefined = undefined;
           if (typeof spRaw === "number") {
             share = Number.isFinite(spRaw) ? spRaw : undefined;
@@ -499,25 +488,22 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return mapped;
     })(),
     owner: (r.owner as string) ?? "Markov Services s.r.l.",
-    ownerId: typeof (r as any).ownerId === "string" && (r as any).ownerId.trim() ? (r as any).ownerId.trim() : undefined,
+    ownerId: typeof r.ownerId === "string" && (r.ownerId as string).trim() ? (r.ownerId as string).trim() : undefined,
     signedAt: toYmd(r.signedAt)!,
     startDate: toYmd(r.startDate)!,
     endDate: toYmd(r.endDate)!,
-    terminationDate: toYmd((r as any).terminationDate),
+    terminationDate: toYmd(r.terminationDate),
     terminationReason: ((): "agreement" | "fault" | undefined => {
-      const v = (r as any).terminationReason;
+      const v = r.terminationReason;
       return v === "agreement" || v === "fault" ? v : undefined;
     })(),
     terminationNotes:
-      typeof (r as any).terminationNotes === "string" &&
-      (r as any).terminationNotes.trim()
-        ? (r as any).terminationNotes.trim()
+      typeof r.terminationNotes === "string" && (r.terminationNotes as string).trim()
+        ? (r.terminationNotes as string).trim()
         : undefined,
     // Normalize contractExtensions
     contractExtensions: ((): { docDate: string; document: string; extendedUntil: string }[] | undefined => {
-      const arr = Array.isArray((r as any).contractExtensions)
-        ? ((r as any).contractExtensions as unknown[])
-        : [];
+      const arr = Array.isArray(r.contractExtensions) ? (r.contractExtensions as unknown[]) : [];
       const mapped = arr
         .map((it) => {
           const o = (it ?? {}) as Record<string, unknown>;
@@ -539,7 +525,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     rentType: ((): "monthly" | "yearly" => (r.rentType === "yearly" ? "yearly" : "monthly"))(),
     // Preserve explicit invoiceMonthMode from persistence; fallback to undefined so schema default applies only if absent
     invoiceMonthMode: ((): "current" | "next" | undefined => {
-      const v = (r as any).invoiceMonthMode;
+      const v = r.invoiceMonthMode;
       if (v === "next") return "next";
       if (v === "current") return "current";
       return undefined; // let zod default kick in for legacy rows
@@ -551,7 +537,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       const n = Number(r.monthlyInvoiceDay);
       if (Number.isInteger(n) && n >= 1 && n <= 31) return n;
       // fallback: derive from invoiceDate if present
-  const inv = toYmd((r as Record<string, unknown>).invoiceDate);
+      const inv = toYmd(r.invoiceDate);
       if (inv) {
         const d = new Date(inv);
         const day = d.getDate();
@@ -561,11 +547,10 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return 1;
     })(),
     irregularInvoices: ((): { month: number; day: number; amountEUR: number }[] | undefined => {
-      const rawY = (r as Record<string, unknown>).irregularInvoices as unknown;
-      const arr: unknown[] = Array.isArray(rawY)
-        ? rawY as unknown[]
-        : Array.isArray((r as any).yearlyInvoices)
-        ? ((r as any).yearlyInvoices as unknown[])
+      const arr: unknown[] = Array.isArray(r.irregularInvoices)
+        ? (r.irregularInvoices as unknown[])
+        : Array.isArray(r.yearlyInvoices)
+        ? (r.yearlyInvoices as unknown[])
         : [];
       const mapped = arr
         .map((it) => {
@@ -584,7 +569,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         );
       return mapped.length > 0 ? mapped : undefined;
     })(),
-  // legacy single scan handling
+    // legacy single scan handling
     scanUrl: ((): string | undefined => {
       const v = r.scanUrl;
       if (v == null) return undefined;
@@ -592,7 +577,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return undefined;
     })(),
     scans: ((): { url: string; title?: string }[] => {
-      const arr = Array.isArray((r as any).scans) ? ((r as any).scans as unknown[]) : [];
+      const arr = Array.isArray(r.scans) ? (r.scans as unknown[]) : [];
       const mapped = arr
         .map((it) => {
           const o = (it ?? {}) as Record<string, unknown>;
@@ -612,30 +597,30 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       }
       return mapped;
     })(),
-  rentAmountEuro: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
+    rentAmountEuro: Number.isFinite(amountEUR ?? NaN) && (amountEUR as number) > 0 ? (amountEUR as number) : undefined,
     exchangeRateRON: Number.isFinite(exchangeRateRON ?? NaN) && (exchangeRateRON as number) > 0 ? (exchangeRateRON as number) : undefined,
     tvaPercent,
     tvaType,
     correctionPercent,
     // schedule fields
     indexingDay: ((): number | undefined => {
-      const n = Number((r as any).indexingDay);
+      const n = Number(r.indexingDay);
       return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
     })(),
     indexingMonth: ((): number | undefined => {
-      const n = Number((r as any).indexingMonth);
+      const n = Number(r.indexingMonth);
       return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
     })(),
     howOftenIsIndexing: ((): number | undefined => {
-      const n = Number((r as any).howOftenIsIndexing);
+      const n = Number(r.howOftenIsIndexing);
       return Number.isInteger(n) && n >= 1 && n <= 12 ? n : undefined;
     })(),
     // Indexing dates: prefer persisted indexingDates when present; otherwise derive from legacy futureIndexingDates only if schedule is valid
     indexingDates: ((): { forecastDate: string; document: string | undefined; done: boolean; actualDate?: string; newRentAmount?: number }[] => {
       // If DB already has indexingDates, sanitize and keep them regardless of schedule fields
-      if (Array.isArray((r as any).indexingDates)) {
-        const arr = ((r as any).indexingDates as unknown[]).map((it) => {
-          const o = (it ?? {}) as any;
+      if (Array.isArray(r.indexingDates)) {
+        const arr = (r.indexingDates as unknown[]).map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>;
           const forecastDate = toYmd(o.forecastDate);
           if (!forecastDate) return null;
           const actualDate = toYmd(o.actualDate);
@@ -651,20 +636,18 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
         return arr;
       }
       // Else, build from legacy futureIndexingDates only when schedule is valid
-      const day = Number((r as any).indexingDay);
-      const freq = Number((r as any).howOftenIsIndexing);
+      const day = Number(r.indexingDay);
+      const freq = Number(r.howOftenIsIndexing);
       const scheduleOk = Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(freq) && freq >= 1 && freq <= 12;
       if (!scheduleOk) return [];
-      const legacyArr = Array.isArray((r as any).futureIndexingDates)
-        ? ((r as any).futureIndexingDates as unknown[])
-        : [];
+      const legacyArr = Array.isArray(r.futureIndexingDates) ? (r.futureIndexingDates as unknown[]) : [];
       const mapped: { forecastDate: string; document: string | undefined; done: boolean; actualDate?: string; newRentAmount?: number }[] = [];
       for (const it of legacyArr) {
         if (typeof it === "string") {
           const d = toYmd(it);
           if (d) mapped.push({ forecastDate: d, document: undefined, done: false });
         } else if (it && typeof it === "object") {
-          const o = it as any;
+          const o = it as Record<string, unknown>;
           const d = toYmd(o.date);
           if (d)
             mapped.push({
@@ -679,9 +662,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
     })(),
     // Mementos: reminders for additional invoice items
     mementos: ((): { type: string; message?: string; endDate: string }[] => {
-      const arr = Array.isArray((r as any).mementos)
-        ? ((r as any).mementos as unknown[])
-        : [];
+      const arr = Array.isArray(r.mementos) ? (r.mementos as unknown[]) : [];
       const mapped = arr
         .map((it) => {
           const o = (it ?? {}) as Record<string, unknown>;
@@ -714,9 +695,7 @@ function contractMatchesPartner(c: ContractType, partnerId: string, partnerName?
 
   if (pid) {
     if (typeof c.partnerId === "string" && c.partnerId === pid) return true;
-    const ps = Array.isArray((c as any).partners)
-      ? ((c as any).partners as Array<{ id?: string; name?: string }>)
-      : [];
+    const ps = c.partners ?? [];
     if (ps.some((p) => p && typeof p.id === "string" && p.id === pid)) return true;
   }
 
@@ -724,10 +703,7 @@ function contractMatchesPartner(c: ContractType, partnerId: string, partnerName?
 
   if (sameText(c.partner, pName)) return true;
 
-  const ps = Array.isArray((c as any).partners)
-    ? ((c as any).partners as Array<{ id?: string; name?: string }>)
-    : [];
-  return ps.some((p) => p && sameText(p.name, pName));
+  return (c.partners ?? []).some((p) => p && sameText(p.name, pName));
 }
 
 export async function fetchContracts(): Promise<ContractType[]> {
@@ -744,7 +720,7 @@ export async function fetchContracts(): Promise<ContractType[]> {
         if (parsed.success) valid.push(parsed.data);
         else {
           console.warn("Contract invalid, omis din listă:", {
-            id: (raw as any)?.id,
+            id: (raw as Record<string, unknown>)?.id,
             issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
           });
         }
@@ -789,7 +765,7 @@ export async function fetchContractById(id: string): Promise<ContractType | null
   return MOCK_CONTRACTS.find((c) => c.id === id) ?? null;
 }
 
-export async function fetchContractsByAssetId(assetId: string, injectedDb?: any): Promise<ContractType[]> {
+export async function fetchContractsByAssetId(assetId: string, injectedDb?: Db): Promise<ContractType[]> {
   // Allow injecting a DB for tests; otherwise use real MongoDB when configured
   if (injectedDb || process.env.MONGODB_URI) {
     try {
@@ -804,7 +780,7 @@ export async function fetchContractsByAssetId(assetId: string, injectedDb?: any)
         if (parsed.success) valid.push(parsed.data);
         else {
           console.warn("Contract invalid, omis din listă (asset):", {
-            id: (raw as any)?.id,
+            id: (raw as Record<string, unknown>)?.id,
             issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
           });
         }
@@ -818,13 +794,13 @@ export async function fetchContractsByAssetId(assetId: string, injectedDb?: any)
     const local = await readJson<ContractType[]>("contracts.json", []);
     if (local.length > 0) return local.filter((c) => c.assetId === assetId);
   } catch {}
-  return MOCK_CONTRACTS.filter((c) => (c as any).assetId === assetId);
+  return MOCK_CONTRACTS.filter((c) => c.assetId === assetId);
 }
 
 export async function fetchContractsByPartnerId(
   partnerId: string,
   partnerName?: string,
-  injectedDb?: any
+  injectedDb?: Db
 ): Promise<ContractType[]> {
   const pid = String(partnerId || "").trim();
   const pName = String(partnerName || "").trim();
@@ -868,28 +844,25 @@ export async function fetchContractsByPartnerId(
 
 // Effective end date: latest extendedUntil from contractExtensions, otherwise endDate
 export function effectiveEndDate(c: ContractType): string {
-  const list = Array.isArray((c as any).contractExtensions)
-    ? (((c as any).contractExtensions as unknown[]) as { extendedUntil?: string }[])
-    : [];
+  const list = c.contractExtensions ?? [];
   const dates = list
     .map((x) => (x && typeof x.extendedUntil === "string" ? x.extendedUntil : ""))
     .filter(Boolean)
     .sort();
   const latest = dates.length > 0 ? dates[dates.length - 1] : undefined;
   const naturalEnd = latest ?? c.endDate;
-  const terminationDate =
-    typeof (c as any).terminationDate === "string"
-      ? String((c as any).terminationDate).slice(0, 10)
-      : "";
+  const terminationDate = typeof c.terminationDate === "string"
+    ? c.terminationDate.slice(0, 10)
+    : "";
   if (terminationDate && terminationDate < naturalEnd) return terminationDate;
   return naturalEnd;
 }
 
 // Compute future indexing dates within contract bounds
 export function computeFutureIndexingDates(c: ContractType): { forecastDate: string; done: boolean; document?: string }[] {
-  const dayRaw = (c as any).indexingDay as number | undefined;
-  const monthRaw = (c as any).indexingMonth as number | undefined;
-  const freqRaw = (c as any).howOftenIsIndexing as number | undefined;
+  const dayRaw = c.indexingDay;
+  const monthRaw = c.indexingMonth;
+  const freqRaw = c.howOftenIsIndexing;
   if (!Number.isInteger(dayRaw) || !Number.isInteger(monthRaw) || !Number.isInteger(freqRaw)) return [];
   const day = dayRaw as number;
   const monthIndex = (monthRaw as number) - 1; // zero-based
@@ -932,57 +905,9 @@ export async function upsertContract(contract: ContractType) {
   // Mongo path
   if (process.env.MONGODB_URI) {
     const db = await getDb();
-    const existing = await db.collection<ContractType>("contracts").findOne({ id: contract.id });
-    // Peek provided indexing metadata from incoming contract to determine effective date
-  const providedIdx = Array.isArray((contract as any).indexingDates)
-      ? (((contract as any).indexingDates as unknown[]) as {
-          forecastDate: string;
-          actualDate?: string;
-          document?: string;
-          newRentAmount?: number;
-          done?: boolean;
-        }[])
-      : [];
-    if (existing) {
-      const prevAmount = (existing as any).rentAmountEuro ?? (existing as any).amountEUR;
-      const prevRate = (existing as any).exchangeRateRON;
-      const prevCorrection = (existing as any).correctionPercent;
-      const prevTva = (existing as any).tvaPercent;
-      const changed =
-        (typeof prevAmount === "number" || typeof (contract as any).rentAmountEuro === "number") &&
-        (prevAmount !== (contract as any).rentAmountEuro || prevRate !== contract.exchangeRateRON || prevCorrection !== contract.correctionPercent || prevTva !== contract.tvaPercent);
-      if (changed && typeof prevAmount === "number" && prevAmount > 0) {
-        // Determine effective changedAt and note from indexing when applicable
-        const newAmount = (contract as any).rentAmountEuro;
-        const match =
-          typeof newAmount === "number"
-            ? providedIdx.find(
-                (x) => x && x.done && typeof x.newRentAmount === "number" && x.newRentAmount === newAmount
-              )
-            : undefined;
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, "0");
-        const d = String(today.getDate()).padStart(2, "0");
-        const isoToday = `${y}-${m}-${d}`;
-        const changedAtIso = match?.actualDate || match?.forecastDate || isoToday;
-        const note = match?.actualDate
-          ? `indexare ${match.actualDate}`
-          : match?.forecastDate
-          ? `indexare ${match.forecastDate}`
-          : undefined;
-        // rent history removed
-      }
-    }
-    // If this is a new contract (no existing) and no history provided, seed initial entry
-    if (!existing) {
-      const currentAmount = (contract as any).rentAmountEuro;
-      // no-op
-    }
-    // rent history removed
   // Keep provided indexingDates as-is (schedule-based generation removed)
-  const provided = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as {
+  const provided = Array.isArray(contract.indexingDates)
+    ? (contract.indexingDates as {
         forecastDate: string;
         actualDate?: string;
         document?: string;
@@ -998,28 +923,10 @@ export async function upsertContract(contract: ContractType) {
     done: Boolean(p.done),
   }));
   merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
-  // If any indexingDates have an actualDate <= today with a numeric newRentAmount,
-  // force the contract's current EUR rent to the latest such amount.
-  const todayIso = (() => {
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, "0");
-    const d = String(t.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  })();
-  const applied = merged
-    .filter(
-      (x) =>
-        typeof (x as any).newRentAmount === "number" &&
-        x.actualDate &&
-        String(x.actualDate).slice(0, 10) <= todayIso
-    )
-    .sort((a, b) => String(a.actualDate || "").localeCompare(String(b.actualDate || "")));
-  const latestApplied = applied.length > 0 ? (applied[applied.length - 1] as any) : undefined;
-  const forcedRentAmount = latestApplied?.newRentAmount as number | undefined;
-  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as ContractType;
     // Strip MongoDB's _id to prevent "immutable field" errors on $set
-    delete (toSave as any)._id;
+    delete (toSave as Record<string, unknown>)._id;
     await db
       .collection<ContractType>("contracts")
       .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
@@ -1029,26 +936,9 @@ export async function upsertContract(contract: ContractType) {
   try {
     const all = await readJson<ContractType[]>("contracts.json", []);
     const idx = all.findIndex((c) => c.id === contract.id);
-    // rent history removed
-    const providedIdx = Array.isArray((contract as any).indexingDates)
-      ? (((contract as any).indexingDates as unknown[]) as {
-          forecastDate: string;
-          actualDate?: string;
-          document?: string;
-          newRentAmount?: number;
-          done?: boolean;
-        }[])
-      : [];
-    // no-op: rent history removed; only indexingDates are maintained
-    // If this is a new contract (no previous in local store) and history empty, seed initial entry
-    if (idx < 0) {
-      const currentAmount = (contract as any).rentAmountEuro;
-      // no-op
-    }
-    // rent history removed
-  const baseComputed = computeFutureIndexingDates(contract as any);
-  const provided = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as {
+  const baseComputed = computeFutureIndexingDates(contract);
+  const provided = Array.isArray(contract.indexingDates)
+    ? (contract.indexingDates as {
         forecastDate: string;
         actualDate?: string;
         document?: string;
@@ -1081,25 +971,13 @@ export async function upsertContract(contract: ContractType) {
     }
   }
   merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
-  const todayIso2 = (() => {
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, "0");
-    const d = String(t.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  })();
-  const applied2 = merged
-    .filter(
-      (x) =>
-        typeof (x as any).newRentAmount === "number" &&
-        x.actualDate &&
-        String(x.actualDate).slice(0, 10) <= todayIso2
-    )
-    .sort((a, b) => String(a.actualDate || "").localeCompare(String(b.actualDate || "")));
-  const latestApplied2 = applied2.length > 0 ? (applied2[applied2.length - 1] as any) : undefined;
-  const forcedRentAmount2 = latestApplied2?.newRentAmount as number | undefined;
-  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as any;
-    if (idx >= 0) all[idx] = toSave; else all.push(toSave);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toSave: ContractType = { ...(contract as any), indexingDates: merged } as ContractType;
+    if (idx >= 0) {
+      all[idx] = toSave;
+    } else {
+      all.push(toSave);
+    }
     await writeJson("contracts.json", all);
   } catch (err) {
     console.warn("Persistență locală contract eșuată:", err);
@@ -1167,7 +1045,7 @@ export async function updateContractsExchangeRate(newRate: number, onlyActive = 
     : {};
   const res = await db
     .collection<ContractType>("contracts")
-    .updateMany(filter as any, { $set: { exchangeRateRON: newRate } });
+    .updateMany(filter as Record<string, unknown>, { $set: { exchangeRateRON: newRate } });
   return res.modifiedCount ?? 0;
 }
 
@@ -1249,6 +1127,7 @@ export async function updateInvoiceNumber(id: string, number: string): Promise<b
   // Exclude _id from projection so it is never spread into the $set document
   const doc = await db.collection<Invoice>("invoices").findOne({ id }, { projection: { _id: 0 } });
   if (!doc) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const newDoc = { ...(doc as any), id: number, number, updatedAt: nowIso };
   await db.collection<Invoice>("invoices").deleteOne({ id });
   const res = await db.collection<Invoice>("invoices").updateOne({ id: number }, { $set: newDoc }, { upsert: true });
@@ -1286,7 +1165,7 @@ export function computeInvoiceFromContract(opts: {
     amountEUR = opts.amountEUROverride;
   } else if (c.rentType === "yearly") {
     const { m, day } = parseMD(opts.issuedAt);
-    const list = (((c as any).irregularInvoices || (c as any).yearlyInvoices) || []) as any[];
+    const list = c.irregularInvoices ?? c.yearlyInvoices ?? [];
     const yi = list.find((r) => r.month === m && r.day === day);
     amountEUR = yi?.amountEUR ?? rentAmountAtDate(c, opts.issuedAt);
   } else {
@@ -1308,7 +1187,7 @@ export function computeInvoiceFromContract(opts: {
 
   const nowIso = new Date().toISOString().slice(0, 10);
   // Create a unique temporary ID that includes partner info to avoid collisions
-  const partnerToken = (c as any).partnerId || c.partner || "default";
+  const partnerToken = c.partnerId || c.partner || "default";
   const tempId = opts.number || `temp-${c.id}-${opts.issuedAt}-${partnerToken}-${Date.now()}`;
   const inv: Invoice = InvoiceSchema.parse({
     // Temporary id; will be overwritten with the invoice number at issuance
@@ -1317,9 +1196,9 @@ export function computeInvoiceFromContract(opts: {
     contractName: c.name,
     issuedAt: opts.issuedAt,
     dueDays,
-    ownerId: (c as any).ownerId,
-    owner: (c as any).owner,
-    partnerId: (c as any).partnerId || (c as any).partner,
+    ownerId: c.ownerId,
+    owner: c.owner,
+    partnerId: c.partnerId || c.partner,
     partner: c.partner,
     amountEUR,
     correctionPercent: corrPct,
@@ -1347,7 +1226,7 @@ export function resolveBilledPeriodDate(
     throw new Error("Data emiterii este invalidă");
   }
   if (contract.rentType === "yearly") return issuedAt;
-  const invoiceMonthMode = (contract as any).invoiceMonthMode === "next" ? "next" : "current";
+  const invoiceMonthMode = contract.invoiceMonthMode === "next" ? "next" : "current";
   const offsetMonths = invoiceMonthMode === "next" ? 1 : 0;
   const billed = new Date(
     Date.UTC(issuedAtDate.getUTCFullYear(), issuedAtDate.getUTCMonth() + offsetMonths, 1)
@@ -1357,9 +1236,10 @@ export function resolveBilledPeriodDate(
 
 // Return the EUR rent amount effective on the given ISO date (YYYY-MM-DD)
 export function rentAmountAtDate(c: ContractType, isoDate: string): number | undefined {
-    const rows: Array<{ date: string; value: number }> = [];
+  const rows: Array<{ date: string; value: number }> = [];
+  const cRaw = c as Record<string, unknown>;
   const legacyAmount = (() => {
-    const raw = (c as any).rentAmountEuro ?? (c as any).amountEUR;
+    const raw = cRaw.rentAmountEuro ?? cRaw.amountEUR;
     if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
     if (typeof raw === "string" && raw.trim() !== "") {
       const n = Number(raw.replace(",", "."));
@@ -1367,23 +1247,19 @@ export function rentAmountAtDate(c: ContractType, isoDate: string): number | und
     }
     return undefined;
   })();
-  if (c.rentType === "yearly" && Array.isArray((c as any).irregularInvoices)) {
+  if (c.rentType === "yearly" && Array.isArray(c.irregularInvoices)) {
     const target = new Date(isoDate);
     const month = target.getMonth() + 1;
     const day = target.getDate();
-    const match = (c as any).irregularInvoices.find(
-      (r: any) => Number(r.month) === month && Number(r.day) === day
+    const match = c.irregularInvoices.find(
+      (r) => Number(r.month) === month && Number(r.day) === day
     );
     if (match && typeof match.amountEUR === "number") {
       rows.push({ date: isoDate.slice(0, 10), value: Number(match.amountEUR) });
     }
   }
-  if (Array.isArray((c as any).indexingDates)) {
-    ((c as any).indexingDates as Array<{
-      forecastDate: string;
-      actualDate?: string;
-      newRentAmount?: number;
-    }>)
+  if (Array.isArray(c.indexingDates)) {
+    c.indexingDates
       .filter((it) => typeof it.newRentAmount === "number")
       .forEach((it) => {
         const eff = String((it.actualDate || it.forecastDate) || "").slice(0, 10);
@@ -1407,7 +1283,7 @@ export function rentAmountAtDate(c: ContractType, isoDate: string): number | und
 // Convenience for "today"
 export function currentRentAmount(c: ContractType): number | undefined {
   if (c.rentType === "yearly") {
-    const list = (((c as any).irregularInvoices || (c as any).yearlyInvoices) || []) as any[];
+    const list = c.irregularInvoices ?? c.yearlyInvoices ?? [];
     const total = list.reduce(
       (sum, item) => (typeof item.amountEUR === "number" ? sum + item.amountEUR : sum),
       0
@@ -1524,7 +1400,7 @@ export async function renderContractPdf(
   addWrapped(`ID: ${contract.id}`);
   addWrapped(`Denumire: ${contractName}`, { bold: true });
 
-  const ownerName = (contract as any).owner || "—";
+  const ownerName = contract.owner || "—";
   const partnerNames = Array.isArray(contract.partners)
     ? contract.partners.map((p) => p?.name).filter(Boolean)
     : [];
@@ -1538,8 +1414,8 @@ export async function renderContractPdf(
   } else {
     addWrapped(`Partener: ${primaryPartner}`);
   }
-  if ((contract as any).asset) {
-    addWrapped(`Asset: ${(contract as any).asset}`);
+  if (contract.asset) {
+    addWrapped(`Asset: ${contract.asset}`);
   }
   addWrapped(`Semnat la: ${fmtDate(contract.signedAt)}`);
   const effectiveEnd = effectiveEndDate(contract);
@@ -1549,16 +1425,9 @@ export async function renderContractPdf(
   const isExpired = new Date(String(effectiveEnd)) < new Date();
   addWrapped(`Status: ${isExpired ? "Expirat" : "Activ"}`);
 
-  if (
-    Array.isArray((contract as any).contractExtensions) &&
-    (contract as any).contractExtensions.length
-  ) {
+  if (Array.isArray(contract.contractExtensions) && contract.contractExtensions.length) {
     addHeading("Prelungiri contract");
-    ((contract as any).contractExtensions as Array<{
-      docDate?: string;
-      document?: string;
-      extendedUntil?: string;
-    }>)
+    contract.contractExtensions
       .slice()
       .sort((a, b) => String(a.extendedUntil || "").localeCompare(String(b.extendedUntil || "")))
       .forEach((ext, index) => {
@@ -1592,8 +1461,8 @@ export async function renderContractPdf(
     addWrapped(`Curs RON/EUR: ${contract.exchangeRateRON.toFixed(4)}`);
   }
 
-  if (Array.isArray((contract as any).irregularInvoices) && (contract as any).irregularInvoices.length) {
-    const totalEUR = ((contract as any).irregularInvoices as any[]).reduce(
+  if (Array.isArray(contract.irregularInvoices) && contract.irregularInvoices.length) {
+    const totalEUR = contract.irregularInvoices.reduce(
       (sum, r) => sum + (typeof r.amountEUR === "number" ? r.amountEUR : 0),
       0
     );
@@ -1604,7 +1473,7 @@ export async function renderContractPdf(
       )} EUR)`,
       { size: 11 }
     );
-    ((contract as any).irregularInvoices as any[])
+    contract.irregularInvoices
       .slice()
       .sort((a, b) => a.month - b.month || a.day - b.day)
       .forEach((inv, idx) => {
@@ -1650,18 +1519,10 @@ export async function renderContractPdf(
       size: 11,
     });
   }
-  if (typeof (contract as any).indexingMonth === "number") {
-    addWrapped(`Lună indexare: ${(contract as any).indexingMonth}`, { size: 11 });
+  if (typeof contract.indexingMonth === "number") {
+    addWrapped(`Lună indexare: ${contract.indexingMonth}`, { size: 11 });
   }
-  const indexingDates: Array<{
-    forecastDate: string;
-    actualDate?: string;
-    document?: string;
-    newRentAmount?: number;
-    done?: boolean;
-  }> = Array.isArray((contract as any).indexingDates)
-    ? ((contract as any).indexingDates as any[])
-    : [];
+  const indexingDates = contract.indexingDates ?? [];
 
   if (indexingDates.length) {
     indexingDates
@@ -1692,7 +1553,7 @@ export async function renderContractPdf(
     const depositSummary = deposits.reduce(
       (acc, d) => {
         const eur = typeof d.amountEUR === "number" ? d.amountEUR : 0;
-        const ron = typeof (d as any).amountRON === "number" ? (d as any).amountRON : 0;
+        const ron = typeof d.amountRON === "number" ? d.amountRON : 0;
         acc.count += 1;
         acc.totalEUR += eur;
         acc.totalRON += ron;
@@ -1751,8 +1612,8 @@ export async function renderContractPdf(
         if (typeof d.amountEUR === "number") {
           amounts.push(fmtCurrency(d.amountEUR, "EUR"));
         }
-        if (typeof (d as any).amountRON === "number") {
-          amounts.push(fmtCurrency((d as any).amountRON, "RON"));
+        if (typeof d.amountRON === "number") {
+          amounts.push(fmtCurrency(d.amountRON, "RON"));
         }
         if (amounts.length) {
           addWrapped(`  - Sume: ${amounts.join(" / ")}`, { size: 11 });
@@ -1820,9 +1681,7 @@ export async function renderContractPdf(
       });
   }
 
-  const scans: Array<{ url: string; title?: string }> = Array.isArray((contract as any).scans)
-    ? ((contract as any).scans as Array<{ url: string; title?: string }>)
-    : [];
+  const scans = contract.scans ?? [];
   const legacyScan: Array<{ url: string; title?: string }> = contract.scanUrl
     ? [{ url: String(contract.scanUrl) }]
     : [];

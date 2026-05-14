@@ -3,14 +3,14 @@ import * as React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import ContractScans from "@/app/components/contract-scans";
 import ManageContractScans from "./scans/ManageContractScans";
-import { updateScanTitleAction, deleteScanAction } from "./scans/actions";
 import InvoiceViewer from "@/app/components/invoice-viewer";
 import ConfirmSubmit from "@/app/components/confirm-submit";
 import ActionButton from "@/app/components/action-button";
 import IndexingNoticePrint from "./IndexingNoticePrint";
 import IndexingNoticeEditor from "./IndexingNoticeEditor";
+import { StartDateEditor } from "./StartDateEditor";
+import { InvoiceDayEditor } from "./InvoiceDayEditor";
 import {
   effectiveEndDate,
   fetchContractById,
@@ -42,7 +42,6 @@ import {
   issueInvoiceAndGeneratePdf,
   deleteInvoiceById,
   updateInvoiceNumber,
-  invalidateYearInvoicesCache,
 } from "@/lib/contracts";
 import { computeNextMonthProration } from "@/lib/advance-billing";
 import {
@@ -1721,7 +1720,7 @@ async function updatePartnerSharesAction(formData: FormData) {
       meta: { partners: rows },
     });
     publishToast("Procentaje parteneri actualizate", "success");
-  } catch (e: any) {
+  } catch {
     publishToast("Eroare la actualizarea procentelor", "error");
   }
   revalidatePath(`/contracts/${contractId}`);
@@ -1913,6 +1912,80 @@ async function deleteExtension(formData: FormData) {
   revalidatePath(`/contracts/${contractId}`);
 }
 
+async function updateInvoiceDayAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const raw = String(formData.get("monthlyInvoiceDay") || "").trim();
+  if (!contractId) return;
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+  let value: number | undefined = undefined;
+  if (raw !== "") {
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 1 && n <= 31) value = n;
+    else {
+      publishToast("Ziua trebuie să fie un număr între 1 și 31.", "error");
+      revalidatePath(`/contracts/${contractId}`);
+      return;
+    }
+  }
+  try {
+    const patch: Record<string, unknown> = { ...(existing as Record<string, unknown>) };
+    if (typeof value === "number") patch.monthlyInvoiceDay = value;
+    else delete patch.monthlyInvoiceDay;
+    await upsertContract(patch as Parameters<typeof upsertContract>[0]);
+    await logAction({
+      action: "contract.invoiceDay.update",
+      targetType: "contract",
+      targetId: contractId,
+      meta: { monthlyInvoiceDay: value },
+    });
+    publishToast("Ziua de facturare a fost actualizată.", "success");
+  } catch (e: unknown) {
+    publishToast(String(e instanceof Error ? e.message : "Eroare la actualizare."), "error");
+  }
+  revalidatePath(`/contracts/${contractId}`);
+}
+
+async function updateStartDateAction(formData: FormData) {
+  "use server";
+  const contractId = String(formData.get("contractId") || "").trim();
+  const newStartDate = String(formData.get("startDate") || "").trim();
+  if (!contractId || !newStartDate) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newStartDate)) {
+    publishToast("Dată invalidă.", "error");
+    return;
+  }
+  const existing = await fetchContractById(contractId);
+  if (!existing) return;
+  const signedAt = new Date((existing as any).signedAt);
+  const endDate = new Date((existing as any).endDate);
+  const newStart = new Date(newStartDate);
+  if (newStart < signedAt) {
+    publishToast("Data de start nu poate fi înainte de data semnării.", "error");
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+  if (newStart > endDate) {
+    publishToast("Data de start nu poate fi după data de expirare.", "error");
+    revalidatePath(`/contracts/${contractId}`);
+    return;
+  }
+  try {
+    await upsertContract({ ...(existing as any), startDate: newStartDate } as any);
+    await logAction({
+      action: "contract.startDate.update",
+      targetType: "contract",
+      targetId: contractId,
+      meta: { oldStartDate: (existing as any).startDate, newStartDate },
+    });
+    publishToast("Data de start a fost actualizată.", "success");
+  } catch (e: any) {
+    publishToast(String(e?.message || "Eroare la actualizare."), "error");
+  }
+  revalidatePath(`/contracts/${contractId}`);
+}
+
 export default async function ContractPage({
   params,
 }: {
@@ -2075,10 +2148,6 @@ export default async function ContractPage({
     return diff < 0 ? 0 : diff;
   })();
 
-  const alreadyIssuedForThisMonth = Boolean(
-    dueAt && invoices.some((inv) => inv.issuedAt === dueAt),
-  );
-
   // Build rent series and indexation history from indexingDates entries.
   type Indexation = {
     date: string; // effective (actualDate or forecastDate)
@@ -2086,10 +2155,7 @@ export default async function ContractPage({
     from: number;
     to: number;
   };
-  const hasFuture = false;
   const deposits = await listDepositsForContract(contract.id);
-  // Next/last scheduling using new model (todayISOForLists, futureIndexingDates, nextIndexingDate already defined above)
-  const lastApplicable = null as any; // eliminat din UI
 
   // Build the chart series from indexingDates with numeric amounts
   type SeriesPoint = { date: string; value: number };
@@ -2175,57 +2241,6 @@ export default async function ContractPage({
       pendingRON,
     };
   })();
-  // Compute display-only summaries and sparkline data
-  const depositsSummary = (() => {
-    const all = deposits || [];
-    const totalCount = all.length;
-    const totalAmount = all.reduce(
-      (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
-      0,
-    );
-    const deposited = all.filter((d) => d.isDeposited);
-    const depositedCount = deposited.length;
-    const depositedAmount = deposited.reduce(
-      (s, d) => s + (typeof d.amountEUR === "number" ? d.amountEUR : 0),
-      0,
-    );
-    const pendingCount = totalCount - depositedCount;
-    const pendingAmount = totalAmount - depositedAmount;
-    const ratio = totalAmount > 0 ? depositedAmount / totalAmount : 0;
-    return {
-      totalCount,
-      totalAmount,
-      depositedCount,
-      depositedAmount,
-      pendingCount,
-      pendingAmount,
-      ratio,
-    };
-  })();
-
-  const spark = (() => {
-    // Build a small sparkline from the indexingDates-derived series values
-    const vals = series.length > 0 ? series.map((p) => p.value) : [];
-    const width = 240;
-    const height = 60;
-    const padX = 6;
-    const padY = 6;
-    if (vals.length === 0) return { width, height, points: "", min: 0, max: 0 };
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const span = Math.max(0.0001, max - min);
-    const n = vals.length;
-    const step = n > 1 ? (width - padX * 2) / (n - 1) : 0;
-    const points = vals
-      .map((v, i) => {
-        const x = padX + i * step;
-        const y = height - padY - ((v - min) / span) * (height - padY * 2);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
-    return { width, height, points, min, max };
-  })();
-
   return (
     <main
       id="contract-page"
@@ -2241,7 +2256,7 @@ export default async function ContractPage({
         className="flex items-start justify-between gap-4 flex-wrap"
       >
         <div className="space-y-1">
-          <p className="text-base text-[#E9E294] font-semibold tracking-wide">
+          <p className="text-base text-amber-700 dark:text-[#E9E294] font-semibold tracking-wide">
             {contract.partnerId ? (
               <Link
                 href={`/partners/${contract.partnerId}`}
@@ -2308,7 +2323,7 @@ export default async function ContractPage({
             <h2 className="text-base font-semibold">Detalii</h2>
             <div className="mt-4 space-y-6 text-sm">
               <div id="contract-meta">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">
                   Contract
                 </h3>
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -2360,9 +2375,14 @@ export default async function ContractPage({
                   </div>
                   <div>
                     <span className="block text-foreground/60">Început</span>
-                    <span className="font-medium">
-                      {fmt(contract.startDate)}
-                    </span>
+                    <StartDateEditor
+                      contractId={contract.id}
+                      displayDate={fmt(contract.startDate)}
+                      startDateIso={String(contract.startDate).slice(0, 10)}
+                      signedAtIso={String(contract.signedAt).slice(0, 10)}
+                      endDateIso={String(contract.endDate).slice(0, 10)}
+                      action={updateStartDateAction}
+                    />
                   </div>
                   <div>
                     <span className="block text-foreground/60">Expiră</span>
@@ -2503,7 +2523,7 @@ export default async function ContractPage({
               </div>
 
               <div id="contract-billing">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">
                   Facturare
                 </h3>
                 <div className="flex flex-wrap gap-2 text-[11px]">
@@ -2522,15 +2542,13 @@ export default async function ContractPage({
                       {invoiceMonthMode === "next" ? "Anticipat" : "Curent"}
                     </span>
                   )}
-                  {contract.rentType === "monthly" &&
-                    typeof contract.monthlyInvoiceDay === "number" && (
-                      <span
-                        className="rounded bg-foreground/5 px-2 py-1"
-                        title="Zi facturare"
-                      >
-                        Zi: {contract.monthlyInvoiceDay}
-                      </span>
-                    )}
+                  {contract.rentType === "monthly" && (
+                    <InvoiceDayEditor
+                      contractId={contract.id}
+                      currentDay={contract.monthlyInvoiceDay}
+                      action={updateInvoiceDayAction}
+                    />
+                  )}
                   {typeof contract.paymentDueDays === "number" && (
                     <span
                       className="rounded bg-foreground/5 px-2 py-1"
@@ -2611,7 +2629,7 @@ export default async function ContractPage({
               {typeof currentRentAmount(contract) === "number" &&
                 typeof contract.exchangeRateRON === "number" && (
                   <div id="contract-value">
-                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">
                       Valoare
                     </h3>
                     {(() => {
@@ -2631,17 +2649,17 @@ export default async function ContractPage({
                       return (
                         <div className="space-y-1 text-[11px]">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400 font-medium">
+                            <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-300 font-medium">
                               {(currentRentAmount(contract) as number).toFixed(
                                 2,
                               )}{" "}
                               EUR
                             </span>
-                            <span className="text-foreground/50">@</span>
+                            <span className="text-foreground/60">@</span>
                             <span className="rounded bg-foreground/5 px-2 py-1 text-cyan-700 dark:text-cyan-400">
                               {contract.exchangeRateRON.toFixed(4)} RON/EUR
                             </span>
-                            <span className="text-foreground/50">=</span>
+                            <span className="text-foreground/60">=</span>
                             <span className="rounded bg-foreground/5 px-2 py-1 text-sky-700 dark:text-sky-400 font-medium">
                               {baseRon.toFixed(2)} RON
                             </span>
@@ -2664,18 +2682,18 @@ export default async function ContractPage({
                               <span className="rounded bg-foreground/5 px-2 py-1 text-emerald-700 dark:text-emerald-400 font-medium">
                                 {withVatRon.toFixed(2)} RON
                               </span>
-                              <span className="text-foreground/50 italic">
+                              <span className="text-foreground/60 italic">
                                 (TVA {(withVatRon - correctedRon).toFixed(2)}{" "}
                                 RON)
                               </span>
                             </div>
                           )}
                           <div id="contract-depozite" className="mt-3">
-                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/60">
                               Depozite
                             </div>
                             {depositSummary.count === 0 ? (
-                              <div className="text-foreground/50 italic">
+                              <div className="text-foreground/60 italic">
                                 Niciun depozit înregistrat
                               </div>
                             ) : (
@@ -2684,7 +2702,7 @@ export default async function ContractPage({
                                   <span className="rounded bg-foreground/5 px-2 py-1">
                                     {depositSummary.count} buc
                                   </span>
-                                  <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-400">
+                                  <span className="rounded bg-foreground/5 px-2 py-1 text-indigo-700 dark:text-indigo-300">
                                     Total: {depositSummary.totalEUR.toFixed(2)}{" "}
                                     EUR · {depositSummary.totalRON.toFixed(2)}{" "}
                                     RON
@@ -2722,7 +2740,7 @@ export default async function ContractPage({
                                             : ""}
                                         </span>
                                         {d.note && (
-                                          <span className="text-foreground/50 text-xs italic">
+                                          <span className="text-foreground/60 text-xs italic">
                                             • {d.note}
                                           </span>
                                         )}
@@ -2752,7 +2770,7 @@ export default async function ContractPage({
 
               {indexations.length > 0 && (
                 <div id="contract-indexari-efectuate">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50 mb-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">
                     Indexare
                   </h3>
                   {/* Rent history chart */}
@@ -2762,7 +2780,7 @@ export default async function ContractPage({
                       return (
                         <div
                           id="contract-rent-history-chart"
-                          className="text-xs text-foreground/50 mb-3"
+                          className="text-xs text-foreground/60 mb-3"
                         >
                           Insuficiente date pentru grafic.
                         </div>
@@ -2984,7 +3002,7 @@ export default async function ContractPage({
                   })()}
                   <div className="flex flex-col gap-3 text[11px]">
                     <div>
-                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/60">
                         Efectuate
                       </div>
                       {nextIndexingDate && (
@@ -3039,8 +3057,8 @@ export default async function ContractPage({
                                 ✓
                               </span>
                               <span>{fmt(ix.date)}</span>
-                              <span className="text-foreground/50">•</span>
-                              <span className="text-indigo-700 dark:text-indigo-400 font-medium">
+                              <span className="text-foreground/60">•</span>
+                              <span className="text-indigo-700 dark:text-indigo-300 font-medium">
                                 {ix.from.toFixed(2)} → {ix.to.toFixed(2)} EUR
                               </span>
                               <span
@@ -3049,7 +3067,7 @@ export default async function ContractPage({
                                     ? "text-emerald-600 dark:text-emerald-400"
                                     : diffPct < 0
                                       ? "text-red-600 dark:text-red-400"
-                                      : "text-foreground/40"
+                                      : "text-foreground/60"
                                 }
                               >
                                 ({diffPct > 0 ? "+" : diffPct < 0 ? "" : "±"}
@@ -3057,7 +3075,7 @@ export default async function ContractPage({
                               </span>
                               {docLabel ? (
                                 <>
-                                  <span className="text-foreground/50">•</span>
+                                  <span className="text-foreground/60">•</span>
                                   <span className="text-foreground/60">
                                     {docLabel}
                                   </span>
@@ -3068,7 +3086,7 @@ export default async function ContractPage({
                         })}
                       </div>
                       {indexations.length === 0 && (
-                        <div className="italic text-foreground/40">
+                        <div className="italic text-foreground/60">
                           Nicio indexare efectuată încă
                         </div>
                       )}
@@ -3082,7 +3100,7 @@ export default async function ContractPage({
                 advanceFraction < 1 && (
                   <div
                     id="contract-proration-note"
-                    className="mt-4 text-xs text-amber-600 dark:text-amber-400"
+                    className="mt-4 text-xs text-amber-700 dark:text-amber-400"
                   >
                     Facturare parțială în avans:{" "}
                     {Math.round(advanceFraction * 100)}%
@@ -3544,7 +3562,7 @@ export default async function ContractPage({
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="space-y-1">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                               Indexare programată
                             </div>
                             <div className="text-sm font-medium text-foreground">
@@ -3651,7 +3669,7 @@ export default async function ContractPage({
                 if (validated.length === 0) return null;
                 return (
                   <details className="mt-4">
-                    <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                    <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
                       Afișează indexări validate
                     </summary>
                     <ul className="mt-3 space-y-3 text-[11px]">
@@ -3669,7 +3687,7 @@ export default async function ContractPage({
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="space-y-1">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                                   Indexare validată
                                 </div>
                                 <div className="text-sm font-medium text-foreground">
@@ -4464,7 +4482,7 @@ export default async function ContractPage({
                       <div className="text-foreground/60 text-xs">
                         Venit anual
                       </div>
-                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-400">
+                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
                         {fmtEURLocal(correctedEUR)}
                       </div>
                     </div>
@@ -4472,7 +4490,7 @@ export default async function ContractPage({
                       <div className="text-foreground/60 text-xs">
                         Echivalent lunar
                       </div>
-                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-400">
+                      <div className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
                         {fmtEURLocal(monthlyEq)}
                       </div>
                     </div>
@@ -4625,7 +4643,7 @@ export default async function ContractPage({
                       <div className="mt-1 space-y-1 text-sm">
                         <div>
                           <span className="text-foreground/60">EUR: </span>
-                          <span className="font-medium text-indigo-700 dark:text-indigo-400">
+                          <span className="font-medium text-indigo-700 dark:text-indigo-300">
                             {new Intl.NumberFormat("ro-RO", {
                               style: "currency",
                               currency: "EUR",
@@ -4662,7 +4680,7 @@ export default async function ContractPage({
                           <span className="text-foreground/60">
                             EUR după corecție:{" "}
                           </span>
-                          <span className="font-medium text-indigo-700 dark:text-indigo-400">
+                          <span className="font-medium text-indigo-700 dark:text-indigo-300">
                             {new Intl.NumberFormat("ro-RO", {
                               style: "currency",
                               currency: "EUR",

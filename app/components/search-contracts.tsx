@@ -54,7 +54,7 @@ export default function SearchContracts({
         <button
           type="button"
           onClick={onClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/50 hover:text-foreground/80 text-xs"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/60 hover:text-foreground/80 text-xs"
           aria-label="Șterge căutarea"
           title="Șterge căutarea"
         >
