@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RentApp — Offline</title>
+  <style>
+    :root { --bg: #0a1628; --fg: #e2e8f0; --muted: #64748b; --accent: #3b82f6; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+      text-align: center;
+    }
+    .icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    h1 { font-size: 1.5rem; font-weight: 600; }
+    p { color: var(--muted); font-size: 0.9rem; line-height: 1.6; max-width: 280px; }
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1.4rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    button:active { opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="icon">📡</div>
+  <h1>Fără conexiune</h1>
+  <p>RentApp necesită o conexiune la internet pentru a funcționa. Verifică rețeaua și încearcă din nou.</p>
+  <button onclick="location.reload()">Încearcă din nou</button>
+</body>
+</html>

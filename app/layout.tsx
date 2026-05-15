@@ -4,6 +4,7 @@ import "./globals.css";
 import NavbarGate from "@/app/components/navbar-gate";
 import Toaster from "@/app/components/toaster";
 import FlashGate from "@/app/components/flash-gate";
+import ServiceWorkerRegister from "@/app/components/service-worker-register";
 import { getAppVersion } from "@/lib/version";
 
 const robotoCondensed = Roboto_Condensed({
@@ -107,6 +108,7 @@ export default async function RootLayout({
             <span>{badgeLabelParts.join(" • ")}</span>
           </span>
         </div>
+        <ServiceWorkerRegister />
         <Toaster />
         <FlashGate />
       </body>
