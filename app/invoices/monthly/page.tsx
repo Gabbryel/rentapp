@@ -1359,21 +1359,19 @@ export default async function MonthlyInvoicesPage({
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-foreground/60 border border-foreground/10">
-                                <Link
-                                  href={`/partners/${
-                                    partnerHrefId ?? partnerSlug
-                                  }`}
-                                  className="hover:underline decoration-amber decoration-dotted underline-offset-4"
-                                >
-                                  {d.partnerName ?? d.contract.partner}
-                                </Link>
-                              </span>
+                              <Link
+                                href={`/partners/${
+                                  partnerHrefId ?? partnerSlug
+                                }`}
+                                className="inline-flex items-center rounded-md border border-foreground/30 px-2 py-0.5 text-base font-semibold text-foreground hover:underline decoration-amber decoration-dotted underline-offset-4"
+                              >
+                                {d.partnerName ?? d.contract.partner}
+                              </Link>
                               <Link
                                 href={`/contracts/${d.contract.id}`}
                                 className="hover:underline decoration-amber decoration-dotted underline-offset-4"
                               >
-                                <h3 className="text-sm font-semibold tracking-tight leading-tight">
+                                <h3 className="text-xs font-normal text-foreground/50 tracking-tight leading-tight">
                                   {d.contract.name}
                                 </h3>
                               </Link>
