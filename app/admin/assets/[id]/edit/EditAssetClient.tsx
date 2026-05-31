@@ -145,7 +145,7 @@ export default function EditAssetClient({
                   className="mt-1 block w-full text-sm"
                 />
                 <p className="mt-1 text-xs text-foreground/60">
-                  Poți selecta mai multe fișiere. Max 10MB per fișier.
+                  Poți selecta mai multe fișiere. Max 5MB per fișier, 5MB total.
                 </p>
               </div>
               <div>

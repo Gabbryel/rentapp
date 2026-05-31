@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   fetchContracts,
   effectiveEndDate,
@@ -171,9 +172,12 @@ export default async function HomePage({
     invoiceCount: number;
   }> = [];
 
-  const monthPairs = Array.from({ length: 12 }, (_, i) => {
+  // 16 total chart bars: (currentMonth + 4) actual + (12 - currentMonth) ghost forecast
+  const actualBarCount = currentMonth + 4;
+  const monthPairs = Array.from({ length: actualBarCount }, (_, i) => {
     const d = new Date();
-    d.setMonth(d.getMonth() - (11 - i));
+    d.setDate(1); // avoid day-overflow when the current day > days in target month
+    d.setMonth(d.getMonth() - (actualBarCount - 1 - i));
     return { month: d.getMonth() + 1, year: d.getFullYear() };
   });
 
@@ -181,7 +185,7 @@ export default async function HomePage({
     monthPairs.map(({ year, month }) => listInvoicesForMonth(year, month)),
   );
 
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < actualBarCount; i++) {
     const { month: m, year: y } = monthPairs[i];
     const result = invoiceResults[i];
     let allInvs: Awaited<ReturnType<typeof listInvoicesForMonth>> = [];
@@ -423,18 +427,79 @@ export default async function HomePage({
   }
   indexingUpcoming.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
 
-  // Prepare chart data for mini sparklines
-  const chartMaxRevenue = Math.max(...monthlyData.map((m) => m.revenueEUR), 1);
-  const chartData = monthlyData.map((m, idx) => ({
-    label: `${getMonthName(m.month)} ${m.year}`,
-    value: m.revenueEUR,
-    monthIndex: idx,
-    // Ensure minimum 5% height for visibility if there's any revenue
-    normalizedHeight:
-      m.revenueEUR > 0
-        ? Math.max((m.revenueEUR / chartMaxRevenue) * 100, 5)
-        : 0,
-  }));
+  // Ghost forecast bars: per-month expected revenue from contracts active in that month.
+  // Uses the CURRENT rent amount (rentAmountAtDate at today) — no future indexing since
+  // it may or may not happen. Applies correctionPercent to match the monthly invoices page.
+  const ghostMonths = Array.from(
+    { length: 12 - currentMonth },
+    (_, i) => {
+      const month = currentMonth + 1 + i;
+      const year = currentYear;
+      const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month, 0).toISOString().slice(0, 10);
+
+      const expectedEUR = contracts
+        .filter((c) => {
+          if (c.rentType !== "monthly") return false;
+          const end = effectiveEndDate(c);
+          return c.startDate <= lastDay && end >= firstDay;
+        })
+        .reduce((sum, c) => {
+          const base = rentAmountAtDate(c, today); // current amount, no future indexing
+          if (typeof base !== "number") return sum;
+          const corrPct = typeof (c as any).correctionPercent === "number"
+            ? (c as any).correctionPercent
+            : 0;
+          return sum + base * (1 + corrPct / 100);
+        }, 0);
+
+      return { month, year, expectedEUR };
+    },
+  );
+
+  // Scale max across both actual and forecast values
+  const chartMaxRevenue = Math.max(
+    ...monthlyData.map((m) => m.revenueEUR),
+    ...ghostMonths.map((g) => g.expectedEUR),
+    1,
+  );
+
+  type BarEntry = {
+    label: string;
+    value: number;
+    normalizedHeight: number;
+    isGhost: boolean;
+    month: number;
+    year: number;
+  };
+
+  const allBars: BarEntry[] = [
+    ...monthlyData.map((m) => ({
+      label: `${getMonthName(m.month)} ${m.year}`,
+      value: m.revenueEUR,
+      normalizedHeight:
+        m.revenueEUR > 0
+          ? Math.max((m.revenueEUR / chartMaxRevenue) * 100, 5)
+          : 0,
+      isGhost: false,
+      month: m.month,
+      year: m.year,
+    })),
+    ...ghostMonths.map(({ month, year, expectedEUR }) => ({
+      label: `${getMonthName(month)} ${year}`,
+      value: expectedEUR,
+      normalizedHeight:
+        expectedEUR > 0
+          ? Math.max((expectedEUR / chartMaxRevenue) * 100, 5)
+          : 0,
+      isGhost: true,
+      month,
+      year,
+    })),
+  ];
+
+  // kept for legacy references in non-chart parts of the page
+  const chartData = allBars;
 
   return (
     <main className="min-h-screen bg-background py-8">
@@ -481,11 +546,13 @@ export default async function HomePage({
 
         {/* Owner Filter */}
         {owners.length > 0 && (
-          <OwnerFilter
-            owners={owners.map((o) => ({ id: o.id, name: o.name }))}
-            selectedOwnerId={selectedOwnerId}
-            contractCount={contracts.length}
-          />
+          <Suspense fallback={null}>
+            <OwnerFilter
+              owners={owners.map((o) => ({ id: o.id, name: o.name }))}
+              selectedOwnerId={selectedOwnerId}
+              contractCount={contracts.length}
+            />
+          </Suspense>
         )}
 
         {/* Primary KPI Cards */}
@@ -778,10 +845,15 @@ export default async function HomePage({
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-semibold">
-                Trend Venituri (Ultimele 12 Luni)
+                Trend Venituri — Istoric &amp; Prognoză
               </h3>
               <p className="text-sm text-foreground/60 mt-1">
-                Evoluția veniturilor lunare în EUR
+                {allBars[0] && `${getMonthName(allBars[0].month)} ${allBars[0].year}`}
+                {" → "}
+                Dec {currentYear}
+                {ghostMonths.length > 0 && (
+                  <span className="ml-2 text-indigo-500/80">· {ghostMonths.length} luni prognoză</span>
+                )}
               </p>
             </div>
             <div className="text-right">
@@ -792,7 +864,7 @@ export default async function HomePage({
             </div>
           </div>
 
-          {/* Simple Bar Chart */}
+          {/* Bar Chart */}
           <div className="relative">
             {/* Y-axis reference lines */}
             <div
@@ -809,7 +881,8 @@ export default async function HomePage({
               className="flex items-end justify-between gap-1 relative"
               style={{ height: "160px" }}
             >
-              {chartData.map((item, idx) => {
+              {allBars.map((item, idx) => {
+                const isCurrentMonth = idx === actualBarCount - 1;
                 const barHeight = Math.max(
                   (item.normalizedHeight / 100) * 160,
                   item.value > 0 ? 8 : 2,
@@ -821,38 +894,45 @@ export default async function HomePage({
                   >
                     {/* Amount label above bar */}
                     {item.value > 0 && (
-                      <div className="text-[10px] font-semibold text-foreground/70 whitespace-nowrap">
-                        {formatCurrency(Math.round(item.value), "EUR").replace(
-                          /\s/g,
-                          "",
-                        )}
+                      <div className={`text-[10px] font-semibold whitespace-nowrap ${item.isGhost ? "text-indigo-400/70" : "text-foreground/70"}`}>
+                        {item.isGhost && "~"}
+                        {formatCurrency(Math.round(item.value), "EUR").replace(/\s/g, "")}
                       </div>
                     )}
                     <div
                       className={`w-full rounded-t-lg transition-all hover:opacity-90 hover:scale-105 cursor-pointer ${
-                        idx === chartData.length - 1
-                          ? "bg-gradient-to-t from-blue-600 to-blue-400 shadow-lg"
-                          : "bg-gradient-to-t from-blue-400 to-blue-300 opacity-70"
+                        item.isGhost
+                          ? "border border-dashed border-indigo-400/40"
+                          : isCurrentMonth
+                            ? "bg-gradient-to-t from-blue-600 to-blue-400 shadow-lg"
+                            : "bg-gradient-to-t from-blue-400 to-blue-300 opacity-70"
                       }`}
                       style={{
                         height: `${barHeight}px`,
+                        ...(item.isGhost
+                          ? {
+                              background:
+                                "repeating-linear-gradient(45deg, rgba(99,102,241,0.18), rgba(99,102,241,0.18) 3px, rgba(99,102,241,0.06) 3px, rgba(99,102,241,0.06) 7px)",
+                            }
+                          : {}),
                       }}
-                      title={`${item.label}: ${formatCurrency(
-                        item.value,
-                        "EUR",
-                      )} (${item.normalizedHeight.toFixed(1)}%)`}
+                      title={`${item.label}: ${item.isGhost ? "Prognoză ~" : ""}${formatCurrency(Math.round(item.value), "EUR")}`}
                     />
                   </div>
                 );
               })}
             </div>
             <div className="flex items-center justify-between gap-1 mt-2">
-              {chartData.map((item, idx) => (
+              {allBars.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex-1 text-[10px] text-foreground/60 text-center whitespace-nowrap"
+                  className={`flex-1 text-[10px] text-center whitespace-nowrap ${item.isGhost ? "text-indigo-400/60" : "text-foreground/60"}`}
                 >
-                  {getMonthName(monthlyData[idx].month)}
+                  {item.isGhost ? (
+                    <span className="italic">{getMonthName(item.month)}</span>
+                  ) : (
+                    getMonthName(item.month)
+                  )}
                 </div>
               ))}
             </div>
@@ -860,15 +940,27 @@ export default async function HomePage({
 
           {/* Chart Legend */}
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-foreground/10 text-sm">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-600 to-blue-400" />
                 <span className="text-foreground/70">Luna curentă</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-foreground/20" />
+                <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-blue-300 opacity-70" />
                 <span className="text-foreground/70">Luni anterioare</span>
               </div>
+              {ghostMonths.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded border border-dashed border-indigo-400/50"
+                    style={{
+                      background:
+                        "repeating-linear-gradient(45deg, rgba(99,102,241,0.2), rgba(99,102,241,0.2) 2px, transparent 2px, transparent 5px)",
+                    }}
+                  />
+                  <span className="text-foreground/70">Prognoză</span>
+                </div>
+              )}
             </div>
             <div className="text-foreground/60">
               Max: {formatCurrency(chartMaxRevenue, "EUR")}

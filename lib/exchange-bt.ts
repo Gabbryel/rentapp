@@ -22,55 +22,31 @@ function todayBucharest(): string {
   return `${y}-${m}-${d}`;
 }
 
-function parseDdMmYyyyToIso(d: string): string | null {
-  // Accept dd.mm.yyyy or dd/mm/yyyy
-  const m = d.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
-  if (!m) return null;
-  const [, dd, mm, yyyy] = m;
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 async function fetchBtEurSell(): Promise<{ rate: number; pageDate?: string }> {
-  const res = await fetch("https://www.bancatransilvania.ro/curs-valutar", {
+  // bancatransilvania.ro is protected by Akamai bot detection (403 for server-side requests).
+  // cursvalutar.ro aggregates BT's published rates and is accessible server-side.
+  const res = await fetch("https://www.cursvalutar.ro/curs-banca-transilvania/", {
     cache: "no-store",
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Language": "ro-RO,ro;q=0.9",
     },
+    signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) throw new Error(`BT request failed: ${res.status}`);
+  if (!res.ok) throw new Error(`cursvalutar.ro BT request failed: ${res.status}`);
   const html = await res.text();
 
-  // Strip tags and normalize whitespace for a robust regex search
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  // Page structure: <td>EUR - Euro</td><td>{buy}</td><td>{sell}</td>
+  const m = /EUR\s*-\s*Euro<\/td>\s*<td>([\d.,]+)<\/td>\s*<td>([\d.,]+)<\/td>/i.exec(html);
+  if (!m) throw new Error("EUR selling rate not found on cursvalutar.ro BT page");
 
-  // Try three-column table first: (buy, middle, sell). If only two numbers present, use second as sell
-  let sell: number | null = null;
-  const m3 = /\bEUR\b\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i.exec(text);
-  if (m3) {
-    sell = Number(m3[3].replace(/,/g, "."));
-  } else {
-    const m2 = /\bEUR\b\s+([\d.,]+)\s+([\d.,]+)/i.exec(text);
-    if (m2) sell = Number(m2[2].replace(/,/g, "."));
-  }
-  if (!Number.isFinite(sell) || (sell as number) <= 0) {
-    throw new Error("EUR selling rate not found or invalid on BT page");
-  }
+  const sell = Number(m[2].replace(/,/g, "."));
+  if (!Number.isFinite(sell) || sell <= 0) throw new Error("Invalid BT EUR sell rate value");
 
-  // Extract visible page date if present
-  let pageDate: string | undefined = undefined;
-  const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}[./]\d{2}[./]\d{4})/);
-  if (dateMatch) {
-    const raw = dateMatch[0];
-    pageDate = /\d{4}-\d{2}-\d{2}/.test(raw) ? raw : parseDdMmYyyyToIso(raw) ?? undefined;
-  }
-
-  return { rate: sell!, pageDate };
+  return { rate: sell };
 }
 
 export async function getDailyBtEurSell(options?: { forceRefresh?: boolean }) {

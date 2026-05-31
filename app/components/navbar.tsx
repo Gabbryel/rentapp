@@ -571,45 +571,20 @@ export default function Navbar() {
                   DB{dbLastOk && dbLocation ? ` • ${dbLocation}` : ""}
                 </span>
               </button>
-              {/* BNR EUR/RON indicator */}
+              {/* EUR/RON rates (BNR + BT combined) */}
               <span
-                className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
-                title={
-                  bnrRate != null
-                    ? `BNR ${bnrDate ?? ""}${
-                        bnrSource ? ` • ${bnrSource}` : ""
-                      }${
-                        hoursSince(bnrDate) ? ` • ${hoursSince(bnrDate)}` : ""
-                      }`
-                    : "Curs BNR indisponibil"
-                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
+                title={[
+                  bnrRate != null ? `BNR: ${bnrRate.toFixed(4)}${bnrDate ? ` (${bnrDate}${hoursSince(bnrDate) ? `, ${hoursSince(bnrDate)} ago` : ""})` : ""}` : "BNR indisponibil",
+                  btRate != null ? `BT: ${btRate.toFixed(4)}${btDate ? ` (${btDate})` : ""}` : "BT indisponibil",
+                ].join("  •  ")}
                 aria-live="polite"
               >
-                <span
-                  className="h-2 w-2 rounded-full bg-blue-500"
-                  aria-hidden="true"
-                />
-                <span>
-                  BNR{bnrRate != null ? ` • ${bnrRate.toFixed(4)}` : ""}
-                </span>
-              </span>
-              {/* BT EUR sell indicator */}
-              <span
-                className="inline-flex items-center gap-1 rounded-md border border-foreground/10 px-2 py-1 text-[11px] text-foreground/70"
-                title={
-                  btRate != null
-                    ? `BT ${btDate ?? ""}${btSource ? ` • ${btSource}` : ""}${
-                        hoursSince(btDate) ? ` • ${hoursSince(btDate)}` : ""
-                      }`
-                    : "Curs BT indisponibil"
-                }
-                aria-live="polite"
-              >
-                <span
-                  className="h-2 w-2 rounded-full bg-fuchsia-500"
-                  aria-hidden="true"
-                />
-                <span>BT{btRate != null ? ` • ${btRate.toFixed(4)}` : ""}</span>
+                <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden="true" />
+                <span>BNR {bnrRate != null ? bnrRate.toFixed(4) : "—"}</span>
+                <span className="text-foreground/30">|</span>
+                <span className="h-2 w-2 rounded-full bg-fuchsia-500" aria-hidden="true" />
+                <span>BT {btRate != null ? btRate.toFixed(4) : "—"}</span>
               </span>
               {/* Removed Add Contract from navbar */}
               {email ? (
@@ -755,112 +730,41 @@ export default function Navbar() {
                         </span>
                       </button>
                     </div>
-                    {/* FX refresh (mobile) */}
+                    {/* Cursuri EUR: rates + refresh in one row (mobile) */}
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-foreground/70">
-                        Cursuri EUR
-                      </span>
-                      <button
-                        onClick={refreshFx}
-                        disabled={refreshingFx}
-                        className={`relative rounded-md border px-2 py-1 text-[11px] inline-flex items-center gap-1 ${
-                          refreshingFx
-                            ? "border-foreground/30 text-foreground/40 cursor-wait"
-                            : fxError
-                            ? "border-red-500 text-red-600 dark:text-red-400 hover:bg-red-500/10"
-                            : "border-foreground/20 hover:bg-foreground/5"
-                        }`}
-                        title={
-                          fxError === null
-                            ? "Reîmprospătează cursurile EUR/RON"
-                            : fxError === "both"
-                            ? "Eroare la reîmprospătarea cursurilor BNR și BT"
-                            : fxError === "bnr"
-                            ? "Eroare la reîmprospătarea cursului BNR"
-                            : "Eroare la reîmprospătarea cursului BT"
-                        }
-                      >
-                        {fxError && !refreshingFx && (
-                          <span
-                            className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow ring-2 ring-background"
-                            aria-label="Eroare la reîmprospătare"
-                          />
-                        )}
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className={`h-4 w-4 ${
-                            refreshingFx ? "animate-spin" : ""
-                          }`}
+                      <span className="text-sm text-foreground/70">Cursuri EUR</span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-[11px] text-foreground/70 shadow-sm"
+                          aria-live="polite"
                         >
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M4 10h8" />
-                          <path d="M4 14h8" />
-                          <path d="M12 6a4 4 0 110 12" />
-                        </svg>
-                        <span>EUR</span>
-                      </button>
-                    </div>
-                    {/* BNR indicator (mobile) */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-foreground/70">
-                        Curs BNR
-                      </span>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-[11px] text-foreground/70 shadow-sm"
-                        title={
-                          bnrRate != null
-                            ? `BNR ${bnrDate ?? ""}${
-                                bnrSource ? ` • ${bnrSource}` : ""
-                              }${
-                                hoursSince(bnrDate)
-                                  ? ` • ${hoursSince(bnrDate)}`
-                                  : ""
-                              }`
-                            : "Curs BNR indisponibil"
-                        }
-                        aria-live="polite"
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full bg-blue-500"
-                          aria-hidden="true"
-                        />
-                        <span>
-                          {bnrRate != null ? bnrRate.toFixed(4) : "—"}
+                          <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden="true" />
+                          <span>BNR {bnrRate != null ? bnrRate.toFixed(4) : "—"}</span>
+                          <span className="text-foreground/30">|</span>
+                          <span className="h-2 w-2 rounded-full bg-fuchsia-500" aria-hidden="true" />
+                          <span>BT {btRate != null ? btRate.toFixed(4) : "—"}</span>
                         </span>
-                      </span>
-                    </div>
-                    {/* BT indicator (mobile) */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-foreground/70">
-                        Curs BT
-                      </span>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-md border border-foreground/15 bg-white dark:bg-neutral-950 px-2 py-1 text-[11px] text-foreground/70 shadow-sm"
-                        title={
-                          btRate != null
-                            ? `BT ${btDate ?? ""}${
-                                btSource ? ` • ${btSource}` : ""
-                              }${
-                                hoursSince(btDate)
-                                  ? ` • ${hoursSince(btDate)}`
-                                  : ""
-                              }`
-                            : "Curs BT indisponibil"
-                        }
-                        aria-live="polite"
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full bg-fuchsia-500"
-                          aria-hidden="true"
-                        />
-                        <span>{btRate != null ? btRate.toFixed(4) : "—"}</span>
-                      </span>
+                        <button
+                          onClick={refreshFx}
+                          disabled={refreshingFx}
+                          className={`relative rounded-md border px-1.5 py-1 text-[11px] inline-flex items-center ${
+                            refreshingFx
+                              ? "border-foreground/30 text-foreground/40 cursor-wait"
+                              : fxError
+                              ? "border-red-500 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                              : "border-foreground/20 hover:bg-foreground/5"
+                          }`}
+                          title={fxError === null ? "Reîmprospătează cursurile EUR/RON" : "Eroare la reîmprospătarea cursurilor"}
+                          aria-label="Reîmprospătează cursurile EUR/RON"
+                        >
+                          {fxError && !refreshingFx && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 ring-1 ring-background" />
+                          )}
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${refreshingFx ? "animate-spin" : ""}`}>
+                            <circle cx="12" cy="12" r="10" /><path d="M4 10h8" /><path d="M4 14h8" /><path d="M12 6a4 4 0 110 12" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <button
                       type="button"

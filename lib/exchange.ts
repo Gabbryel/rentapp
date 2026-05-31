@@ -28,7 +28,7 @@ async function fetchBnrEurRon(opts?: { date?: string }): Promise<{ rate: number;
   const query = target ? `?date=${target}` : "";
   
   try {
-    const res = await fetch(`https://bnr.ro/nbrfxrates.xml${query}`, { 
+    const res = await fetch(`https://www.bnr.ro/nbrfxrates.xml${query}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(10000) // 10 second timeout
     });

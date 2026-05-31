@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   effectiveEndDate,
   fetchContracts,
@@ -621,12 +622,14 @@ export default async function ContractsPage({
         </h1>
 
         {/* Owner Filter */}
-        <OwnerFilter
-          owners={owners}
-          selectedOwnerId={selectedOwnerId}
-          contractCount={contracts.length}
-          basePath="/contracts"
-        />
+        <Suspense fallback={null}>
+          <OwnerFilter
+            owners={owners}
+            selectedOwnerId={selectedOwnerId}
+            contractCount={contracts.length}
+            basePath="/contracts"
+          />
+        </Suspense>
 
         {/* Toolbar: search + partner + sort */}
         <div

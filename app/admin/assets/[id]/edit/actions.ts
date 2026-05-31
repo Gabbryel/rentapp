@@ -66,12 +66,12 @@ export async function updateAssetAction(
 
   // New uploads
   const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
-  // Enforce total payload limit of 2MB across all uploaded files
+  // Enforce total payload limit matching Next.js bodySizeLimit (5MB)
   const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
-  if (totalSize > 2 * 1024 * 1024) {
+  if (totalSize > 5 * 1024 * 1024) {
     return {
       ok: false,
-      message: "Dimensiunea totală a fișierelor depășește 2MB",
+      message: "Dimensiunea totală a fișierelor depășește 5MB",
       values: { id, name, address },
     };
   }
@@ -91,10 +91,10 @@ export async function updateAssetAction(
         values: { id, name, address },
       };
     }
-    if (f.size > 2 * 1024 * 1024) {
+    if (f.size > 5 * 1024 * 1024) {
       return {
         ok: false,
-        message: `Fișierul \"${f.name}\" depășește limita de 2MB`,
+        message: `Fișierul „${f.name}" depășește limita de 5MB`,
         values: { id, name, address },
       };
     }

@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+
+const STORAGE_KEY = "rentapp:selectedOwnerId";
 
 type Owner = {
   id: string;
@@ -23,7 +26,25 @@ export default function OwnerFilter({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Persist selection and redirect to saved owner when URL has no explicit ownerId
+  useEffect(() => {
+    const urlHasOwner = searchParams.has("ownerId");
+    if (urlHasOwner) {
+      try { localStorage.setItem(STORAGE_KEY, selectedOwnerId); } catch {}
+    } else {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && saved !== selectedOwnerId && owners.some((o) => o.id === saved)) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("ownerId", saved);
+          window.location.replace(`${basePath}?${params.toString()}`);
+        }
+      } catch {}
+    }
+  }, []);
+
   const handleChange = (newOwnerId: string) => {
+    try { localStorage.setItem(STORAGE_KEY, newOwnerId); } catch {}
     const params = new URLSearchParams(searchParams.toString());
     params.set("ownerId", newOwnerId);
     router.push(`${basePath}?${params.toString()}`);
