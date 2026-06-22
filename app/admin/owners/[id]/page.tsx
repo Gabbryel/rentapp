@@ -1,3 +1,4 @@
+import Breadcrumb from "@/app/components/breadcrumb";
 import { fetchOwnerById, upsertOwner, deleteOwnerById } from "@/lib/owners";
 import type { Owner } from "@/lib/schemas/owner";
 import { notFound, redirect } from "next/navigation";
@@ -85,14 +86,13 @@ export default async function EditOwnerPage({
 
   return (
     <div className="max-w-screen-xl">
-      <div className="mb-4">
-        <Link
-          href="/admin/owners"
-          className="text-sm text-foreground/70 hover:underline"
-        >
-          ← Înapoi
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: "Admin", href: "/admin" },
+          { label: "Proprietari", href: "/admin/owners" },
+          { label: o.name },
+        ]}
+      />
       <h1 className="text-2xl sm:text-3xl font-bold">Editează proprietar</h1>
       <form action={saveOwner} className="mt-6 max-w-2xl space-y-4">
         <div>

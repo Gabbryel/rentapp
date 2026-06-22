@@ -925,11 +925,11 @@ export async function upsertContract(contract: ContractType) {
   merged.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const toSave: ContractType = { ...(contract as any), indexingDates: merged } as ContractType;
-    // Strip MongoDB's _id to prevent "immutable field" errors on $set
+    // Strip MongoDB's _id — replaceOne keeps existing _id on match; upsert generates a new one
     delete (toSave as Record<string, unknown>)._id;
     await db
       .collection<ContractType>("contracts")
-      .updateOne({ id: contract.id }, { $set: toSave }, { upsert: true });
+      .replaceOne({ id: contract.id }, toSave, { upsert: true });
     return;
   }
   // Local JSON fallback persistence

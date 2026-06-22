@@ -1,3 +1,4 @@
+import Breadcrumb from "@/app/components/breadcrumb";
 import {
   fetchPartnerById,
   upsertPartner,
@@ -152,14 +153,13 @@ export default async function EditPartnerPage({
 
   return (
     <div className="max-w-screen-xl">
-      <div className="mb-4">
-        <Link
-          href="/admin/partners"
-          className="text-sm text-foreground/70 hover:underline"
-        >
-          ← Înapoi
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: "Admin", href: "/admin" },
+          { label: "Parteneri", href: "/admin/partners" },
+          { label: p.name },
+        ]}
+      />
       <h1 className="text-2xl sm:text-3xl font-bold">Editează partener</h1>
       <form action={savePartner} className="mt-6 max-w-2xl space-y-4">
         <div>

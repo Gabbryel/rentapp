@@ -62,6 +62,7 @@ import {
   validatePreviewToken,
 } from "@/lib/invoice-custom-period";
 import CustomInvoiceModal from "./CustomInvoiceModal";
+import Breadcrumb from "@/app/components/breadcrumb";
 
 function toEmailHtmlParagraphs(text: string) {
   const normalized = String(text ?? "").replace(/\r\n/g, "\n");
@@ -2262,11 +2263,12 @@ export default async function ContractPage({
       id="contract-page"
       className="min-h-screen bg-background px-4 sm:px-6 py-10"
     >
-      <div className="mb-6">
-        <Link href="/" className="text-sm text-foreground/70 hover:underline">
-          ← Înapoi la listă
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: "Contracte", href: "/contracts" },
+          { label: contract.name },
+        ]}
+      />
       <header
         id="contract-header"
         className="flex items-start justify-between gap-4 flex-wrap"

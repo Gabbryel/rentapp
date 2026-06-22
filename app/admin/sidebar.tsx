@@ -20,6 +20,16 @@ const navItems: NavItem[] = [
   { href: "/admin/messages", label: "Mesaje" },
 ];
 
+function useActiveLabel() {
+  const pathname = usePathname();
+  // Pick the most specific match (longest href wins, so /admin/partners beats /admin)
+  const matches = navItems.filter(
+    (item) => pathname === item.href || pathname?.startsWith(`${item.href}/`)
+  );
+  const best = matches.sort((a, b) => b.href.length - a.href.length)[0];
+  return best?.label ?? "Admin";
+}
+
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
@@ -55,6 +65,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export default function AdminSidebar() {
+  const activeLabel = useActiveLabel();
   const [open, setOpen] = useState(false);
   const [version, setVersion] = useState<{
     version: string;
@@ -78,7 +89,11 @@ export default function AdminSidebar() {
     <>
       {/* Mobile top bar */}
       <div className="md:hidden sticky top-0 z-30 flex items-center justify-between border-b border-foreground/10 bg-background/80 backdrop-blur px-4 py-3">
-        <div className="text-sm font-semibold">Admin</div>
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <span className="text-foreground/50">Admin</span>
+          <span className="text-foreground/30">/</span>
+          <span>{activeLabel}</span>
+        </div>
         <button
           className="rounded-md border border-foreground/20 px-3 py-1.5 text-sm font-medium hover:bg-foreground/5"
           onClick={() => setOpen(true)}
