@@ -27,6 +27,7 @@ npm run db:sample          # Print sample docs per collection
 npm run migrate:contracts:rename-fields
 npm run migrate:contracts:normalize-history
 npm run migrate:contracts:extensions
+npm run migrate:contracts:custom-invoices   # yearly → custom (explicit invoice dates)
 ```
 
 ## Architecture
@@ -42,7 +43,8 @@ npm run migrate:contracts:extensions
 ### Domain model
 
 All schemas are in `lib/schemas/` (Zod). The most important is `lib/schemas/contract.ts`:
-- `rentType`: `"monthly"` or `"yearly"`
+- `rentType`: `"monthly"` or `"custom"` (legacy stored value `"yearly"` is normalized to `"custom"` on read)
+- `customInvoices[]`: for `rentType = "custom"`, explicit one-off `{ date: YYYY-MM-DD, amountEUR }` entries — the invoice schedule. Editable on the contract page (`CustomInvoicesCard` + `app/contracts/[id]/yearly/actions.ts`). Replaces the deprecated recurring `irregularInvoices[]`/`yearlyInvoices[]` `{month, day}` shape.
 - `invoiceMonthMode`: `"current"` (default) or `"next"` — `"next"` means the invoice is issued in month M to cover month M+1 (advance billing)
 - `indexingDates[]`: array of `{ forecastDate, actualDate?, newRentAmount?, done }` — **this is how rent amounts are stored**. `rentAmountAtDate(contract, iso)` finds the applicable entry by date. An empty `indexingDates` means no rent amount is configured.
 - `monthlyInvoiceDay`: day of month the invoice is issued

@@ -99,11 +99,9 @@ export default async function PartnerPage({
   const monthlyEqTotals = relatedContracts.reduce(
     (acc, c) => {
       let monthlyEur = 0;
-      if (c.rentType === "yearly") {
-        const sumYear = (((c as any).irregularInvoices ?? []) as any[]).reduce(
-          (s, r) => s + (r.amountEUR || 0),
-          0,
-        );
+      if (c.rentType === "custom") {
+        // currentRentAmount returns the schedule total for custom contracts
+        const sumYear = currentRentAmount(c as any) ?? 0;
         monthlyEur = sumYear > 0 ? sumYear / 12 : 0;
       } else {
         const amt = currentRentAmount(c as any);
@@ -126,12 +124,8 @@ export default async function PartnerPage({
   const yearlyTotals = relatedContracts.reduce(
     (acc, c) => {
       let yearlyEur = 0;
-      if (c.rentType === "yearly") {
-        yearlyEur = (
-          ((c as any).irregularInvoices ??
-            (c as any).yearlyInvoices ??
-            []) as any[]
-        ).reduce((s, r) => s + (r.amountEUR || 0), 0);
+      if (c.rentType === "custom") {
+        yearlyEur = currentRentAmount(c as any) ?? 0;
       } else {
         const amt = currentRentAmount(c as any);
         yearlyEur = typeof amt === "number" ? amt * 12 : 0;

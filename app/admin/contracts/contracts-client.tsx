@@ -16,7 +16,7 @@ export type ContractRow = {
   endDate: string;
   daysUntilExpiry: number;
   status: "active" | "expired" | "upcoming";
-  rentType: "monthly" | "yearly";
+  rentType: "monthly" | "custom";
   hasExtension: boolean;
 };
 
@@ -260,7 +260,7 @@ function ContractCard({ row }: { row: ContractRow }) {
         <div>
           <span className="text-xs text-foreground/40 block mb-0.5">Tip</span>
           <span className="font-medium text-foreground/70">
-            {row.rentType === "monthly" ? "Lunar" : "Anual"}
+            {row.rentType === "monthly" ? "Lunar" : "Custom"}
           </span>
         </div>
         <div>

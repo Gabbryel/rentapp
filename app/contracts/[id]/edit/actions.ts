@@ -45,7 +45,7 @@ export type EditFormValues = {
   indexingMonth: string;
   howOftenIsIndexing: string;
   contractExtensions: string;
-  irregularInvoices: Array<{ month: string; day: string; amountEUR: string }>;
+  customInvoices: Array<{ date: string; amountEUR: string }>;
 };
 
 export type EditFormState = {
@@ -68,13 +68,12 @@ export async function updateContractAction(
       .getAll(key)
       .map((value) => (typeof value === "string" ? value : String(value)));
 
-  const irregularInvoices: EditFormValues["irregularInvoices"] = [];
+  const customInvoices: EditFormValues["customInvoices"] = [];
   for (let i = 0; i < 24; i++) {
-    const month = getText(`irregularInvoices[${i}][month]`);
-    const day = getText(`irregularInvoices[${i}][day]`);
-    const amountEUR = getText(`irregularInvoices[${i}][amountEUR]`);
-    if (month || day || amountEUR) {
-      irregularInvoices.push({ month, day, amountEUR });
+    const date = getText(`customInvoices[${i}][date]`);
+    const amountEUR = getText(`customInvoices[${i}][amountEUR]`);
+    if (date || amountEUR) {
+      customInvoices.push({ date, amountEUR });
     }
   }
 
@@ -111,7 +110,7 @@ export async function updateContractAction(
     indexingMonth: getText("indexingMonth"),
     howOftenIsIndexing: getText("howOftenIsIndexing"),
     contractExtensions: getText("contractExtensions") || "[]",
-    irregularInvoices,
+    customInvoices,
   };
 
   try {
@@ -264,7 +263,11 @@ export async function updateContractAction(
       })(),
       tvaPercent,
       correctionPercent,
-      rentType: String(rawValues.rentType) === "yearly" ? "yearly" : "monthly",
+      rentType:
+        String(rawValues.rentType) === "custom" ||
+        String(rawValues.rentType) === "yearly"
+          ? "custom"
+          : "monthly",
       invoiceMonthMode:
         String((rawValues as any).invoiceMonthMode) === "next"
           ? "next"
@@ -273,21 +276,22 @@ export async function updateContractAction(
         const n = Number(String(rawValues.monthlyInvoiceDay));
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
-      irregularInvoices: (() => {
-        const rows: { month: number; day: number; amountEUR: number }[] = [];
+      customInvoices: (() => {
+        const rows: { date: string; amountEUR: number }[] = [];
         for (let i = 0; i < 24; i++) {
-          const m = Number(String(formData.get(`irregularInvoices[${i}][month]`) ?? ""));
-          const d = Number(String(formData.get(`irregularInvoices[${i}][day]`) ?? ""));
-          const a = Number(String(formData.get(`irregularInvoices[${i}][amountEUR]`) ?? ""));
-          if (
-            Number.isInteger(m) && m >= 1 && m <= 12 &&
-            Number.isInteger(d) && d >= 1 && d <= 31 &&
-            Number.isFinite(a) && a > 0
-          ) {
-            rows.push({ month: m, day: d, amountEUR: a });
+          const dt = String(formData.get(`customInvoices[${i}][date]`) ?? "").trim();
+          const a = Number(String(formData.get(`customInvoices[${i}][amountEUR]`) ?? "").replace(",", "."));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dt) && Number.isFinite(a) && a > 0) {
+            rows.push({ date: dt, amountEUR: a });
           }
         }
-        return rows.length > 0 ? rows : undefined;
+        // Fallback to the stored schedule so a save from this form never wipes it
+        if (rows.length === 0) {
+          return Array.isArray((prev as any).customInvoices)
+            ? ((prev as any).customInvoices as { date: string; amountEUR: number }[])
+            : undefined;
+        }
+        return rows;
       })(),
       contractExtensions: (() => {
         try {
@@ -395,7 +399,7 @@ export async function updateContractAction(
   // schedule fields removed
         rentType: parsedData.rentType,
         monthlyInvoiceDay: parsedData.monthlyInvoiceDay,
-        irregularInvoices: (parsedData as any).irregularInvoices,
+        customInvoices: (parsedData as any).customInvoices,
       },
     });
     // No Indexing model writes here (model changed)

@@ -56,17 +56,15 @@ export async function createContractAction(
     invoiceMonthMode: (formData.get("invoiceMonthMode") as string) || "current",
     monthlyInvoiceDay: (formData.get("monthlyInvoiceDay") as string) || "",
   contractExtensions: (formData.get("contractExtensions") as string) || "[]",
-  // collect irregularInvoices flat fields
+  // collect customInvoices flat fields
   ...(() => {
     const out: Record<string, string> = {};
     for (let i = 0; i < 24; i++) {
-        const m = (formData.get(`irregularInvoices[${i}][month]`) as string) || "";
-        const d = (formData.get(`irregularInvoices[${i}][day]`) as string) || "";
-        const a = (formData.get(`irregularInvoices[${i}][amountEUR]`) as string) || "";
-        if (m || d || a) {
-          out[`irregularInvoices[${i}][month]`] = m;
-          out[`irregularInvoices[${i}][day]`] = d;
-          out[`irregularInvoices[${i}][amountEUR]`] = a;
+        const dt = (formData.get(`customInvoices[${i}][date]`) as string) || "";
+        const a = (formData.get(`customInvoices[${i}][amountEUR]`) as string) || "";
+        if (dt || a) {
+          out[`customInvoices[${i}][date]`] = dt;
+          out[`customInvoices[${i}][amountEUR]`] = a;
         }
     }
     return out;
@@ -148,8 +146,11 @@ export async function createContractAction(
         // keep up to 4 decimals to avoid floating noise
         return Math.round(n * 10000) / 10000;
       })(),
-      rentType: ((): "monthly" | "yearly" =>
-        String(rawValues.rentType) === "yearly" ? "yearly" : "monthly")(),
+      rentType: ((): "monthly" | "custom" =>
+        String(rawValues.rentType) === "custom" ||
+        String(rawValues.rentType) === "yearly"
+          ? "custom"
+          : "monthly")(),
         invoiceMonthMode: (() =>
           String((rawValues as any).invoiceMonthMode) === "next" ? "next" : "current"
         )(),
@@ -157,18 +158,13 @@ export async function createContractAction(
         const n = Number(rawValues.monthlyInvoiceDay as string);
         return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined;
       })(),
-      irregularInvoices: (() => {
-        const rows: { month: number; day: number; amountEUR: number }[] = [];
+      customInvoices: (() => {
+        const rows: { date: string; amountEUR: number }[] = [];
         for (let i = 0; i < 24; i++) {
-          const m = Number(String(rawValues[`irregularInvoices[${i}][month]`] ?? ""));
-          const d = Number(String(rawValues[`irregularInvoices[${i}][day]`] ?? ""));
-          const a = Number(String(rawValues[`irregularInvoices[${i}][amountEUR]`] ?? ""));
-          if (
-            Number.isInteger(m) && m >= 1 && m <= 12 &&
-            Number.isInteger(d) && d >= 1 && d <= 31 &&
-            Number.isFinite(a) && a > 0
-          ) {
-            rows.push({ month: m, day: d, amountEUR: a });
+          const dt = String(rawValues[`customInvoices[${i}][date]`] ?? "").trim();
+          const a = Number(String(rawValues[`customInvoices[${i}][amountEUR]`] ?? "").replace(",", "."));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dt) && Number.isFinite(a) && a > 0) {
+            rows.push({ date: dt, amountEUR: a });
           }
         }
         return rows.length > 0 ? rows : undefined;
@@ -363,7 +359,7 @@ export async function createContractAction(
         correctionPercent: parsed.data.correctionPercent,
         rentType: parsed.data.rentType,
         monthlyInvoiceDay: parsed.data.monthlyInvoiceDay,
-        irregularInvoices: (parsed.data as any).irregularInvoices,
+        customInvoices: (parsed.data as any).customInvoices,
       },
     });
   // Notify subscribers
@@ -379,7 +375,7 @@ export async function createContractAction(
       try { return JSON.stringify(v); } catch { return String(v); }
     };
     const initialFields = [
-  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","paymentDueDays","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","irregularInvoices","contractExtensions"
+  "name","partner","owner","ownerId","asset","assetId","signedAt","startDate","endDate","paymentDueDays","exchangeRateRON","tvaPercent","correctionPercent","rentType","monthlyInvoiceDay","customInvoices","contractExtensions"
     ] as const;
     const summary = initialFields
       .map((k) => `${k}: ${fmtVal((parsed.data as any)[k])}`)

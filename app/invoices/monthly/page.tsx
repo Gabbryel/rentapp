@@ -522,20 +522,16 @@ export default async function MonthlyInvoicesPage({
           ...rateProps,
         });
       }
-    } else if (c.rentType === "yearly") {
+    } else if (c.rentType === "custom") {
       const entries =
-        Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
-          ? c.irregularInvoices
-          : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
-            ? c.yearlyInvoices
-            : undefined;
+        Array.isArray(c.customInvoices) && c.customInvoices.length > 0
+          ? c.customInvoices
+          : undefined;
       if (!entries) continue;
+      const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
       for (const yi of entries) {
-        if (yi.month !== month) continue;
-        const day = Math.min(Math.max(1, yi.day), monthDays);
-        const issuedAt = `${year}-${String(month).padStart(2, "0")}-${String(
-          day,
-        ).padStart(2, "0")}`;
+        if (!yi.date.startsWith(monthPrefix)) continue;
+        const issuedAt = yi.date;
         const issuedDate = new Date(issuedAt);
         if (issuedDate < start || issuedDate > end) continue;
         const partners: ContractPartner[] = Array.isArray(c.partners)

@@ -288,8 +288,8 @@ export default async function HomePage({
   const monthlyContracts = activeContracts.filter(
     (c) => c.rentType === "monthly",
   ).length;
-  const yearlyContracts = activeContracts.filter(
-    (c) => c.rentType === "yearly",
+  const customContracts = activeContracts.filter(
+    (c) => c.rentType === "custom",
   ).length;
 
   // Partner/tenant count
@@ -742,7 +742,7 @@ export default async function HomePage({
                 {monthlyContracts} lunare
               </span>
               <span className="text-foreground/70">
-                {yearlyContracts} anuale
+                {customContracts} custom
               </span>
             </div>
             <div className="mt-2 text-xs text-foreground/60">

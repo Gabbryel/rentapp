@@ -522,7 +522,8 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       const n = Number(r.paymentDueDays);
       return Number.isInteger(n) && n >= 0 && n <= 120 ? n : undefined;
     })(),
-    rentType: ((): "monthly" | "yearly" => (r.rentType === "yearly" ? "yearly" : "monthly"))(),
+    rentType: ((): "monthly" | "custom" =>
+      r.rentType === "yearly" || r.rentType === "custom" ? "custom" : "monthly")(),
     // Preserve explicit invoiceMonthMode from persistence; fallback to undefined so schema default applies only if absent
     invoiceMonthMode: ((): "current" | "next" | undefined => {
       const v = r.invoiceMonthMode;
@@ -531,8 +532,7 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
       return undefined; // let zod default kick in for legacy rows
     })(),
     monthlyInvoiceDay: ((): number | undefined => {
-      const rt: "monthly" | "yearly" = r.rentType === "yearly" ? "yearly" : "monthly";
-      if (rt !== "monthly") return undefined;
+      if (r.rentType === "yearly" || r.rentType === "custom") return undefined;
       // explicit day first
       const n = Number(r.monthlyInvoiceDay);
       if (Number.isInteger(n) && n >= 1 && n <= 31) return n;
@@ -568,6 +568,52 @@ function normalizeRaw(raw: unknown): Partial<ContractType> {
             Number.isFinite(x.amountEUR) && x.amountEUR > 0
         );
       return mapped.length > 0 ? mapped : undefined;
+    })(),
+    customInvoices: ((): { date: string; amountEUR: number }[] | undefined => {
+      const arr: unknown[] = Array.isArray(r.customInvoices)
+        ? (r.customInvoices as unknown[])
+        : [];
+      const mapped = arr
+        .map((it) => {
+          const rec = (it ?? {}) as Record<string, unknown>;
+          const date = toYmd(rec.date);
+          const amountEUR = Number(rec.amountEUR);
+          return date && Number.isFinite(amountEUR) && amountEUR > 0
+            ? { date, amountEUR }
+            : null;
+        })
+        .filter(Boolean) as { date: string; amountEUR: number }[];
+      if (mapped.length > 0) {
+        mapped.sort((a, b) => a.date.localeCompare(b.date));
+        return mapped;
+      }
+      // Legacy fallback: recurring month/day entries become dates in the current year
+      const legacy: unknown[] = Array.isArray(r.irregularInvoices)
+        ? (r.irregularInvoices as unknown[])
+        : Array.isArray(r.yearlyInvoices)
+        ? (r.yearlyInvoices as unknown[])
+        : [];
+      const year = new Date().getFullYear();
+      const converted = legacy
+        .map((it) => {
+          const rec = (it ?? {}) as Record<string, unknown>;
+          const month = Number(rec.month);
+          const day = Number(rec.day);
+          const amountEUR = Number(rec.amountEUR);
+          if (
+            Number.isInteger(month) && month >= 1 && month <= 12 &&
+            Number.isInteger(day) && day >= 1 && day <= 31 &&
+            Number.isFinite(amountEUR) && amountEUR > 0
+          ) {
+            const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            return { date, amountEUR };
+          }
+          return null;
+        })
+        .filter(Boolean) as { date: string; amountEUR: number }[];
+      if (converted.length === 0) return undefined;
+      converted.sort((a, b) => a.date.localeCompare(b.date));
+      return converted;
     })(),
     // legacy single scan handling
     scanUrl: ((): string | undefined => {
@@ -1156,17 +1202,13 @@ export function computeInvoiceFromContract(opts: {
   const dueDays = typeof c.paymentDueDays === "number" ? c.paymentDueDays : 0;
   const billedPeriodDate = resolveBilledPeriodDate(c, opts.issuedAt, opts.billedAt);
   // Determine EUR amount
-  const parseMD = (iso: string) => {
-    const d = new Date(iso);
-    return { m: d.getMonth() + 1, day: d.getDate() };
-  };
   let amountEUR: number | undefined = undefined;
   if (typeof opts.amountEUROverride === "number") {
     amountEUR = opts.amountEUROverride;
-  } else if (c.rentType === "yearly") {
-    const { m, day } = parseMD(opts.issuedAt);
-    const list = c.irregularInvoices ?? c.yearlyInvoices ?? [];
-    const yi = list.find((r) => r.month === m && r.day === day);
+  } else if (c.rentType === "custom") {
+    const iso = opts.issuedAt.slice(0, 10);
+    const list = c.customInvoices ?? [];
+    const yi = list.find((r) => r.date === iso);
     amountEUR = yi?.amountEUR ?? rentAmountAtDate(c, opts.issuedAt);
   } else {
     amountEUR = rentAmountAtDate(c, billedPeriodDate);
@@ -1225,7 +1267,7 @@ export function resolveBilledPeriodDate(
   if (Number.isNaN(issuedAtDate.getTime())) {
     throw new Error("Data emiterii este invalidă");
   }
-  if (contract.rentType === "yearly") return issuedAt;
+  if (contract.rentType === "custom") return issuedAt;
   const invoiceMonthMode = contract.invoiceMonthMode === "next" ? "next" : "current";
   const offsetMonths = invoiceMonthMode === "next" ? 1 : 0;
   const billed = new Date(
@@ -1247,15 +1289,11 @@ export function rentAmountAtDate(c: ContractType, isoDate: string): number | und
     }
     return undefined;
   })();
-  if (c.rentType === "yearly" && Array.isArray(c.irregularInvoices)) {
-    const target = new Date(isoDate);
-    const month = target.getMonth() + 1;
-    const day = target.getDate();
-    const match = c.irregularInvoices.find(
-      (r) => Number(r.month) === month && Number(r.day) === day
-    );
+  if (c.rentType === "custom" && Array.isArray(c.customInvoices)) {
+    const iso = isoDate.slice(0, 10);
+    const match = c.customInvoices.find((r) => r.date === iso);
     if (match && typeof match.amountEUR === "number") {
-      rows.push({ date: isoDate.slice(0, 10), value: Number(match.amountEUR) });
+      rows.push({ date: iso, value: Number(match.amountEUR) });
     }
   }
   if (Array.isArray(c.indexingDates)) {
@@ -1282,8 +1320,8 @@ export function rentAmountAtDate(c: ContractType, isoDate: string): number | und
 
 // Convenience for "today"
 export function currentRentAmount(c: ContractType): number | undefined {
-  if (c.rentType === "yearly") {
-    const list = c.irregularInvoices ?? c.yearlyInvoices ?? [];
+  if (c.rentType === "custom") {
+    const list = c.customInvoices ?? [];
     const total = list.reduce(
       (sum, item) => (typeof item.amountEUR === "number" ? sum + item.amountEUR : sum),
       0
@@ -1439,7 +1477,7 @@ export async function renderContractPdf(
   }
 
   addHeading("Facturare");
-  addWrapped(`Tip chirie: ${contract.rentType === "yearly" ? "Anuală" : "Lunară"}`);
+  addWrapped(`Tip chirie: ${contract.rentType === "custom" ? "Facturi la date fixe (custom)" : "Lunară"}`);
   const invoiceMode =
     contract.invoiceMonthMode === "next"
       ? "În avans (luna următoare)"

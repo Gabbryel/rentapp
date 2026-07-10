@@ -228,13 +228,7 @@ export default async function ContractsPage({
 
         {/* Financial Info - Prominent */}
         {(() => {
-          const eur =
-            c.rentType === "yearly"
-              ? (((c as any).irregularInvoices ?? []) as any[]).reduce(
-                  (s, r) => s + (r.amountEUR || 0),
-                  0
-                )
-              : currentRentAmount(c);
+          const eur = currentRentAmount(c);
           if (typeof eur !== "number") return null;
 
           const hasRate = typeof c.exchangeRateRON === "number";
@@ -258,8 +252,8 @@ export default async function ContractsPage({
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs uppercase tracking-wide text-foreground/60 font-semibold">
-                    {c.rentType === "yearly"
-                      ? "Chirie anuală"
+                    {c.rentType === "custom"
+                      ? "Total facturi custom"
                       : "Chirie lunară"}
                   </span>
                   <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
@@ -436,29 +430,18 @@ export default async function ContractsPage({
           </div>
         ) : null}
 
-        {c.rentType === "yearly" &&
-        ((c as any).irregularInvoices?.length ?? 0) > 0 ? (
+        {c.rentType === "custom" && (c.customInvoices?.length ?? 0) > 0 ? (
           <div className="rounded-xl bg-foreground/5 p-3 mb-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60 font-semibold mb-2">
-              Facturi anuale
+              Facturi custom
             </div>
             <div className="space-y-1">
-              {(
-                ((c as any).irregularInvoices || []) as {
-                  month: number;
-                  day: number;
-                  amountEUR: number;
-                }[]
-              ).map((r, i) => (
+              {(c.customInvoices ?? []).map((r) => (
                 <div
-                  key={i}
+                  key={r.date}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-foreground/70">
-                    {`${String(r.day).padStart(2, "0")}/${String(
-                      r.month
-                    ).padStart(2, "0")}`}
-                  </span>
+                  <span className="text-foreground/70">{fmt(r.date)}</span>
                   <span className="font-medium">{fmtEUR(r.amountEUR)}</span>
                 </div>
               ))}

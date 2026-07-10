@@ -146,7 +146,7 @@ type Props = {
   id: string;
   scans: { url: string; title?: string; fileSize?: number | null }[];
   mongoConfigured: boolean;
-  rentType?: "monthly" | "yearly";
+  rentType?: "monthly" | "yearly" | "custom";
   irregularInvoices?: { month: number; day: number; amountEUR: number }[];
   children?: React.ReactNode;
   wrapChildrenInCard?: boolean;

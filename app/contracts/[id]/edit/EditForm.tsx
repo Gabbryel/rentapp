@@ -44,11 +44,13 @@ export default function EditForm({
   );
   const formRef = useRef<HTMLFormElement | null>(null);
   const router = useRouter();
-  const rentType = String(
+  const rentTypeRaw = String(
     (state.values.rentType as string) ?? contract.rentType ?? "monthly"
-  ) as "monthly" | "yearly";
-  const yearlyInvoices = Array.isArray((contract as any).irregularInvoices)
-    ? ((contract as any).irregularInvoices as any[])
+  );
+  const rentType: "monthly" | "custom" =
+    rentTypeRaw === "custom" || rentTypeRaw === "yearly" ? "custom" : "monthly";
+  const customInvoices = Array.isArray((contract as any).customInvoices)
+    ? ((contract as any).customInvoices as { date: string; amountEUR: number }[])
     : [];
   // indexing dates removed
   const indexingDayValue = String(
@@ -266,7 +268,7 @@ export default function EditForm({
               className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
             >
               <option value="monthly">Lunar</option>
-              <option value="yearly">Anual</option>
+              <option value="custom">Facturi custom (date fixe)</option>
             </select>
           </div>
           {rentType === "monthly" && (
@@ -309,38 +311,32 @@ export default function EditForm({
               </div>
             </>
           )}
-          {rentType === "yearly" && (
+          {rentType === "custom" && (
             <div className="sm:col-span-3 space-y-2">
-              {yearlyInvoices.length === 0 && (
+              {customInvoices.length === 0 && (
                 <p className="text-xs text-foreground/60">
-                  Nu există facturi anuale definite.
+                  Nu există facturi custom definite.
                 </p>
               )}
-              {yearlyInvoices.map((yi, i) => (
-                <div key={i} className="grid grid-cols-3 gap-2">
+              {customInvoices.map((ci, i) => (
+                <div key={ci.date} className="grid grid-cols-2 gap-2">
                   <input
-                    name={`irregularInvoices[${i}][month]`}
-                    defaultValue={String(yi.month)}
+                    name={`customInvoices[${i}][date]`}
+                    defaultValue={ci.date}
                     readOnly
                     className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
                   />
                   <input
-                    name={`irregularInvoices[${i}][day]`}
-                    defaultValue={String(yi.day)}
-                    readOnly
-                    className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    name={`irregularInvoices[${i}][amountEUR]`}
-                    defaultValue={String(yi.amountEUR)}
+                    name={`customInvoices[${i}][amountEUR]`}
+                    defaultValue={String(ci.amountEUR)}
                     readOnly
                     className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
                   />
                 </div>
               ))}
               <p className="text-xs text-foreground/60">
-                Pentru a adăuga/modifica rânduri, utilizează o operațiune
-                separată (nu implementat aici).
+                Datele și sumele se editează din pagina contractului, secțiunea
+                „Facturi custom”.
               </p>
             </div>
           )}

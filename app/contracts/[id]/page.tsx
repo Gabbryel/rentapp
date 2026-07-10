@@ -62,6 +62,7 @@ import {
   validatePreviewToken,
 } from "@/lib/invoice-custom-period";
 import CustomInvoiceModal from "./CustomInvoiceModal";
+import CustomInvoicesCard from "./yearly/CustomInvoicesCard";
 import Breadcrumb from "@/app/components/breadcrumb";
 
 function toEmailHtmlParagraphs(text: string) {
@@ -2549,7 +2550,7 @@ export default async function ContractPage({
                     <span className="rounded bg-foreground/5 px-2 py-1">
                       {contract.rentType === "monthly"
                         ? "Chirie lunară"
-                        : "Chirie anuală"}
+                        : "Facturi custom"}
                     </span>
                   )}
                   {contract.rentType === "monthly" && (
@@ -2583,13 +2584,13 @@ export default async function ContractPage({
                       TVA {contract.tvaPercent}%
                     </span>
                   )}
-                  {Array.isArray((contract as any).irregularInvoices) &&
-                    (contract as any).irregularInvoices.length > 0 && (
+                  {Array.isArray(contract.customInvoices) &&
+                    contract.customInvoices.length > 0 && (
                       <span
                         className="rounded bg-foreground/5 px-2 py-1"
-                        title="Intrări facturi anuale"
+                        title="Intrări facturi custom"
                       >
-                        {(contract as any).irregularInvoices.length} facturi/an
+                        {contract.customInvoices.length} facturi în grafic
                       </span>
                     )}
                 </div>
@@ -3272,46 +3273,6 @@ export default async function ContractPage({
                     </button>
                   </div>
                 </form>
-              </div>
-            ) : null}
-            {contract.rentType === "yearly" ? (
-              <div className="rounded-xl border border-white/12 bg-white/[0.04] p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-wide text-white/60">
-                  Facturi anuale – date suplimentare
-                </div>
-                <div className="text-xs text-white/70">
-                  Adaugă sau editează zilele/lunile pentru facturile anuale ale
-                  contractului.
-                </div>
-                {((contract as any).irregularInvoices?.length ?? 0) > 0 ? (
-                  <ul className="space-y-2 text-sm">
-                    {(((contract as any).irregularInvoices || []) as any[])
-                      .slice()
-                      .sort((a, b) => a.month - b.month || a.day - b.day)
-                      .map((r, i) => (
-                        <li
-                          key={`${r.month}-${r.day}-${i}`}
-                          className="flex items-center justify-between rounded bg-white/5 px-2 py-1"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="rounded bg-foreground/10 px-2 py-0.5 text-xs">
-                              {String(r.day).padStart(2, "0")}/
-                              {String(r.month).padStart(2, "0")}
-                            </span>
-                            <span className="text-foreground/70 text-xs">
-                              {typeof r.amountEUR === "number"
-                                ? `${r.amountEUR.toFixed(2)} EUR`
-                                : "—"}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <div className="text-xs text-white/70">
-                    Nu există date definite.
-                  </div>
-                )}
               </div>
             ) : null}
             {(() => {
@@ -4451,15 +4412,13 @@ export default async function ContractPage({
         </div>
       </section>
 
-      {contract.rentType === "yearly" &&
-        ((contract as any).irregularInvoices?.length ?? 0) > 0 && (
+      {contract.rentType === "custom" &&
+        (contract.customInvoices?.length ?? 0) > 0 && (
           <section id="contract-yearly-invoices" className="mt-8">
             <div className="rounded-lg border border-foreground/15 p-4">
-              <h2 className="text-base font-semibold">Facturi anuale</h2>
+              <h2 className="text-base font-semibold">Facturi custom</h2>
               {(() => {
-                const totalEUR = (
-                  ((contract as any).irregularInvoices || []) as any[]
-                ).reduce(
+                const totalEUR = (contract.customInvoices ?? []).reduce(
                   (sum, r) =>
                     sum + (typeof r.amountEUR === "number" ? r.amountEUR : 0),
                   0,
@@ -4498,7 +4457,7 @@ export default async function ContractPage({
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                     <div className="rounded-md bg-foreground/5 p-3">
                       <div className="text-foreground/60 text-xs">
-                        Venit anual
+                        Total grafic
                       </div>
                       <div className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
                         {fmtEURLocal(correctedEUR)}
@@ -4525,45 +4484,38 @@ export default async function ContractPage({
                   </div>
                 );
               })()}
-              {/* Issue form for yearly entries */}
+              {/* Editable schedule: add/edit/remove invoice dates and amounts */}
+              <div className="mt-4">
+                <CustomInvoicesCard
+                  id={contract.id}
+                  entries={contract.customInvoices ?? []}
+                  mongoConfigured={Boolean(process.env.MONGODB_URI)}
+                />
+              </div>
+              {/* Issue form for custom schedule entries */}
               <div className="mt-4 rounded-md bg-foreground/5 p-3">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60 mb-2">
                   Emitere factură după grafic
                 </div>
                 <form
                   action={issueInvoice}
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-5 sm:items-end text-sm"
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-end text-sm"
                 >
                   <input type="hidden" name="contractId" value={contract.id} />
-                  <div>
-                    <label className="block text-foreground/60 mb-1">An</label>
-                    <input
-                      type="number"
-                      name="year"
-                      min={2000}
-                      max={9999}
-                      defaultValue={new Date().getFullYear()}
-                      className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
-                    />
-                  </div>
                   <div className="sm:col-span-2">
                     <label className="block text-foreground/60 mb-1">
                       Data din grafic
                     </label>
                     <select
-                      name="dateKey"
+                      name="issuedAt"
                       className="w-full rounded-md border border-foreground/20 bg-background px-2 py-1"
                     >
-                      {(((contract as any).irregularInvoices || []) as any[])
+                      {(contract.customInvoices ?? [])
                         .slice()
-                        .sort((a, b) => a.month - b.month || a.day - b.day)
-                        .map((r, i) => (
-                          <option
-                            key={`${r.month}-${r.day}-${i}`}
-                            value={`${r.month}-${r.day}`}
-                          >
-                            {String(r.day).padStart(2, "0")}/
-                            {String(r.month).padStart(2, "0")} –{" "}
+                        .sort((a, b) => a.date.localeCompare(b.date))
+                        .map((r) => (
+                          <option key={r.date} value={r.date}>
+                            {fmt(r.date)} –{" "}
                             {new Intl.NumberFormat("ro-RO", {
                               style: "currency",
                               currency: "EUR",
@@ -4599,13 +4551,7 @@ export default async function ContractPage({
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-4">
-                {(
-                  (contract as any).irregularInvoices as {
-                    month: number;
-                    day: number;
-                    amountEUR: number;
-                  }[]
-                ).map((inv, idx) => {
+                {(contract.customInvoices ?? []).map((inv, idx) => {
                   const eur = inv.amountEUR;
                   const rate =
                     typeof contract.exchangeRateRON === "number"
@@ -4638,25 +4584,17 @@ export default async function ContractPage({
                     typeof correctedRon === "number"
                       ? correctedRon * (1 + tvaPct / 100)
                       : undefined;
-                  const monthStr = String(inv.month).padStart(2, "0");
-                  const dayStr = String(inv.day).padStart(2, "0");
-                  const currentYear = new Date().getFullYear();
-                  const issuedDate = new Date(
-                    currentYear,
-                    inv.month - 1,
-                    inv.day,
-                  );
-                  const issuedIso = issuedDate.toISOString().slice(0, 10);
+                  const issuedIso = inv.date;
                   const existingInvoice = invoices.find(
                     (it) => it.issuedAt === issuedIso,
                   );
                   return (
                     <div
-                      key={`${idx}-${inv.month}-${inv.day}`}
+                      key={`${idx}-${inv.date}`}
                       className="rounded-md bg-foreground/5 p-3"
                     >
                       <div className="text-sm text-foreground/60">
-                        Data: {dayStr}/{monthStr}
+                        Data: {fmt(inv.date)}
                       </div>
                       <div className="mt-1 space-y-1 text-sm">
                         <div>
@@ -4782,7 +4720,7 @@ export default async function ContractPage({
                             />
                             <ActionButton
                               className="rounded-md border border-foreground/20 px-2 py-1 text-xs font-medium hover:bg-foreground/5"
-                              title="Emite factura anuală"
+                              title="Emite factura din grafic"
                               successMessage="Factura a fost emisă"
                               triggerStatsRefresh
                             >

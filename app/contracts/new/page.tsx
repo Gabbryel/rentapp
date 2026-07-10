@@ -30,8 +30,11 @@ export default function NewContractPage() {
     createContractAction,
     { ok: false, values: {} }
   );
-  const [rentType, setRentType] = useState<"monthly" | "yearly">(
-    (state.values.rentType as string) === "yearly" ? "yearly" : "monthly"
+  const [rentType, setRentType] = useState<"monthly" | "custom">(
+    (state.values.rentType as string) === "custom" ||
+      (state.values.rentType as string) === "yearly"
+      ? "custom"
+      : "monthly"
   );
   const formRef = useRef<HTMLFormElement | null>(null);
   const router = useRouter();
@@ -188,13 +191,13 @@ export default function NewContractPage() {
                 value={rentType}
                 onChange={(e) =>
                   setRentType(
-                    (e.target.value as "monthly" | "yearly") ?? "monthly"
+                    (e.target.value as "monthly" | "custom") ?? "monthly"
                   )
                 }
                 className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
               >
                 <option value="monthly">Lunar</option>
-                <option value="yearly">Anual</option>
+                <option value="custom">Facturi custom (date fixe)</option>
               </select>
             </div>
             {rentType === "monthly" && (
@@ -233,37 +236,20 @@ export default function NewContractPage() {
                 </div>
               </>
             )}
-            {rentType === "yearly" && (
+            {rentType === "custom" && (
               <div className="sm:col-span-3">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <input
-                    name={`irregularInvoices[0][month]`}
-                    placeholder="Luna (1-12)"
-                    inputMode="numeric"
-                    min={1}
-                    max={12}
-                    type="number"
+                    name={`customInvoices[0][date]`}
+                    placeholder="Data facturii"
+                    type="date"
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
-                      (state.values[`irregularInvoices[0][month]`] as string) ??
-                        ""
+                      (state.values[`customInvoices[0][date]`] as string) ?? ""
                     )}
                   />
                   <input
-                    name={`irregularInvoices[0][day]`}
-                    placeholder="Zi (1-31)"
-                    inputMode="numeric"
-                    min={1}
-                    max={31}
-                    type="number"
-                    className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
-                    defaultValue={String(
-                      (state.values[`irregularInvoices[0][day]`] as string) ??
-                        ""
-                    )}
-                  />
-                  <input
-                    name={`irregularInvoices[0][amountEUR]`}
+                    name={`customInvoices[0][amountEUR]`}
                     placeholder="Suma EUR"
                     inputMode="decimal"
                     step="0.01"
@@ -271,13 +257,14 @@ export default function NewContractPage() {
                     className="rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm"
                     defaultValue={String(
                       (state.values[
-                        `irregularInvoices[0][amountEUR]`
+                        `customInvoices[0][amountEUR]`
                       ] as string) ?? ""
                     )}
                   />
                 </div>
                 <p className="mt-2 text-xs text-foreground/60">
-                  Poți adăuga mai multe intrări după salvare.
+                  Poți adăuga mai multe intrări după salvare, din pagina
+                  contractului.
                 </p>
               </div>
             )}

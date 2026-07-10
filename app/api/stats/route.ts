@@ -195,32 +195,27 @@ export async function GET(req: Request) {
             }
           }
         }
-      } else if (rentType === "yearly") {
-        const entries =
-          Array.isArray(c.irregularInvoices) && c.irregularInvoices.length > 0
-            ? c.irregularInvoices
-            : Array.isArray(c.yearlyInvoices) && c.yearlyInvoices.length > 0
-            ? c.yearlyInvoices
-            : undefined;
-        if (entries) {
-          for (const yi of entries) {
-            if (yi.month < 1 || yi.month > 12) continue;
-            const yDate = new Date(year, yi.month - 1, Math.min(yi.day, daysInMonth(year, yi.month)));
-            if (yDate < start || yDate > end) continue;
-            const yearlyAmt = safeNum(yi.amountEUR);
-            if (!yearlyAmt) continue;
-            const yCorrected = yearlyAmt * (1 + corrPct / 100);
-            const yNet = typeof rate === 'number' ? yCorrected * rate : undefined; // fără TVA
-            const yVat = typeof yNet === 'number' ? yNet * (tvaPct / 100) : undefined;
-            const yTotal = typeof yNet === 'number' ? yNet + (yVat ?? 0) : undefined; // cu TVA
-            if (typeof yTotal === 'number') prognosisAnnualRON += yTotal;
-            prognosisAnnualEUR += yCorrected;
-            if (typeof yNet === 'number') prognosisAnnualNetRON += yNet;
-            if (yi.month === month && yDate >= currentMonthStart && yDate <= currentMonthEnd) {
-              if (typeof yTotal === 'number') prognosisMonthRON += yTotal;
-              prognosisMonthEUR += yCorrected;
-              if (typeof yNet === 'number') prognosisMonthNetRON += yNet;
-            }
+      } else if (rentType === "custom" || rentType === "yearly") {
+        const entries = Array.isArray(c.customInvoices) ? c.customInvoices : [];
+        for (const yi of entries) {
+          const iso = String(yi.date || "").slice(0, 10);
+          const yDate = new Date(iso);
+          if (!iso || isNaN(yDate.getTime())) continue;
+          if (yDate < start || yDate > end) continue;
+          if (yDate.getFullYear() !== year) continue;
+          const yearlyAmt = safeNum(yi.amountEUR);
+          if (!yearlyAmt) continue;
+          const yCorrected = yearlyAmt * (1 + corrPct / 100);
+          const yNet = typeof rate === 'number' ? yCorrected * rate : undefined; // fără TVA
+          const yVat = typeof yNet === 'number' ? yNet * (tvaPct / 100) : undefined;
+          const yTotal = typeof yNet === 'number' ? yNet + (yVat ?? 0) : undefined; // cu TVA
+          if (typeof yTotal === 'number') prognosisAnnualRON += yTotal;
+          prognosisAnnualEUR += yCorrected;
+          if (typeof yNet === 'number') prognosisAnnualNetRON += yNet;
+          if (yDate.getMonth() + 1 === month && yDate >= currentMonthStart && yDate <= currentMonthEnd) {
+            if (typeof yTotal === 'number') prognosisMonthRON += yTotal;
+            prognosisMonthEUR += yCorrected;
+            if (typeof yNet === 'number') prognosisMonthNetRON += yNet;
           }
         }
       } else if (rentType === "chosenDates") {

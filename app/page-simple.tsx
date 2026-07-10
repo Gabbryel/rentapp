@@ -76,7 +76,7 @@ export default async function HomePage() {
 
   // Contract types breakdown
   const monthlyContracts = activeContracts.filter((c) => c.rentType === "monthly").length;
-  const yearlyContracts = activeContracts.filter((c) => c.rentType === "yearly").length;
+  const customContracts = activeContracts.filter((c) => c.rentType === "custom").length;
 
   // Partner/tenant count
   const uniquePartners = new Set(
@@ -91,7 +91,7 @@ export default async function HomePage() {
     const amount = rentAmountAtDate(c, today);
     current.count += 1;
     if (typeof amount === "number") {
-      current.revenue += c.rentType === "monthly" ? amount : amount / 12; // Normalize yearly to monthly
+      current.revenue += c.rentType === "monthly" ? amount : amount / 12; // Normalize custom (annual total) to monthly
     }
     ownerMap.set(owner, current);
   }
@@ -130,7 +130,7 @@ export default async function HomePage() {
             </div>
             <div className="text-3xl font-bold">{activeContracts.length}</div>
             <div className="mt-2 text-xs text-foreground/60">
-              {monthlyContracts} lunare • {yearlyContracts} anuale
+              {monthlyContracts} lunare • {customContracts} custom
             </div>
           </div>
 

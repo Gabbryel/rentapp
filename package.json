@@ -20,7 +20,8 @@
     "migrate:remove-notification-indexing": "tsx scripts/migrate-remove-notification-indexing-fields.ts",
     "migrate:contracts:rename-fields": "tsx scripts/migrate-contract-rename-amount-indexing.ts",
     "migrate:contracts:normalize-history": "tsx scripts/migrate-normalize-rent-history.ts",
-    "migrate:contracts:extensions": "tsx scripts/migrate-contract-extensions.ts"
+    "migrate:contracts:extensions": "tsx scripts/migrate-contract-extensions.ts",
+    "migrate:contracts:custom-invoices": "tsx --env-file=.env.local scripts/migrate-custom-invoices.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

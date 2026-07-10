@@ -120,10 +120,24 @@ export const ContractSchema = z
       )
       .default([]),
     // Rent structure
-    rentType: z.enum(["monthly", "yearly"]).default("monthly"),
+    // "custom" = invoices issued at explicit dates (customInvoices); legacy value "yearly" is normalized to "custom"
+    rentType: z.preprocess(
+      (v) => (v === "yearly" ? "custom" : v),
+      z.enum(["monthly", "custom"]).default("monthly")
+    ),
   // Whether monthly invoice corresponds to the current month (default) or is issued in advance for the next month
   invoiceMonthMode: z.enum(["current", "next"]).default("current"),
     monthlyInvoiceDay: z.number().int().min(1).max(31).optional(),
+    // Custom invoice schedule: explicit one-off dates with amounts (rentType "custom")
+    customInvoices: z
+      .array(
+        z.object({
+          date: ISODate,
+          amountEUR: z.number().positive(),
+        })
+      )
+      .optional(),
+    // Deprecated recurring month/day schedule (kept for backward compatibility in parsing)
     irregularInvoices: z
       .array(
         z.object({
@@ -299,17 +313,21 @@ export const ContractSchema = z
     // No cross-field requirement between amount and rate: amount is derived from rentHistory
 
     // Conditional requirements based on rent type
-    if (val.rentType === "yearly") {
-      const list = Array.isArray((val as any).irregularInvoices)
+    if (val.rentType === "custom") {
+      const custom = Array.isArray((val as any).customInvoices)
+        ? ((val as any).customInvoices as any[])
+        : [];
+      const legacy = Array.isArray((val as any).irregularInvoices)
         ? ((val as any).irregularInvoices as any[])
         : Array.isArray((val as any).yearlyInvoices)
         ? ((val as any).yearlyInvoices as any[])
         : [];
-      if (list.length === 0) {
+      if (custom.length === 0 && legacy.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["irregularInvoices"],
-          message: "Pentru chirie anuală, adaugă cel puțin o factură cu sumă",
+          path: ["customInvoices"],
+          message:
+            "Pentru facturi custom, adaugă cel puțin o factură cu dată și sumă",
         });
       }
     }
