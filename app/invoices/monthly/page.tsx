@@ -581,15 +581,19 @@ export default async function MonthlyInvoicesPage({
     dueCountsByBase.set(baseKey, (dueCountsByBase.get(baseKey) ?? 0) + 1);
   }
 
-  // Collect distinct owners from ALL contracts, not just this month's due items
+  // Collect distinct owners from ALL contracts, not just this month's due items.
+  // Trimmed because the owner query param is trimmed on parse; stray
+  // whitespace in stored names must not break filter matching.
   const allOwners = Array.from(
-    new Set(contracts.map((c) => c.owner || "—")),
+    new Set(contracts.map((c) => (c.owner || "—").trim())),
   ).sort((a, b) => a.localeCompare(b));
 
   // Apply owner filter
   const filteredDue =
     ownerFilter.length > 0
-      ? due.filter((d) => ownerFilter.includes(d.contract.owner || "—"))
+      ? due.filter((d) =>
+          ownerFilter.includes((d.contract.owner || "—").trim()),
+        )
       : due;
 
   // Compute forecasted income totals for the summary banner.

@@ -9,10 +9,10 @@ const OwnerAdministratorSchema = z
 
 export const OwnerSchema = z.object({
   id: z.string().min(1, "id obligatoriu"),
-  name: z.string().min(1, "nume obligatoriu"),
-  vatNumber: z.string().min(1, "CUI obligatoriu"), // VAT number (CUI)
-  orcNumber: z.string().min(1, "Nr. ORC obligatoriu"), // Trade Register number
-  headquarters: z.string().min(1, "Sediu obligatoriu"),
+  name: z.string().trim().min(1, "nume obligatoriu"),
+  vatNumber: z.string().trim().min(1, "CUI obligatoriu"), // VAT number (CUI)
+  orcNumber: z.string().trim().min(1, "Nr. ORC obligatoriu"), // Trade Register number
+  headquarters: z.string().trim().min(1, "Sediu obligatoriu"),
   administrators: z
     .array(OwnerAdministratorSchema)
     .optional()

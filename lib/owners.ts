@@ -2,10 +2,11 @@ import { getDb } from "@/lib/mongodb";
 import { OwnerSchema, type Owner } from "@/lib/schemas/owner";
 
 export async function upsertOwner(owner: Owner) {
-  OwnerSchema.parse(owner);
+  // Persist the parsed value so schema transforms (e.g. trimmed name) apply
+  const parsed = OwnerSchema.parse(owner);
   if (!process.env.MONGODB_URI) throw new Error("MongoDB nu este configurat.");
   const db = await getDb();
-  await db.collection<Owner>("owners").updateOne({ id: owner.id }, { $set: owner }, { upsert: true });
+  await db.collection<Owner>("owners").updateOne({ id: parsed.id }, { $set: parsed }, { upsert: true });
 }
 
 export async function fetchOwners(): Promise<Owner[]> {
