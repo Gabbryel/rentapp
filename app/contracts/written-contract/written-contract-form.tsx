@@ -431,6 +431,52 @@ function boldTemplateValue(value: TemplateValue): string {
   return value.isPlaceholder ? value.text : `<strong>${value.text}</strong>`;
 }
 
+// Marker wrapper: lets smart-fill locate and update this value inside a
+// manually edited body without touching the surrounding hand-written text.
+function wrapField(key: string, html: string): string {
+  return `<span data-wc-field="${key}">${html}</span>`;
+}
+
+// Update only the data-wc-field spans of a (possibly hand-edited) body with
+// the values from a freshly generated template. Text outside the marker
+// spans is left untouched. Bodies without markers (legacy documents) are
+// returned unchanged.
+export function applySmartFill(
+  currentBody: string,
+  freshTemplate: string,
+): string {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return currentBody;
+  }
+  try {
+    const parser = new DOMParser();
+    const freshDoc = parser.parseFromString(freshTemplate, "text/html");
+    const values = new Map<string, string>();
+    freshDoc.body.querySelectorAll("[data-wc-field]").forEach((el) => {
+      const key = el.getAttribute("data-wc-field");
+      if (key && !values.has(key)) values.set(key, el.innerHTML);
+    });
+    if (values.size === 0) return currentBody;
+    const bodyDoc = parser.parseFromString(currentBody, "text/html");
+    const spans = Array.from(bodyDoc.body.querySelectorAll("[data-wc-field]"));
+    if (spans.length === 0) return currentBody;
+    let changed = false;
+    for (const el of spans) {
+      // Skip spans that were nested inside an already replaced outer span
+      if (!bodyDoc.body.contains(el)) continue;
+      const key = el.getAttribute("data-wc-field") || "";
+      const html = values.get(key);
+      if (typeof html === "string" && el.innerHTML !== html) {
+        el.innerHTML = html;
+        changed = true;
+      }
+    }
+    return changed ? bodyDoc.body.innerHTML : currentBody;
+  } catch {
+    return currentBody;
+  }
+}
+
 function makeSubtitle(ownerName: string, partnerName: string): string {
   const ownerLabel = ownerName || "Proprietar";
   const partnerLabel = partnerName || "Chiriaș";
@@ -582,7 +628,7 @@ function calculateGuaranteeDueDate(startDate?: string): string {
   return DOT_DATE_FORMATTER.format(date);
 }
 
-function createTemplateBody(state: EditorState): string {
+export function createTemplateBody(state: EditorState): string {
   const ownerNameTemplate = makeTemplateValue(state.ownerName, "________");
   const ownerHeadOfficeTemplate = makeTemplateValue(
     state.ownerHeadOffice,
@@ -676,8 +722,9 @@ function createTemplateBody(state: EditorState): string {
 
   const indexingMonthRaw =
     state.indexingMonth || formatMonthName(state.contractStartDate) || "";
-  const indexingMonthValue = boldTemplateValue(
-    makeTemplateValue(indexingMonthRaw, "________"),
+  const indexingMonthValue = wrapField(
+    "indexingMonth",
+    boldTemplateValue(makeTemplateValue(indexingMonthRaw, "________")),
   );
 
   const guaranteeMultiplierTemplate = makeTemplateValue(
@@ -726,39 +773,93 @@ function createTemplateBody(state: EditorState): string {
     "________",
   );
 
-  const ownerName = boldTemplateValue(ownerNameTemplate);
-  const ownerHeadOffice = boldTemplateValue(ownerHeadOfficeTemplate);
-  const ownerRegistration = boldTemplateValue(ownerRegistrationTemplate);
-  const ownerTaxId = boldTemplateValue(ownerTaxIdTemplate);
-  const ownerAdministrators = boldTemplateValue(ownerAdministratorsTemplate);
-  const ownerRepresentativeTitleValue = boldTemplateValue(
-    ownerRepresentativeTitleTemplate,
+  const ownerName = wrapField("ownerName", boldTemplateValue(ownerNameTemplate));
+  const ownerHeadOffice = wrapField(
+    "ownerHeadOffice",
+    boldTemplateValue(ownerHeadOfficeTemplate),
+  );
+  const ownerRegistration = wrapField(
+    "ownerRegistration",
+    boldTemplateValue(ownerRegistrationTemplate),
+  );
+  const ownerTaxId = wrapField("ownerTaxId", boldTemplateValue(ownerTaxIdTemplate));
+  const ownerAdministrators = wrapField(
+    "ownerRepresentative",
+    boldTemplateValue(ownerAdministratorsTemplate),
+  );
+  const ownerRepresentativeTitleValue = wrapField(
+    "ownerRepresentativeTitle",
+    boldTemplateValue(ownerRepresentativeTitleTemplate),
   );
 
-  const partnerName = boldTemplateValue(partnerNameTemplate);
-  const partnerEmail = boldTemplateValue(partnerEmailTemplate);
-  const partnerPhone = boldTemplateValue(partnerPhoneTemplate);
-  const partnerHeadOffice = boldTemplateValue(partnerHeadOfficeTemplate);
-  const partnerRegistration = boldTemplateValue(partnerRegistrationTemplate);
-  const partnerTaxId = boldTemplateValue(partnerTaxIdTemplate);
-  const partnerRepresentatives = boldTemplateValue(
-    partnerRepresentativesTemplate,
+  const partnerName = wrapField(
+    "partnerName",
+    boldTemplateValue(partnerNameTemplate),
   );
-  const partnerRepresentativeTitleValue = boldTemplateValue(
-    partnerRepresentativeTitleTemplate,
+  const partnerEmail = wrapField(
+    "partnerEmail",
+    boldTemplateValue(partnerEmailTemplate),
+  );
+  const partnerPhone = wrapField(
+    "partnerPhone",
+    boldTemplateValue(partnerPhoneTemplate),
+  );
+  const partnerHeadOffice = wrapField(
+    "partnerHeadOffice",
+    boldTemplateValue(partnerHeadOfficeTemplate),
+  );
+  const partnerRegistration = wrapField(
+    "partnerRegistration",
+    boldTemplateValue(partnerRegistrationTemplate),
+  );
+  const partnerTaxId = wrapField(
+    "partnerTaxId",
+    boldTemplateValue(partnerTaxIdTemplate),
+  );
+  const partnerRepresentatives = wrapField(
+    "partnerRepresentative",
+    boldTemplateValue(partnerRepresentativesTemplate),
+  );
+  const partnerRepresentativeTitleValue = wrapField(
+    "partnerRepresentativeTitle",
+    boldTemplateValue(partnerRepresentativeTitleTemplate),
   );
 
-  const assetName = boldTemplateValue(assetNameTemplate);
-  const assetSurfaceValue = boldTemplateValue(assetSurfaceTemplate);
-  const assetAddress = boldTemplateValue(assetAddressTemplate);
-  const intendedUseValue = boldTemplateValue(intendedUseTemplate);
+  const assetName = wrapField("assetName", boldTemplateValue(assetNameTemplate));
+  const assetSurfaceValue = wrapField(
+    "spaceSurface",
+    boldTemplateValue(assetSurfaceTemplate),
+  );
+  const assetAddress = wrapField(
+    "assetAddress",
+    boldTemplateValue(assetAddressTemplate),
+  );
+  const intendedUseValue = wrapField(
+    "intendedUse",
+    boldTemplateValue(intendedUseTemplate),
+  );
 
-  const contractStart = boldTemplateValue(contractStartTemplate);
-  const contractEnd = boldTemplateValue(contractEndTemplate);
-  const contractSignedAtValue = boldTemplateValue(contractSignedAtTemplate);
+  const contractStart = wrapField(
+    "contractStartDate",
+    boldTemplateValue(contractStartTemplate),
+  );
+  const contractEnd = wrapField(
+    "contractEndDate",
+    boldTemplateValue(contractEndTemplate),
+  );
+  const contractSignedAtValue = wrapField(
+    "contractSignedAt",
+    boldTemplateValue(contractSignedAtTemplate),
+  );
 
-  const invoiceIssueDayValue = boldTemplateValue(invoiceIssueDayTemplate);
-  const invoiceMonthModeValue = boldTemplateValue(invoiceMonthModeTemplate);
+  const invoiceIssueDayValue = wrapField(
+    "invoiceIssueDay",
+    boldTemplateValue(invoiceIssueDayTemplate),
+  );
+  const invoiceMonthModeValue = wrapField(
+    "invoiceMonthMode",
+    boldTemplateValue(invoiceMonthModeTemplate),
+  );
   const paymentDueDaysValue = boldTemplateValue(paymentDueDaysTemplate);
   const bankAccountValue = boldTemplateValue(bankAccountTemplate);
 
@@ -766,35 +867,58 @@ function createTemplateBody(state: EditorState): string {
   const bankNameValue = bankNameTrimmed
     ? `<strong>${escapeHtml(bankNameTrimmed)}</strong>`
     : "";
-  const bankDetailsValue = bankNameValue
-    ? `${bankAccountValue} (${bankNameValue})`
-    : bankAccountValue;
+  const bankDetailsValue = wrapField(
+    "bankDetails",
+    bankNameValue ? `${bankAccountValue} (${bankNameValue})` : bankAccountValue,
+  );
 
-  const guaranteeMultiplierValue = boldTemplateValue(
-    guaranteeMultiplierTemplate,
+  const guaranteeMultiplierValue = wrapField(
+    "guaranteeMultiplier",
+    boldTemplateValue(guaranteeMultiplierTemplate),
   );
-  const guaranteeFormsValue = boldTemplateValue(guaranteeFormsTemplate);
-  const latePaymentNotificationFeeValue = boldTemplateValue(
-    latePaymentNotificationFeeTemplate,
+  const guaranteeFormsValue = wrapField(
+    "guaranteeForms",
+    boldTemplateValue(guaranteeFormsTemplate),
   );
-  const evacuationFeeValue = boldTemplateValue(evacuationFeeTemplate);
-  const storageFeeValue = boldTemplateValue(storageFeeTemplate);
-  const denunciationNoticeDaysValue = boldTemplateValue(
-    denunciationNoticeDaysTemplate,
+  const latePaymentNotificationFeeValue = wrapField(
+    "latePaymentNotificationFee",
+    boldTemplateValue(latePaymentNotificationFeeTemplate),
   );
-  const denunciationLockMonthsValue = boldTemplateValue(
-    denunciationLockMonthsTemplate,
+  const evacuationFeeValue = wrapField(
+    "evacuationFee",
+    boldTemplateValue(evacuationFeeTemplate),
   );
-  const denunciationPenaltyMonthsValue = boldTemplateValue(
-    denunciationPenaltyMonthsTemplate,
+  const storageFeeValue = wrapField(
+    "storageFee",
+    boldTemplateValue(storageFeeTemplate),
   );
-  const abandonmentPenaltyValue = boldTemplateValue(abandonPenaltyTemplate);
-  const confidentialityPenaltyValue = boldTemplateValue(
-    confidentialityPenaltyTemplate,
+  const denunciationNoticeDaysValue = wrapField(
+    "denunciationNoticeDays",
+    boldTemplateValue(denunciationNoticeDaysTemplate),
   );
-  const signatureLocationValue = boldTemplateValue(signatureLocationTemplate);
-  const forceMajeureNoticeDaysValue = boldTemplateValue(
-    forceMajeureNoticeDaysTemplate,
+  const denunciationLockMonthsValue = wrapField(
+    "denunciationLockMonths",
+    boldTemplateValue(denunciationLockMonthsTemplate),
+  );
+  const denunciationPenaltyMonthsValue = wrapField(
+    "denunciationPenaltyMonths",
+    boldTemplateValue(denunciationPenaltyMonthsTemplate),
+  );
+  const abandonmentPenaltyValue = wrapField(
+    "abandonPenaltyDescription",
+    boldTemplateValue(abandonPenaltyTemplate),
+  );
+  const confidentialityPenaltyValue = wrapField(
+    "confidentialityPenalty",
+    boldTemplateValue(confidentialityPenaltyTemplate),
+  );
+  const signatureLocationValue = wrapField(
+    "signatureLocation",
+    boldTemplateValue(signatureLocationTemplate),
+  );
+  const forceMajeureNoticeDaysValue = wrapField(
+    "forceMajeureNoticeDays",
+    boldTemplateValue(forceMajeureNoticeDaysTemplate),
   );
 
   const rentNumber = (() => {
@@ -810,63 +934,82 @@ function createTemplateBody(state: EditorState): string {
     return null;
   })();
 
-  const rentAmountValue =
+  const rentAmountValue = wrapField(
+    "rentAmount",
     rentNumber !== null
       ? `<strong>${escapeHtml(formatNumberRo(rentNumber))}</strong>`
       : boldTemplateValue(
           makeTemplateValue(stripEurSuffix(state.rentAmount), "_____"),
-        );
+        ),
+  );
 
   const tvaPercentDisplay = resolveTvaPercentDisplay(state.tvaPercent);
-  const tvaPercentValue = tvaPercentDisplay.isPlaceholder
-    ? tvaPercentDisplay.display
-    : `<strong>${escapeHtml(tvaPercentDisplay.display)}</strong>`;
+  const tvaPercentValue = wrapField(
+    "tvaPercent",
+    tvaPercentDisplay.isPlaceholder
+      ? tvaPercentDisplay.display
+      : `<strong>${escapeHtml(tvaPercentDisplay.display)}</strong>`,
+  );
   const tvaTypeDisplay = resolveTvaTypeDisplay(state.tvaType);
-  const tvaTypeValue = tvaTypeDisplay.isPlaceholder
-    ? tvaTypeDisplay.display
-    : `<strong>${escapeHtml(tvaTypeDisplay.display)}</strong>`;
+  const tvaTypeValue = wrapField(
+    "tvaType",
+    tvaTypeDisplay.isPlaceholder
+      ? tvaTypeDisplay.display
+      : `<strong>${escapeHtml(tvaTypeDisplay.display)}</strong>`,
+  );
 
   const correctionPercentNumber = parseAmount(state.correctionPercent ?? "");
-  const correctionPercentSnippet =
+  const correctionPercentSnippet = wrapField(
+    "correctionPercent",
     correctionPercentNumber !== null && correctionPercentNumber > 0
       ? ` + <strong>${escapeHtml(
           formatNumberRo(correctionPercentNumber),
         )}%</strong>`
-      : "";
-
-  const exchangeRatePercentSnippet = resolveExchangeRatePercentSnippet(
-    state.exchangeRatePercent,
+      : "",
   );
 
-  const guaranteeDueDateValue = (() => {
-    const trimmed = (state.guaranteeDueDate ?? "").trim();
-    if (trimmed) {
-      const formatted = formatDateDot(state.guaranteeDueDate);
-      if (formatted && formatted !== "——") {
-        return `<strong>${escapeHtml(formatted)}</strong>`;
+  const exchangeRatePercentSnippet = wrapField(
+    "exchangeRatePercent",
+    resolveExchangeRatePercentSnippet(state.exchangeRatePercent),
+  );
+
+  const guaranteeDueDateValue = wrapField(
+    "guaranteeDueDate",
+    (() => {
+      const trimmed = (state.guaranteeDueDate ?? "").trim();
+      if (trimmed) {
+        const formatted = formatDateDot(state.guaranteeDueDate);
+        if (formatted && formatted !== "——") {
+          return `<strong>${escapeHtml(formatted)}</strong>`;
+        }
       }
-    }
-    const computed = calculateGuaranteeDueDate(state.contractStartDate);
-    if (!computed) return "________";
-    return `<strong>${escapeHtml(computed)}</strong>`;
-  })();
+      const computed = calculateGuaranteeDueDate(state.contractStartDate);
+      if (!computed) return "________";
+      return `<strong>${escapeHtml(computed)}</strong>`;
+    })(),
+  );
 
   const utilityPaymentTermRaw = (state.utilityPaymentTerm ?? "").trim();
-  const resolvedPaymentDueDaysValue =
+  const resolvedPaymentDueDaysValue = wrapField(
+    "paymentDueDays",
     paymentDueDaysTemplate.isPlaceholder && utilityPaymentTermRaw
       ? `<strong>${normalizeUtilityPaymentTerm(
           state.utilityPaymentTerm,
         )}</strong>`
-      : paymentDueDaysValue;
+      : paymentDueDaysValue,
+  );
 
   const latePaymentPenaltyPercentTrimmed = (
     state.latePaymentPenaltyPercent ?? ""
   ).trim();
-  const latePaymentPenaltyPercentValue = latePaymentPenaltyPercentTrimmed
-    ? `<strong>${formatPercent(state.latePaymentPenaltyPercent)}</strong>`
-    : "________";
+  const latePaymentPenaltyPercentValue = wrapField(
+    "latePaymentPenaltyPercent",
+    latePaymentPenaltyPercentTrimmed
+      ? `<strong>${formatPercent(state.latePaymentPenaltyPercent)}</strong>`
+      : "________",
+  );
 
-  const overstayPenaltyValue = (() => {
+  const overstayPenaltyRawValue = (() => {
     const overstayRaw = state.overstayPenaltyPerDay ?? "";
     const dailyPenaltyRaw = state.dailyPenaltyAfterTermination ?? "";
     const fallbackFromOverstay = parseAmount(overstayRaw);
@@ -893,14 +1036,21 @@ function createTemplateBody(state: EditorState): string {
     }
     return "________";
   })();
+  const overstayPenaltyValue = wrapField(
+    "overstayPenaltyPerDay",
+    overstayPenaltyRawValue,
+  );
 
-  const invoiceSendChannelsValue = (() => {
-    const trimmed = (state.invoiceSendChannels ?? "").trim();
-    if (trimmed) {
-      return `<strong>${escapeHtml(trimmed)}</strong>`;
-    }
-    return `prin sistemul SPV e-Factura, SmartBill sau pe e-mail la adresa: ${partnerEmail} și/sau prin mesaj WhatsApp la numărul de telefon: ${partnerPhone}`;
-  })();
+  const invoiceSendChannelsValue = wrapField(
+    "invoiceSendChannels",
+    (() => {
+      const trimmed = (state.invoiceSendChannels ?? "").trim();
+      if (trimmed) {
+        return `<strong>${escapeHtml(trimmed)}</strong>`;
+      }
+      return `prin sistemul SPV e-Factura, SmartBill sau pe e-mail la adresa: ${partnerEmail} și/sau prin mesaj WhatsApp la numărul de telefon: ${partnerPhone}`;
+    })(),
+  );
 
   const lines: string[] = [];
 
@@ -2096,6 +2246,9 @@ export default function WrittenContractForm({
       }
       if (!bodyDirtyRef.current) {
         next.body = createTemplateBody(next);
+      } else {
+        // Manual body: refresh only the marked field values, keep hand edits
+        next.body = applySmartFill(prev.body, createTemplateBody(next));
       }
       lastAppliedOwnerRef.current = owner.id;
       return next;
@@ -2131,6 +2284,9 @@ export default function WrittenContractForm({
       }
       if (!bodyDirtyRef.current) {
         next.body = createTemplateBody(next);
+      } else {
+        // Manual body: refresh only the marked field values, keep hand edits
+        next.body = applySmartFill(prev.body, createTemplateBody(next));
       }
       lastAppliedPartnerRef.current = partner.id;
       return next;
@@ -2166,6 +2322,9 @@ export default function WrittenContractForm({
       }
       if (!bodyDirtyRef.current) {
         next.body = createTemplateBody(next);
+      } else {
+        // Manual body: refresh only the marked field values, keep hand edits
+        next.body = applySmartFill(prev.body, createTemplateBody(next));
       }
       lastAppliedAssetRef.current = asset.id;
       return next;
@@ -2254,6 +2413,9 @@ export default function WrittenContractForm({
         const next = { ...prev, [key]: nextValue } as EditorState;
         if (!bodyDirtyRef.current) {
           next.body = createTemplateBody(next);
+        } else {
+          // Manual body: refresh only the marked field values, keep hand edits
+          next.body = applySmartFill(prev.body, createTemplateBody(next));
         }
         return next;
       });
@@ -2275,6 +2437,9 @@ export default function WrittenContractForm({
         const next = { ...prev, [key]: checked } as EditorState;
         if (!bodyDirtyRef.current) {
           next.body = createTemplateBody(next);
+        } else {
+          // Manual body: refresh only the marked field values, keep hand edits
+          next.body = applySmartFill(prev.body, createTemplateBody(next));
         }
         return next;
       });
