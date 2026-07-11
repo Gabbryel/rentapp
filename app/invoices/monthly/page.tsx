@@ -304,6 +304,25 @@ export default async function MonthlyInvoicesPage({
     return issuedInvoiceMap.get(baseKey) ?? null;
   };
 
+  // Fallback matching: an invoice issued this month for the contract at ANY
+  // date (e.g. issued on the 1st while monthlyInvoiceDay is the 10th, or the
+  // invoice day changed after issuing). Without it, a fully billed contract
+  // disappears from the page instead of showing as issued.
+  const findIssuedInvoiceThisMonth = (
+    contractId: string,
+    candidates: Array<string | undefined>,
+  ): Invoice | null => {
+    const tokens = candidates.filter(isNonEmptyString);
+    const rows = issuedThisMonth.filter((inv) => inv.contractId === contractId);
+    if (rows.length === 0) return null;
+    const byPartner = rows.find(
+      (inv) =>
+        tokens.includes(String(inv.partnerId || "")) ||
+        tokens.includes(String(inv.partner || "")),
+    );
+    return byPartner ?? rows[0];
+  };
+
   // Build list of due invoices (contract occurrences expected this month & not yet issued)
   const due: DueItem[] = [];
   const rateProps =
@@ -439,14 +458,15 @@ export default async function MonthlyInvoicesPage({
             continue;
           }
           if (!basePreview) {
-            const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
-              partner.id,
-              partner.name,
-            ]);
+            const existingInv =
+              findIssuedInvoiceForCandidates(c.id, issuedAt, [
+                partner.id,
+                partner.name,
+              ]) ?? findIssuedInvoiceThisMonth(c.id, [partner.id, partner.name]);
             if (!existingInv) continue;
             due.push({
               contract: c,
-              issuedAt,
+              issuedAt: existingInv.issuedAt,
               amountEUR: existingInv.amountEUR,
               partnerId: partner.id ?? undefined,
               partnerName: partner.name,
@@ -498,14 +518,15 @@ export default async function MonthlyInvoicesPage({
           continue;
         }
         if (!preview) {
-          const existingInv = findIssuedInvoiceForCandidates(c.id, issuedAt, [
-            c.partnerId,
-            c.partner,
-          ]);
+          const existingInv =
+            findIssuedInvoiceForCandidates(c.id, issuedAt, [
+              c.partnerId,
+              c.partner,
+            ]) ?? findIssuedInvoiceThisMonth(c.id, [c.partnerId, c.partner]);
           if (!existingInv) continue;
           due.push({
             contract: c,
-            issuedAt,
+            issuedAt: existingInv.issuedAt,
             amountEUR: existingInv.amountEUR,
             isPartial: false,
             ...extra,
