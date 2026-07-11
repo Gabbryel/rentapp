@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { escapeHtml } from "@/lib/utils/html";
+import { netFromGross } from "@/lib/utils/vat";
 import {
   useActionState,
   useCallback,
@@ -116,6 +117,10 @@ type EditorState = {
   partnerRepresentativeTitle: string;
   rentAmount: string;
   rentAmountText: string;
+  // How the entered rent is expressed: "net" (fără TVA) or "gross" (cu TVA
+  // inclus). Client-only; a gross rent is converted to net for the template
+  // and the saved payload.
+  rentVatMode: string;
   tvaPercent: string;
   tvaType: string;
   exchangeRatePercent: string;
@@ -193,6 +198,7 @@ const EDITOR_STATE_KEYS = [
   "partnerRepresentativeTitle",
   "rentAmount",
   "rentAmountText",
+  "rentVatMode",
   "tvaPercent",
   "tvaType",
   "exchangeRatePercent",
@@ -320,6 +326,14 @@ function parseAmount(input: string): number | null {
   if (!normalized.trim()) return null;
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
+}
+
+// The contract text always states the NET rent ("X euro + TVA"). When the
+// sidebar rent was entered with VAT included, convert it using the form's TVA.
+function resolveNetRent(amount: number, state: EditorState): number {
+  if (state.rentVatMode !== "gross") return amount;
+  const tva = parseAmount(state.tvaPercent ?? "");
+  return netFromGross(amount, tva ?? undefined);
 }
 
 function extractSurfaceValue(value?: string): string {
@@ -927,7 +941,7 @@ export function createTemplateBody(state: EditorState): string {
       if (typeof candidate === "string" && candidate.trim()) {
         const parsed = parseAmount(candidate);
         if (parsed !== null) {
-          return parsed;
+          return resolveNetRent(parsed, state);
         }
       }
     }
@@ -1969,6 +1983,7 @@ function deriveBaseState(
       pickFirstFilled(raw["partnerRepresentativeTitle"]),
     rentAmount,
     rentAmountText,
+    rentVatMode: "net",
     tvaPercent,
     tvaType,
     exchangeRatePercent: document?.exchangeRatePercent ?? "",
@@ -2483,7 +2498,15 @@ export default function WrittenContractForm({
       partnerHeadOffice: state.partnerHeadOffice,
       partnerRepresentative: state.partnerRepresentative,
       partnerRepresentativeTitle: state.partnerRepresentativeTitle,
-      rentAmount: state.rentAmount,
+      // Persist the NET rent: a gross entry is converted so downstream
+      // consumers (e.g. contract generation) always read a net amount.
+      rentAmount: (() => {
+        const raw = (state.rentAmount || state.rentAmountText || "").trim();
+        if (state.rentVatMode !== "gross" || !raw) return state.rentAmount;
+        const parsed = parseAmount(raw);
+        if (parsed === null) return state.rentAmount;
+        return String(resolveNetRent(parsed, state));
+      })(),
       rentAmountText: state.rentAmountText,
       tvaPercent: state.tvaPercent,
       tvaType: state.tvaType,
@@ -3168,11 +3191,28 @@ export default function WrittenContractForm({
               <label className="block text-xs font-medium text-foreground/60">
                 Suma chirie (afișare)
               </label>
-              <input
-                value={state.rentAmountText}
-                onChange={onFieldChange("rentAmountText")}
-                className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
+              <div className="flex gap-2">
+                <input
+                  value={state.rentAmountText}
+                  onChange={onFieldChange("rentAmountText")}
+                  className="w-full min-w-0 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+                <select
+                  value={state.rentVatMode || "net"}
+                  onChange={onFieldChange("rentVatMode")}
+                  title="Cum este exprimată suma introdusă"
+                  className="shrink-0 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm"
+                >
+                  <option value="net">fără TVA</option>
+                  <option value="gross">cu TVA inclus</option>
+                </select>
+              </div>
+              {state.rentVatMode === "gross" ? (
+                <p className="text-[11px] text-foreground/50">
+                  În document apare suma netă (fără TVA), calculată cu TVA-ul
+                  din formular.
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="space-y-1">

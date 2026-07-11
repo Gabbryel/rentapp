@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchContractById } from "@/lib/contracts";
 import EditForm from "./EditForm";
@@ -14,28 +13,35 @@ export default async function EditContractPage({
   if (!contract) return notFound();
   const mongoConfigured = Boolean(process.env.MONGODB_URI);
   return (
-    <main className="min-h-screen px-4 sm:px-6 py-10 flex items-start sm:items-center justify-center">
-      <div className="w-full max-w-xl">
-        <Breadcrumb
-          items={[
-            { label: "Contracte", href: "/contracts" },
-            { label: contract.name, href: `/contracts/${contract.id}` },
-            { label: "Editare" },
-          ]}
-        />
-        <div className="mb-6">
-          <h1 className="text-center text-2xl sm:text-3xl font-bold">
+    <main className="mx-auto w-full max-w-3xl px-4 sm:px-6 pt-4 pb-12">
+      <Breadcrumb
+        items={[
+          { label: "Contracte", href: "/contracts" },
+          { label: contract.name, href: `/contracts/${contract.id}` },
+          { label: "Editare" },
+        ]}
+      />
+      <div className="mt-2 mb-2 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">
             Editează contract
           </h1>
+          <p className="mt-1 text-sm text-foreground/60">{contract.name}</p>
         </div>
-        {!mongoConfigured && (
-          <p className="mt-2 text-center text-sm text-red-600 dark:text-red-400">
-            MongoDB nu este configurat. Completați variabila MONGODB_URI în .env
-            pentru a salva.
-          </p>
-        )}
-        <EditForm contract={contract} mongoConfigured={mongoConfigured} />
+        <span
+          className="rounded-md bg-foreground/5 px-2 py-1 font-mono text-[11px] text-foreground/50"
+          title="ID contract"
+        >
+          {contract.id}
+        </span>
       </div>
+      {!mongoConfigured && (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+          MongoDB nu este configurat. Completați variabila MONGODB_URI în .env
+          pentru a salva.
+        </p>
+      )}
+      <EditForm contract={contract} mongoConfigured={mongoConfigured} />
     </main>
   );
 }

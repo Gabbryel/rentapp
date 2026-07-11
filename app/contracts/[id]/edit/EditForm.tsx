@@ -1,9 +1,7 @@
 "use client";
 import { useActionState, useRef } from "react";
-// indexing UI removed
 import Link from "next/link";
 import { updateContractAction, type EditFormState } from "./actions";
-import PartnerSelect from "@/app/components/partner-select"; // legacy single select (unused now)
 import PartnerMultiSelect from "@/app/components/partner-multi-select";
 import AssetSelect from "@/app/components/asset-select";
 import OwnerSelect from "@/app/components/owner-select";
@@ -27,17 +25,39 @@ const MONTH_OPTIONS = [
   { value: 12, label: "Decembrie" },
 ] as const;
 
+const inputCls =
+  "mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20";
+const labelCls = "block text-sm font-medium";
+const hintCls = "mt-1 text-[11px] text-foreground/50";
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-foreground/10 bg-background p-6 shadow-sm">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+        {title}
+      </h2>
+      {description ? (
+        <p className="mt-1 text-xs text-foreground/50">{description}</p>
+      ) : null}
+      <div className="mt-4 space-y-5">{children}</div>
+    </section>
+  );
+}
+
 type Props = {
   contract: Contract;
   mongoConfigured: boolean;
-  indexingDefaults?: { indexingDay?: number; indexingMonth?: number };
 };
 
-export default function EditForm({
-  contract,
-  mongoConfigured,
-  indexingDefaults,
-}: Props) {
+export default function EditForm({ contract, mongoConfigured }: Props) {
   const [state, formAction] = useActionState<EditFormState, FormData>(
     updateContractAction,
     { ok: false, values: {} }
@@ -49,27 +69,40 @@ export default function EditForm({
   );
   const rentType: "monthly" | "custom" =
     rentTypeRaw === "custom" || rentTypeRaw === "yearly" ? "custom" : "monthly";
-  const customInvoices = Array.isArray((contract as any).customInvoices)
-    ? ((contract as any).customInvoices as { date: string; amountEUR: number }[])
+  const customInvoices = Array.isArray(contract.customInvoices)
+    ? contract.customInvoices
     : [];
-  // indexing dates removed
   const indexingDayValue = String(
-    (state.values as any).indexingDay ??
-      (contract as any).indexingDay ??
-      indexingDefaults?.indexingDay ??
-      ""
+    (state.values as any).indexingDay ?? contract.indexingDay ?? ""
   );
   const indexingMonthValue = String(
-    (state.values as any).indexingMonth ??
-      (contract as any).indexingMonth ??
-      indexingDefaults?.indexingMonth ??
-      ""
+    (state.values as any).indexingMonth ?? contract.indexingMonth ?? ""
   );
   const indexingFreqValue = String(
     (state.values as any).howOftenIsIndexing ??
-      (contract as any).howOftenIsIndexing ??
+      contract.howOftenIsIndexing ??
       ""
   );
+  const currentAmountEUR = (() => {
+    const fromState = (state.values as any).amountEUR;
+    if (typeof fromState === "string" && fromState.trim() !== "")
+      return fromState;
+    const arr = Array.isArray(contract.indexingDates)
+      ? contract.indexingDates
+      : [];
+    const sorted = arr
+      .slice()
+      .map((r) => ({
+        eff: String(r.actualDate || r.forecastDate || ""),
+        val: r.newRentAmount,
+      }))
+      .filter((r) => r.eff)
+      .sort((a, b) => a.eff.localeCompare(b.eff));
+    const first = sorted[0];
+    return typeof first?.val === "number"
+      ? String(first.val)
+      : String((contract as any).amountEUR ?? "");
+  })();
 
   const handleGenerateWrittenContract = () => {
     if (typeof window === "undefined") return;
@@ -107,165 +140,135 @@ export default function EditForm({
   };
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-8 mt-6">
+    <form ref={formRef} action={formAction} className="space-y-5 mt-6">
+      <input type="hidden" name="id" value={contract.id} readOnly />
+      <input
+        type="hidden"
+        name="name"
+        value={String(state.values.name ?? contract.name)}
+        readOnly
+      />
       {state.message && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {state.message}
         </div>
       )}
-      <div>
-        <label className="block text-sm font-medium">ID</label>
-        <input
-          name="id"
-          readOnly
-          defaultValue={String(state.values.id ?? contract.id)}
-          className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
-        />
-      </div>
-      {/* Parties */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Asset</label>
-          <AssetSelect
-            idName="assetId"
-            nameName="asset"
-            required
-            defaultId={String(
-              (state.values.assetId as string) ??
-                (contract as any).assetId ??
-                ""
-            )}
-            defaultName={String(
-              (state.values.asset as string) ?? (contract as any).asset ?? ""
-            )}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Proprietar</label>
-          <OwnerSelect
-            idName="ownerId"
-            nameName="owner"
-            required
-            defaultId={String(
-              (state.values.ownerId as string) ??
-                (contract as any).ownerId ??
-                ""
-            )}
-            defaultName={String(
-              (state.values.owner as string) ?? (contract as any).owner ?? ""
-            )}
-          />
-        </div>
-      </section>
-      <section className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium mb-1">Parteneri</label>
-          <p className="text-[11px] text-foreground/60 mb-2">
-            Gestionează lista partenerilor. Primul este considerat partener
-            principal.
-          </p>
-          <PartnerMultiSelect
-            defaultPartners={(() => {
-              const arr = (contract as any).partners as
-                | { id?: string; name: string }[]
-                | undefined;
-              if (Array.isArray(arr) && arr.length > 0) return arr;
-              return [{ id: contract.partnerId, name: contract.partner }];
-            })()}
-          />
-        </div>
-      </section>
-      <div>
-        <label className="block text-sm font-medium">Nume (generat)</label>
-        <input
-          name="name"
-          readOnly
-          value={String(state.values.name ?? contract.name)}
-          className="mt-1 w-full rounded-md border border-foreground/20 bg-foreground/5 px-3 py-2 text-sm"
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium">Semnat</label>
-          <input
-            type="date"
-            name="signedAt"
-            required
-            defaultValue={String(state.values.signedAt ?? contract.signedAt)}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Început</label>
-          <input
-            type="date"
-            name="startDate"
-            required
-            defaultValue={String(state.values.startDate ?? contract.startDate)}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Expiră</label>
-          <input
-            type="date"
-            name="endDate"
-            required
-            defaultValue={String(state.values.endDate ?? contract.endDate)}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-      <fieldset className="rounded-md border border-foreground/10 p-4 space-y-3">
-        <legend className="px-1 text-xs text-foreground/60">
-          Prelungiri multiple
-        </legend>
-        <ExtensionsField
-          name="contractExtensions"
-          initial={
-            Array.isArray((contract as any).contractExtensions)
-              ? ((contract as any).contractExtensions as any[]).map((r) => ({
-                  docDate: String(r.docDate || ""),
-                  document: String(r.document || ""),
-                  extendedUntil: String(r.extendedUntil || ""),
-                }))
-              : []
-          }
-        />
-      </fieldset>
-      <div className="grid grid-cols-1 gap-6">
-        <div>
-          <label className="block text-sm font-medium">
-            Zile până la scadență
-          </label>
-          <input
-            type="number"
-            name="paymentDueDays"
-            min={0}
-            max={120}
-            inputMode="numeric"
-            placeholder="ex: 15"
-            defaultValue={String(
-              (state.values.paymentDueDays as string) ??
-                contract.paymentDueDays ??
-                ""
-            )}
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-      {/* Rent structure */}
-      <fieldset className="rounded-md border border-foreground/10 p-5 space-y-6">
-        <legend className="px-1 text-xs text-foreground/60">
-          Structură chirie
-        </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+
+      <SectionCard
+        title="Părți"
+        description="Numele contractului este generat automat din asset și parteneri."
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="block text-sm font-medium">Tip chirie</label>
+            <label className={labelCls}>Asset</label>
+            <AssetSelect
+              idName="assetId"
+              nameName="asset"
+              required
+              defaultId={String(
+                (state.values.assetId as string) ?? contract.assetId ?? ""
+              )}
+              defaultName={String(
+                (state.values.asset as string) ?? contract.asset ?? ""
+              )}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Proprietar</label>
+            <OwnerSelect
+              idName="ownerId"
+              nameName="owner"
+              required
+              defaultId={String(
+                (state.values.ownerId as string) ?? contract.ownerId ?? ""
+              )}
+              defaultName={String(
+                (state.values.owner as string) ?? contract.owner ?? ""
+              )}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Parteneri</label>
+          <p className={hintCls}>
+            Primul partener din listă este considerat partener principal.
+          </p>
+          <div className="mt-2">
+            <PartnerMultiSelect
+              defaultPartners={(() => {
+                const arr = contract.partners as
+                  | { id?: string; name: string }[]
+                  | undefined;
+                if (Array.isArray(arr) && arr.length > 0) return arr;
+                return [{ id: contract.partnerId, name: contract.partner }];
+              })()}
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Perioadă & prelungiri">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div>
+            <label className={labelCls}>Semnat</label>
+            <input
+              type="date"
+              name="signedAt"
+              required
+              defaultValue={String(state.values.signedAt ?? contract.signedAt)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Început</label>
+            <input
+              type="date"
+              name="startDate"
+              required
+              defaultValue={String(
+                state.values.startDate ?? contract.startDate
+              )}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Expiră</label>
+            <input
+              type="date"
+              name="endDate"
+              required
+              defaultValue={String(state.values.endDate ?? contract.endDate)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Prelungiri (acte adiționale)</label>
+          <div className="mt-2">
+            <ExtensionsField
+              name="contractExtensions"
+              initial={
+                Array.isArray(contract.contractExtensions)
+                  ? contract.contractExtensions.map((r) => ({
+                      docDate: String(r.docDate || ""),
+                      document: String(r.document || ""),
+                      extendedUntil: String(r.extendedUntil || ""),
+                    }))
+                  : []
+              }
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Chirie & facturare">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div>
+            <label className={labelCls}>Tip chirie</label>
             <select
               name="rentType"
               defaultValue={rentType}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
             >
               <option value="monthly">Lunar</option>
               <option value="custom">Facturi custom (date fixe)</option>
@@ -274,9 +277,7 @@ export default function EditForm({
           {rentType === "monthly" && (
             <>
               <div>
-                <label className="block text-sm font-medium">
-                  Zi facturare (1-31)
-                </label>
+                <label className={labelCls}>Zi facturare (1-31)</label>
                 <input
                   name="monthlyInvoiceDay"
                   type="number"
@@ -288,22 +289,19 @@ export default function EditForm({
                       contract.monthlyInvoiceDay ??
                       ""
                   )}
-                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                  className={inputCls}
                 />
               </div>
-              {/* Secțiunea de indexare a fost mutată mai jos */}
               <div>
-                <label className="block text-sm font-medium">
-                  Luna facturată
-                </label>
+                <label className={labelCls}>Luna facturată</label>
                 <select
                   name="invoiceMonthMode"
                   defaultValue={String(
                     (state.values as any).invoiceMonthMode ??
-                      (contract as any).invoiceMonthMode ??
+                      contract.invoiceMonthMode ??
                       "current"
                   )}
-                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                  className={inputCls}
                 >
                   <option value="current">Luna curentă</option>
                   <option value="next">Luna următoare (în avans)</option>
@@ -312,76 +310,80 @@ export default function EditForm({
             </>
           )}
           {rentType === "custom" && (
-            <div className="sm:col-span-3 space-y-2">
-              {customInvoices.length === 0 && (
+            <div className="sm:col-span-2 space-y-2">
+              <label className={labelCls}>Grafic facturi</label>
+              {customInvoices.length === 0 ? (
                 <p className="text-xs text-foreground/60">
                   Nu există facturi custom definite.
                 </p>
+              ) : (
+                <ul className="space-y-1">
+                  {customInvoices.map((ci, i) => (
+                    <li
+                      key={ci.date}
+                      className="flex items-center justify-between rounded-md bg-foreground/5 px-3 py-1.5 text-sm"
+                    >
+                      <span className="text-foreground/70">{ci.date}</span>
+                      <span className="font-medium">
+                        {new Intl.NumberFormat("ro-RO", {
+                          style: "currency",
+                          currency: "EUR",
+                        }).format(ci.amountEUR)}
+                      </span>
+                      <input
+                        type="hidden"
+                        name={`customInvoices[${i}][date]`}
+                        value={ci.date}
+                        readOnly
+                      />
+                      <input
+                        type="hidden"
+                        name={`customInvoices[${i}][amountEUR]`}
+                        value={String(ci.amountEUR)}
+                        readOnly
+                      />
+                    </li>
+                  ))}
+                </ul>
               )}
-              {customInvoices.map((ci, i) => (
-                <div key={ci.date} className="grid grid-cols-2 gap-2">
-                  <input
-                    name={`customInvoices[${i}][date]`}
-                    defaultValue={ci.date}
-                    readOnly
-                    className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    name={`customInvoices[${i}][amountEUR]`}
-                    defaultValue={String(ci.amountEUR)}
-                    readOnly
-                    className="rounded-md border border-foreground/20 bg-foreground/5 px-2 py-1.5 text-sm"
-                  />
-                </div>
-              ))}
-              <p className="text-xs text-foreground/60">
+              <p className={hintCls}>
                 Datele și sumele se editează din pagina contractului, secțiunea
                 „Facturi custom”.
               </p>
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-          <div>
-            <label className="block text-sm font-medium">Suma EUR</label>
-            <input
-              name="amountEUR"
-              type="number"
-              step="0.01"
-              min={0}
-              inputMode="decimal"
-              defaultValue={(() => {
-                const fromState = (state.values as any).amountEUR;
-                if (typeof fromState === "string" && fromState.trim() !== "")
-                  return fromState;
-                const arr = Array.isArray((contract as any).indexingDates)
-                  ? ((contract as any).indexingDates as Array<{
-                      forecastDate?: string;
-                      actualDate?: string;
-                      newRentAmount?: number;
-                    }>)
-                  : [];
-                if (arr.length === 0)
-                  return String((contract as any).amountEUR ?? "");
-                const sorted = arr
-                  .slice()
-                  .map((r) => ({
-                    eff: String(r.actualDate || r.forecastDate || ""),
-                    val: r.newRentAmount,
-                  }))
-                  .filter((r) => r.eff)
-                  .sort((a, b) => a.eff.localeCompare(b.eff));
-                const first = sorted[0];
-                return typeof first?.val === "number"
-                  ? String(first.val)
-                  : String((contract as any).amountEUR ?? "");
-              })()}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              placeholder="ex: 1000"
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Suma EUR</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                name="amountEUR"
+                type="number"
+                step="0.01"
+                min={0}
+                inputMode="decimal"
+                defaultValue={currentAmountEUR}
+                className="w-full min-w-0 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                placeholder="ex: 1000"
+              />
+              <select
+                name="amountVatMode"
+                defaultValue="net"
+                title="Cum este exprimată suma introdusă"
+                className="shrink-0 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm"
+              >
+                <option value="net">fără TVA</option>
+                <option value="gross">cu TVA inclus</option>
+              </select>
+            </div>
+            <p className={hintCls}>
+              Suma „cu TVA inclus” este convertită la net la salvare, pe baza
+              câmpului TVA.
+            </p>
           </div>
           <div>
-            <label className="block text-sm font-medium">Curs RON</label>
+            <label className={labelCls}>Curs RON</label>
             <input
               name="exchangeRateRON"
               type="number"
@@ -389,16 +391,16 @@ export default function EditForm({
               min={0}
               inputMode="decimal"
               defaultValue={String(
-                state.values.exchangeRateRON ??
-                  (contract as any).exchangeRateRON ??
-                  ""
+                state.values.exchangeRateRON ?? contract.exchangeRateRON ?? ""
               )}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
               placeholder="ex: 4.97"
             />
           </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
           <div>
-            <label className="block text-sm font-medium">TVA (%)</label>
+            <label className={labelCls}>TVA (%)</label>
             <input
               name="tvaPercent"
               type="number"
@@ -410,22 +412,22 @@ export default function EditForm({
                 state.values.tvaPercent ?? contract.tvaPercent ?? ""
               )}
               placeholder="ex: 19"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium">Tip TVA</label>
+            <label className={labelCls}>Tip TVA</label>
             <input
               name="tvaType"
               defaultValue={String(
                 state.values.tvaType ?? contract.tvaType ?? ""
               )}
               placeholder="ex: fără drept de deducere (f.d.d.)"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Corecție (%)</label>
+            <label className={labelCls}>Corecție (%)</label>
             <input
               name="correctionPercent"
               type="number"
@@ -439,22 +441,38 @@ export default function EditForm({
                   ""
               )}
               placeholder="ex: 10.5"
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
             />
           </div>
         </div>
-      </fieldset>
-      {/* Indexare - setări pe Contract */}
-      <fieldset className="rounded-md border border-foreground/10 p-5 space-y-4">
-        <legend className="px-1 text-xs text-foreground/60">Indexare</legend>
-        <p className="text-xs text-foreground/60">
-          Configurează luna și ziua în care se aplică indexarea, precum și
-          frecvența (în luni). Datele exacte vor fi generate automat la salvare
-          până la expirarea contractului.
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
           <div>
-            <label className="block text-sm font-medium">Zi (1-31)</label>
+            <label className={labelCls}>Zile până la scadență</label>
+            <input
+              type="number"
+              name="paymentDueDays"
+              min={0}
+              max={120}
+              inputMode="numeric"
+              placeholder="ex: 15"
+              defaultValue={String(
+                (state.values.paymentDueDays as string) ??
+                  contract.paymentDueDays ??
+                  ""
+              )}
+              className={inputCls}
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Indexare"
+        description="Luna, ziua și frecvența la care se aplică indexarea. Datele exacte sunt generate automat la salvare, până la expirarea contractului, și pot fi marcate drept aplicate din pagina contractului."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <div>
+            <label className={labelCls}>Zi (1-31)</label>
             <input
               name="indexingDay"
               type="number"
@@ -462,16 +480,16 @@ export default function EditForm({
               max={31}
               inputMode="numeric"
               defaultValue={indexingDayValue}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
               placeholder="ex: 10"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Luna</label>
+            <label className={labelCls}>Luna</label>
             <select
               name="indexingMonth"
               defaultValue={indexingMonthValue}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
             >
               <option value="">Selectează luna</option>
               {MONTH_OPTIONS.map((month) => (
@@ -482,9 +500,7 @@ export default function EditForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium">
-              Frecvență (luni)
-            </label>
+            <label className={labelCls}>Frecvență (luni)</label>
             <input
               name="howOftenIsIndexing"
               type="number"
@@ -492,23 +508,26 @@ export default function EditForm({
               max={12}
               inputMode="numeric"
               defaultValue={indexingFreqValue}
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+              className={inputCls}
               placeholder="ex: 12"
             />
           </div>
-          <div className="rounded-md border border-dashed border-foreground/20 p-3 text-[11px] text-foreground/60">
-            Indexările generate vor putea fi marcate drept aplicate din pagina
-            contractului, unde poți încărca documentul și valoarea actualizată.
-          </div>
         </div>
-      </fieldset>
-      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+      </SectionCard>
+
+      <div className="sticky bottom-0 -mx-1 rounded-xl border border-foreground/10 bg-background/95 px-4 py-3 shadow-lg backdrop-blur flex flex-wrap items-center justify-end gap-3">
+        <Link
+          href={`/contracts/${contract.id}`}
+          className="text-sm text-foreground/70 hover:underline mr-auto"
+        >
+          Anulează
+        </Link>
         <button
           type="button"
           onClick={handleGenerateWrittenContract}
           className="rounded-md border border-foreground/20 px-4 py-2 text-sm font-semibold text-foreground hover:bg-foreground/5"
         >
-          Generează contract
+          Generează contract scris
         </button>
         <button
           disabled={!mongoConfigured}
@@ -516,12 +535,6 @@ export default function EditForm({
         >
           Salvează modificările
         </button>
-        <Link
-          href={`/contracts/${contract.id}`}
-          className="text-sm text-foreground/70 hover:underline"
-        >
-          Anulează
-        </Link>
       </div>
     </form>
   );

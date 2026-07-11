@@ -10,6 +10,7 @@ import { saveScanFile } from "@/lib/storage";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { effectiveEndDate } from "@/lib/contracts";
+import { netFromGross } from "@/lib/utils/vat";
 
 export type FormState = {
   ok: boolean;
@@ -48,6 +49,7 @@ export async function createContractAction(
   scanUrls: (formData.getAll("scanUrls") as string[]).filter(Boolean),
   scanTitles: (formData.getAll("scanTitles") as string[]).filter(() => true),
   amountEUR: (formData.get("amountEUR") as string) || "",
+    amountVatMode: (formData.get("amountVatMode") as string) || "net",
     exchangeRateRON: (formData.get("exchangeRateRON") as string) || "",
     tvaPercent: (formData.get("tvaPercent") as string) || "",
     tvaType: (formData.get("tvaType") as string) || "",
@@ -279,7 +281,12 @@ export async function createContractAction(
   const initAmount = (() => {
     const raw = (rawValues.amountEUR as string) || "";
     const n = Number((raw || "").replace(",", "."));
-    return Number.isFinite(n) && n > 0 ? n : undefined;
+    if (!(Number.isFinite(n) && n > 0)) return undefined;
+    // "gross" = entered with VAT included; store the canonical net amount
+    if (String(rawValues.amountVatMode) === "gross") {
+      return netFromGross(n, (data as any).tvaPercent);
+    }
+    return n;
   })();
   let indexingDates: { forecastDate: string; done: boolean; actualDate?: string; newRentAmount?: number; document?: string }[] =
     [...(fut as any[])]

@@ -5,12 +5,12 @@ import { ContractSchema } from "@/lib/schemas/contract";
 import { logAction, computeDiffContract } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import type { ZodIssue } from "zod";
-import { saveScanFile, deleteScanByUrl } from "@/lib/storage";
 import { notifyContractUpdated } from "@/lib/notify";
 import { getDailyEurRon } from "@/lib/exchange";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { effectiveEndDate, computeFutureIndexingDates } from "@/lib/contracts";
+import { computeFutureIndexingDates } from "@/lib/contracts";
+import { netFromGross } from "@/lib/utils/vat";
 
 export type EditFormValues = {
   id: string;
@@ -33,11 +33,6 @@ export type EditFormValues = {
   tvaPercent: string;
   tvaType: string;
   correctionPercent: string;
-  existingUrl: string[];
-  existingTitle: string[];
-  existingRemoveIdx: string[];
-  scanUrls: string[];
-  scanTitles: string[];
   rentType: string;
   invoiceMonthMode: string;
   monthlyInvoiceDay: string;
@@ -98,11 +93,6 @@ export async function updateContractAction(
     tvaPercent: getText("tvaPercent"),
     tvaType: getText("tvaType"),
     correctionPercent: getText("correctionPercent"),
-    existingUrl: getAllText("existingUrl"),
-    existingTitle: getAllText("existingTitle"),
-    existingRemoveIdx: getAllText("existingRemoveIdx"),
-    scanUrls: getAllText("scanUrls").filter(Boolean),
-    scanTitles: getAllText("scanTitles"),
     rentType: getText("rentType"),
     invoiceMonthMode: getText("invoiceMonthMode") || "current",
     monthlyInvoiceDay: getText("monthlyInvoiceDay"),
@@ -121,7 +111,13 @@ export async function updateContractAction(
 
     const parsedAmountEUR = (() => {
       const n = Number(String(rawValues.amountEUR).replace(",", "."));
-      return Number.isFinite(n) && n > 0 ? n : undefined;
+      if (!(Number.isFinite(n) && n > 0)) return undefined;
+      // "gross" = entered with VAT included; store the canonical net amount
+      if (getText("amountVatMode") === "gross") {
+        const tva = Number(getText("tvaPercent"));
+        return netFromGross(n, Number.isInteger(tva) ? tva : undefined);
+      }
+      return n;
     })();
     let exchangeRateRON = (() => {
       const n = Number(String(rawValues.exchangeRateRON).replace(",", "."));
@@ -151,60 +147,11 @@ export async function updateContractAction(
         } catch {}
       }
     }
-    // Multi-scan processing
-    const existingUrls = rawValues.existingUrl;
-    const existingTitles = rawValues.existingTitle;
-    const removeIdxSet = new Set(rawValues.existingRemoveIdx.map((s) => String(s)));
-
-    const nextScans: { url: string; title?: string }[] = [];
-    const removedUrls: string[] = [];
-    for (let i = 0; i < existingUrls.length; i++) {
-      const url = existingUrls[i];
-      const title = (existingTitles[i] || "").trim() || undefined;
-      if (removeIdxSet.has(String(i))) {
-        removedUrls.push(url);
-      } else if (url) {
-        nextScans.push({ url, title });
-      }
-    }
-    // Delete removed from storage best-effort
-    for (const u of removedUrls) {
-      try { await deleteScanByUrl(u); } catch {}
-    }
-    // New uploads
-    const files = (formData.getAll("scanFiles") as File[]).filter((f) => f && f.size > 0);
-    // Enforce total payload limit of 2MB across all uploaded files
-    const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
-    if (totalSize > 2 * 1024 * 1024) {
-      return { ok: false, message: "Dimensiunea totală a fișierelor depășește 2MB", values: rawValues };
-    }
-    for (const file of files) {
-      const okType = [
-        "application/pdf",
-        "image/png",
-        "image/jpeg",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-      ].includes(file.type);
-      if (!okType) {
-        return { ok: false, message: "Fișierele trebuie să fie PDF sau imagini", values: rawValues };
-      }
-      const maxSize = 2 * 1024 * 1024;
-      if (file.size > maxSize) {
-        return { ok: false, message: "Fișier prea mare (max 2MB)", values: rawValues };
-      }
-      const orig = file.name || "scan";
-      const base = orig.replace(/\.[^.]+$/, "");
-      const res = await saveScanFile(file, `${String(id)}-${base}`, { contractId: id });
-      nextScans.push({ url: res.url });
-    }
-    // New URLs
-    const urls = rawValues.scanUrls;
-    const titles = rawValues.scanTitles;
-    urls.forEach((u, i) => {
-      if (u) nextScans.push({ url: u, title: (titles[i] || "").trim() || undefined });
-    });
+    // Scans are managed on the contract page (ManageContractScans); this form
+    // has no scan inputs, so keep the stored ones untouched.
+    const nextScans: { url: string; title?: string }[] = Array.isArray(prev.scans)
+      ? prev.scans
+      : [];
 
   const base = {
       id,
@@ -405,11 +352,6 @@ export async function updateContractAction(
     // No Indexing model writes here (model changed)
       try { await notifyContractUpdated(parsed.data); } catch {}
       try {
-        const scansBefore = Array.isArray(prev.scans) ? prev.scans.length : 0;
-        const scansAfter = parsed.data.scans?.length ?? 0;
-        const scansDelta = scansAfter - scansBefore;
-        const scanChangeLabel = scanChange && scanChange !== "none" ? ` • scanUrl: ${scanChange}` : "";
-  const sched = ""; // schedule removed
         const fmtVal = (v: unknown) => {
           if (v === null || typeof v === "undefined") return "—";
           if (typeof v === "string") return v;
@@ -421,7 +363,7 @@ export async function updateContractAction(
           .join("; ");
         const diffSection = changedFields ? ` • Modificări: ${changedFields}` : "";
         await createMessage({
-          text: `Contract actualizat: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate} • Scanuri: ${scansBefore} → ${scansAfter} (${scansDelta >= 0 ? "+" : ""}${scansDelta})${scanChangeLabel}${sched}${diffSection}`,
+          text: `Contract actualizat: ${parsed.data.name} • Partener: ${parsed.data.partner} • ${parsed.data.startDate} → ${parsed.data.endDate}${diffSection}`,
         });
       } catch {}
 

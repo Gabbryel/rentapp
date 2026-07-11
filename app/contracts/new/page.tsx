@@ -272,16 +272,31 @@ export default function NewContractPage() {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
             <div>
               <label className="block text-sm font-medium">Suma EUR</label>
-              <input
-                name="amountEUR"
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                placeholder="ex: 1000"
-                defaultValue={(state.values.amountEUR as string) || ""}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-              />
+              <div className="mt-1 flex gap-2">
+                <input
+                  name="amountEUR"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  placeholder="ex: 1000"
+                  defaultValue={(state.values.amountEUR as string) || ""}
+                  className="w-full min-w-0 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
+                />
+                <select
+                  name="amountVatMode"
+                  defaultValue={(state.values.amountVatMode as string) || "net"}
+                  title="Cum este exprimată suma introdusă"
+                  className="shrink-0 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm"
+                >
+                  <option value="net">fără TVA</option>
+                  <option value="gross">cu TVA inclus</option>
+                </select>
+              </div>
+              <p className="mt-1 text-[11px] text-foreground/50">
+                Suma „cu TVA inclus” este convertită la net la salvare, pe baza
+                câmpului TVA.
+              </p>
             </div>
             <ExchangeRateField
               name="exchangeRateRON"
