@@ -65,6 +65,15 @@ Advance billing rules live in `lib/advance-billing.ts::computeNextMonthProration
 
 Written contracts (legal document store) live in `written_contracts` collection. The `generateContractFromWrittenContractAction` (`app/admin/written-contracts/actions.ts`) generates a linked `Contract` from a `WrittenContract`. Rent amount is read from `wc.rentAmount` with fallback to `wc.rentAmountText` (the schema stores them separately).
 
+### ANAF company lookup
+
+`lib/anaf.ts::lookupCompanyByCui(cui)` queries the public ANAF registry to prefill partner data (name, registered office, ORC number, VAT-payer status). Served to the client by `GET /api/anaf?cui=…` and used by `PartnerIdentityFields` (`app/components/partner-identity-fields.tsx`) on both `/admin/partners/new` and `/admin/partners/[id]`.
+
+Endpoint quirks worth knowing:
+- The URL is `https://webservicesp.anaf.ro/api/PlatitorTvaRest/v9/tva`. The older `…/PlatitorTvaRest/api/v{7,8,9}/ws/tva` form 404s, and only `v9` exists at the new path.
+- An **unknown CUI returns HTTP 404 with a valid** `{"found":[],"notFound":[…]}` **body** — never treat a non-2xx status alone as a failed lookup. `lookupCompanyByCui` returns `null` for not-found and throws only when the body isn't a result envelope.
+- ANAF rate-limits to ~1 request/second; results are cached in-process for 1h.
+
 ### Auth
 
 `lib/auth.ts` uses `bcryptjs` (cost 12). Legacy sha256 hashes are detected by absence of `$2` prefix and migrated to bcrypt on first successful login. Admin access = `user.isAdmin` flag or `ADMIN_EMAILS` env var. Session cookie `session` is a random token; rolling 14-day expiry refreshed by `/api/me`.

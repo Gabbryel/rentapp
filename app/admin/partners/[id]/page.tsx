@@ -15,6 +15,7 @@ import Link from "next/link";
 import { logAction } from "@/lib/audit";
 import { createMessage } from "@/lib/messages";
 import RepresentativesField from "@/app/components/representatives-field";
+import PartnerIdentityFields from "@/app/components/partner-identity-fields";
 
 export default async function EditPartnerPage({
   params,
@@ -170,56 +171,16 @@ export default async function EditPartnerPage({
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Nume</label>
-          <input
-            name="name"
-            defaultValue={p.name}
-            required
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">CUI</label>
-            <input
-              name="vatNumber"
-              defaultValue={p.vatNumber}
-              required
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Nr. ORC</label>
-            <input
-              name="orcNumber"
-              defaultValue={p.orcNumber}
-              required
-              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Sediu</label>
-          <input
-            name="headquarters"
-            defaultValue={p.headquarters}
-            required
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm"
-          />
-        </div>
+        <PartnerIdentityFields
+          initial={{
+            name: p.name,
+            vatNumber: p.vatNumber,
+            orcNumber: p.orcNumber,
+            headquarters: p.headquarters,
+            isVatPayer: p.isVatPayer === true,
+          }}
+        />
         {/* Phone/Email removed; contact details managed via Representatives */}
-        <div>
-          <label className="inline-flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              name="isVatPayer"
-              defaultChecked={p.isVatPayer === true}
-              className="rounded border-foreground/20"
-            />
-            Plătitor de TVA
-          </label>
-        </div>
         <RepresentativesField initial={p.representatives} />
         <div className="pt-2 flex items-center gap-3">
           <button className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90">
