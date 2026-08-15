@@ -95,3 +95,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local settings (per-machine, not shared)
+.claude/settings.local.json
