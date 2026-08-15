@@ -1121,7 +1121,7 @@ export function createTemplateBody(state: EditorState): string {
   );
   lines.push(`<p>Factura se va transmite ${invoiceSendChannelsValue}.</p>`);
   lines.push(
-    `<p>Părțile stabilesc ca aceste mijloace de comunicare să fie folosite și recunoscute prin prezentul contract. Chiria se va indexa în luna ${indexingMonthValue} a fiecărui an cu inflația la euro înregistrată în anul precedent, modificarea chiriei urmând a se aplica de la data de 1 a lunii următoare.</p>`,
+    `<p>Părțile stabilesc ca aceste mijloace de comunicare să fie folosite în prezentul contract, producând toate efectele juridice din momentul primirii acestora. Chiria se va indexa în luna ${indexingMonthValue} a fiecărui an cu inflația la euro înregistrată în anul precedent, modificarea chiriei urmând a se aplica de la data de 1 a lunii următoare.</p>`,
   );
   lines.push(
     `<p>Art. 5.2. LOCATARUL va constitui o garanție de bună execuție a obligațiilor ce îi revin cu valoarea egală cu ${guaranteeMultiplierValue} chirii (chiria lunară x ${guaranteeMultiplierValue}) la data de ${guaranteeDueDateValue}. Forma de garanție poate fi: ${guaranteeFormsValue}.</p>`,
@@ -1131,20 +1131,20 @@ export function createTemplateBody(state: EditorState): string {
     `<p>1. Suplimentar față de chirie, LOCATARUL va achita lunar toate cheltuielile legate de utilitățile și întreținerea aferente Spațiului și a părților comune ale imobilului de care aparține acesta.</p>`,
   );
   lines.push(
-    `<p>2. Cheltuielile cu utilitățile se vor factura de îndată ce Locatorul primește facturile de la furnizori. Locatorul îl va înștiința telefonic pe LOCATAR de primirea facturilor și îi va transmite în cel mai scurt timp prin sistemul SmartBill sau e-mail și/sau mesaj electronic (message, whatsapp) facturile cu sumele pe care LOCATARUL trebuie să le achite în termen de ${resolvedPaymentDueDaysValue} zile de la data emiterii.</p>`,
+    `<p>2. Cheltuielile cu utilitățile se vor factura de îndată ce Locatorul primește facturile de la furnizori. Locatorul poate să îl înștiințeze telefonic pe LOCATAR de primirea facturilor și îi va transmite în cel mai scurt timp prin sistemul SmartBill sau e-mail și/sau mesaj electronic (message, whatsapp) facturile cu sumele pe care LOCATARUL trebuie să le achite în termen de ${resolvedPaymentDueDaysValue} zile de la data emiterii.</p>`,
   );
   lines.push(
     `<p>Art. 5.4. Responsabilitatea ridicării facturilor emise de către LOCATOR revine LOCATARULUI, acesta neputând justifica neplata facturilor sau întârzierile la plata acestora prin faptul că nu i s-a adus la cunoștință emiterea acestora. Chiar și în cazul, puțin probabil, în care LOCATORUL nu ar factura la data stabilită prin contract, LOCATARUL este obligat să achite în contul LOCATORULUI suma aferentă chiriei în contravaloare lei raportat la cursul leu-euro din data de 20 a fiecărei luni.</p>`,
   );
   lines.push(
-    `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, începând cu pria zi următoare scadenței, Locatarul poate fi notificat de Locator, după cum va considera rezonabil, prin email sau prin executor judecătoresc, ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare, ce va fi facturată ca atare de către Locator și constituie obligație de plată a Locatarului.
+    `<p>Art. 5.5. În cazul în care LOCATARUL nu achită în termen facturile emise de către LOCATOR, începând cu prima zi următoare scadenței, Locatarul poate fi notificat de Locator, după cum va considera rezonabil, prin email sau prin executor judecătoresc, ceea ce pe lângă alte penalități va aduce în plus pentru locatar o sancțiune în valoare de ${latePaymentNotificationFeeValue} de lei/notificare, ce va fi facturată ca atare de către Locator și constituie obligație de plată exigibilă în sarcina Locatarului.
     </p>`,
   );
   lines.push(
     `<p>Art. 5.6. De asemenea, începând cu ziua următoare datei de scadență, LOCATARUL va fi nevoit să plătească LOCATORULUI, de drept, fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități prealabile, penalități de ${latePaymentPenaltyPercentValue} pe zi (zi de întârziere) din suma datorată, cu prevederea expresă că valoarea penalităților va putea depăși valoarea sumei la care se aplică.</p>`,
   );
   lines.push(
-    `<p>Art. 5.7. Locatarul nu va putea cere ca suma constituită drept „garanție” să fie considerată plată în avans și astfel să considere că nu a fost în întârziere la plata facturilor emise de către locator.</p>`,
+    `<p>Art. 5.7. Locatarul nu va putea cere ca suma constituită drept „garanție” să fie considerată plată în avans și astfel să considere că nu a fost în întârziere la plata facturilor emise de către locator și nici nu poate decide ordinea de stingere a creanțelor, urmând a fi stinse în ordinea vechimii acestora, conform documentației contabile a Locatorului.</p>`,
   );
   lines.push(
     `<p>Art. 5.8. (1)  În cazul în care Locatarul din orice motiv întârzie cu mai mult de 15 zile calendaristice constituirea garanției, efectuarea plății chiriei și/sau a cheltuielilor cu utilitățile sau întreținere integral sau parțial, Locatorul poate să considere contractul încetat de plin drept fără intervenția vreunei autorități sau instanțe judecătorești, fără punere în întârziere și fără îndeplinirea vreunei alte formalități. În plus Locatarul va achita o penalitate în valoare de numărul de luni rămase din perioada contractuală x chiria lunară iar Locatorul va avea dreptul să rețină garanția cu titlu de clauză penală, fiind agreat că aceasta nu va fi folosită pentru acoperirea facturilor restante. În cazul în care motivul rezilierii a fost neconstituirea garanției, penalitatea va fi în valoare a 5 (cinci) chirii și este scadentă imediat simultan cu încetarea prezentului CONTRACT, în baza notificării rezilierii de drept transmisă de Locator, fără nicio altă formalitate ori procedură prealabilă. Toate sumele sunt exigibile imediat, fără nicio altă notifcare prealabilă sau intervenția instanțelor de judecată.
@@ -1154,13 +1154,13 @@ export function createTemplateBody(state: EditorState): string {
     `<p>(2)  Fără a aduce atingere prevederilor de mai sus, în cazul în care LOCATARUL din orice motiv întârzie efectuarea integrală sau parțială a plății facturilor de chirie și/sau cheltuielile cu utilitățile sau întreținere, în termen de 24 de ore de la data primirii notificării LOCATORULUI privind rezilierea CONTRACTULUI, pe lângă celelalte remedii prevăzute de prezentul contract, LOCATARUL recunoaște că LOCATORUL va avea următoarele drepturi fără a fi necesară vreo autorizație prealabilă din partea unei instanțe sau îndeplinirea vreunei alte formalități:</p>`,
   );
   lines.push(
-    `<p>a) să înceteze furnizarea de utilități (apă, energie electrică, energie termică) cu preaviz de 24 de ore transmis prin orice mijloc electronic: sms, WhatsApp, email;</p>`,
+    `<p>a) să înceteze furnizarea de utilități (apă, energie electrică, energie termică, gaz) cu preaviz de 24 de ore transmis prin orice mijloc electronic: sms, WhatsApp, email;</p>`,
   );
   lines.push(
     `<p>b) să folosească orice modalitate să intre în spațiu, inclusiv prin demontarea încuietorilor. Pentru evitarea oricărui dubiu, Locatarul și Locatorul convin prin prezentul contract că ușile Spațiului și încuietorile acestora sunt proprietatea Locatorului de la data la care sunt montate sau incorporate și vor rămâne în cadrul Spațiului;</p>`,
   );
   lines.push(
-    `<p>c) să efectueze inventarul bunurilor aflate în spațiu în prezența unui terț independent;</p>`,
+    `<p>c) să efectueze inventarul bunurilor aflate în spațiu în prezența unui terț independent și să invoce drept de retenție asupra bunurilor Locatarului până la stingerea tuturor datoriilor Locatarului;</p>`,
   );
   lines.push(
     `<p>d) să îndepărteze și să depoziteze bunurile Locatarului aflate în spațiu, LOCATARUL suportând toate costurile cu privire la respectivele operațiuni (inclusiv costurile cu privire la transportare și depozitare). Pentru eliminarea oricărui dubiu, Locatarul se angajează prin prezentul contract că va achita o taxă fixă de ${evacuationFeeValue} + TVA în cazul în care din culpa sa (neplata chiriei și/sau a cheltuielilor cu utilități integral sau parțial în termenul stabilit prin prezentul contract) LOCATORUL va fi nevoit să elibereze SPAȚIUL de bunurile LOCATARULUI. De asemenea, tot prin acest contract părțile stabilesc o taxă de depozitare de ${storageFeeValue} + T.V.A. indiferent de cantitatea sau volumul bunurilor și fără a lua în seamă valoarea CHIRIEI conform contractului;</p>`,
@@ -1254,7 +1254,7 @@ export function createTemplateBody(state: EditorState): string {
     `<p>21. Prin prezentul Contract, Părțile stabilesc că tacita relocațiune nu va produce efecte în situația în care Locatarul nu eliberează spațiul în termen de maximum 24 de ore de la încetarea contractului, indiferent de motivul încetării acestuia, fie prin reziliere, fie prin ajungerea la termen. În asemenea caz, chiria datorată va fi de ${overstayPenaltyValue} euro/zi.</p>`,
   );
   lines.push(
-    `<p>22. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale; în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o penalitate fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`,
+    `<p>22. (1) Locatarul are dreptul să denunțe unilateral acest contract cu un preaviz de ${denunciationNoticeDaysValue} de zile, dar nu are dreptul să abandoneze Spațiul pe parcursul valabilității acestuia, activitatea urmând a se desfășura normal. Dreptul de denunțare nu operează în primele ${denunciationLockMonthsValue} luni ale perioadei contractuale, în caz de abandon fiind dator să achite penalitatea stabilită de art. 5.8. (1); în cazul în care Locatarul exercită dreptul de denunțare în perioada permisă, acesta datorează Locatorului o compensație fixă egală cu ${denunciationPenaltyMonthsValue} luni X chiria lunară. În caz de abandon în această perioadă, penalitatea Locatarului va fi în valoare de ${abandonmentPenaltyValue}, plus valoarea Garanției.</p>`,
   );
   lines.push(
     `<p>23. Locatarul se obligă ca o dată pe an să depună la sediul Locatorului un certificat constatator eliberat de Oficiul Registrului Comerțului din care să reiasă faptul că societatea este în funcțiune și că structura asociaților nu s-a schimbat.</p>`,
